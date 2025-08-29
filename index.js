@@ -18,6 +18,8 @@ app.use('/api/reporting', require('./routes/reporting'));
 app.use('/api/barcode', require('./routes/barcode'));
 app.use('/api/invoice', require('./routes/invoice'));
 app.use('/api/payment', require('./routes/payment'));
+app.use('/api/prescription', require('./routes/prescription'));
+app.use('/api/product', require('./routes/product'));
 
 
 // Centralized Error Handler

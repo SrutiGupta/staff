@@ -5,14 +5,18 @@ const prisma = new PrismaClient();
 
 // Create a new invoice
 exports.createInvoice = async (req, res) => {
-  const { patientId, items } = req.body;
+  const { patientId, prescriptionId, items } = req.body;
 
   if (!patientId || !items || !Array.isArray(items) || items.length === 0) {
     return res.status(400).json({ error: 'Patient ID and at least one item are required.' });
   }
 
   try {
-    let totalAmount = 0;
+    let subtotal = 0;
+    let totalDiscount = 0;
+    let totalIgst = 0;
+    let totalCgst = 0;
+    let totalSgst = 0;
     const invoiceItems = [];
 
     for (const item of items) {
@@ -26,21 +30,45 @@ exports.createInvoice = async (req, res) => {
         return res.status(400).json({ error: `Not enough stock for ${product.name}.` });
       }
 
-      const itemTotalPrice = product.price * item.quantity;
-      totalAmount += itemTotalPrice;
+      const itemSubtotal = product.price * item.quantity;
+      const itemDiscount = item.discount || 0;
+      const itemIgst = item.igst || 0;
+      const itemCgst = item.cgst || 0;
+      const itemSgst = item.sgst || 0;
+      
+      const totalPrice = itemSubtotal - itemDiscount + itemIgst + itemCgst + itemSgst;
+
+      subtotal += itemSubtotal;
+      totalDiscount += itemDiscount;
+      totalIgst += itemIgst;
+      totalCgst += itemCgst;
+      totalSgst += itemSgst;
+
       invoiceItems.push({
         productId: item.productId,
         quantity: item.quantity,
         unitPrice: product.price,
-        totalPrice: itemTotalPrice,
+        discount: itemDiscount,
+        igst: itemIgst,
+        cgst: itemCgst,
+        sgst: itemSgst,
+        totalPrice: totalPrice,
       });
     }
+
+    const totalAmount = subtotal - totalDiscount + totalIgst + totalCgst + totalSgst;
 
     // Create the invoice and its items in a transaction
     const newInvoice = await prisma.$transaction(async (prisma) => {
       const invoice = await prisma.invoice.create({
         data: {
           patientId,
+          prescriptionId,
+          subtotal,
+          totalDiscount,
+          totalIgst,
+          totalCgst,
+          totalSgst,
           totalAmount,
           items: {
             create: invoiceItems,
@@ -91,6 +119,7 @@ exports.getInvoice = async (req, res) => {
           },
         },
         transactions: true,
+        prescription: true,
       },
     });
 
@@ -106,6 +135,15 @@ exports.getInvoice = async (req, res) => {
 };
 
 
+function generateTableRow(doc, y, ...cols) {
+  let x = 40;
+  const widths = [150, 70, 70, 50, 50, 50, 40, 70]
+  cols.forEach((text, i) => {
+    doc.text(text, x, y, { width: widths[i], align: 'left' });
+    x += widths[i];
+  });
+}
+
 // Generate and stream an invoice PDF
 exports.generateInvoicePdf = async (req, res) => {
     const { id } = req.params;
@@ -120,6 +158,7 @@ exports.generateInvoicePdf = async (req, res) => {
                         product: true,
                     },
                 },
+                prescription: true
             },
         });
 
@@ -127,53 +166,115 @@ exports.generateInvoicePdf = async (req, res) => {
             return res.status(404).json({ error: 'Invoice not found' });
         }
 
-        const doc = new PDFDocument({ margin: 50 });
+        const doc = new PDFDocument({ margin: 30, size: 'A4' });
 
         res.setHeader('Content-Type', 'application/pdf');
         res.setHeader('Content-Disposition', `attachment; filename=invoice-${invoice.id}.pdf`);
 
         doc.pipe(res);
 
-        // Header
-        doc.fontSize(20).text('INVOICE', { align: 'center' });
-        doc.moveDown();
+        // ===== Header =====
+        doc
+            .fontSize(16)
+            .text('Tax Invoice', 250, 40, { align: 'center' });
 
-        // Customer Information
-        doc.fontSize(12).text(`Invoice ID: ${invoice.id}`);
-        doc.text(`Patient: ${invoice.patient.name}`);
-        doc.text(`Date: ${invoice.createdAt.toLocaleDateString()}`);
-        doc.moveDown(2);
+        doc
+            .fontSize(10)
+            .text('LENSKART SOLUTIONS PRIVATE LIMITED', 250, 60, { align: 'center' })
+            .text('Property No 29/24/2, 25/2/1 ... Gurugram (06) - 122004', 250, 75, { align: 'center' });
 
-        // Invoice Table Header
-        const tableTop = doc.y;
-        doc.fontSize(10);
-        doc.text('Item', 50, tableTop);
-        doc.text('Quantity', 250, tableTop, { width: 100, align: 'right' });
-        doc.text('Unit Price', 350, tableTop, { width: 100, align: 'right' });
-        doc.text('Total', 450, tableTop, { width: 100, align: 'right' });
-        doc.moveTo(50, tableTop + 15).lineTo(550, tableTop + 15).stroke();
+        // Right top box (Shipment details)
+        doc
+            .rect(450, 40, 120, 100)
+            .stroke()
+            .fontSize(10)
+            .text(`Shipment Code: ${invoice.id}`, 455, 50)
+            .text(`Order #: ${invoice.id}`, 455, 65)
+            .text(`Order Date: ${invoice.createdAt.toLocaleDateString()}`, 455, 80)
+            .text(`Total Quantity: ${invoice.items.reduce((acc, item) => acc + item.quantity, 0)}`, 455, 95);
+
+        // ===== Bill To & Delivery =====
+        doc
+            .moveDown()
+            .fontSize(11)
+            .text('Bill To Address', 40, 160, { underline: true })
+            .text(invoice.patient.name)
+            .text(invoice.patient.address || '')
+            .text(invoice.patient.phone || '');
+
+        doc
+            .text('Address Of Delivery', 300, 160, { underline: true })
+            .text(invoice.patient.name)
+            .text(invoice.patient.address || '')
+            .text(invoice.patient.phone || '');
+
+        // ===== Prescription Table =====
+        if (invoice.prescription) {
+            doc
+                .moveDown()
+                .fontSize(11)
+                .text('Prescription Details:', 40, 250);
+
+            const prescTableTop = 270;
+            const p = invoice.prescription;
+            const rightEye = p.rightEye || {};
+            const leftEye = p.leftEye || {};
+            generateTableRow(doc, prescTableTop, "Eye", "SPH", "CYL", "Axis", "Add", "PD", "BC");
+            generateTableRow(doc, prescTableTop + 20, "Right", rightEye.sph || '', rightEye.cyl || '', rightEye.axis || '', rightEye.add || '', rightEye.pd || '', rightEye.bc || '');
+            generateTableRow(doc, prescTableTop + 40, "Left", leftEye.sph || '', leftEye.cyl || '', leftEye.axis || '', leftEye.add || '', leftEye.pd || '', leftEye.bc || '');
+        }
 
 
-        // Invoice Table Rows
-        let itemY = tableTop + 25;
-        invoice.items.forEach(item => {
-            doc.text(item.product.name, 50, itemY);
-            doc.text(item.quantity.toString(), 250, itemY, { width: 100, align: 'right' });
-            doc.text(`$${item.unitPrice.toFixed(2)}`, 350, itemY, { width: 100, align: 'right' });
-            doc.text(`$${item.totalPrice.toFixed(2)}`, 450, itemY, { width: 100, align: 'right' });
-            itemY += 20;
+        // ===== Item Table =====
+        doc.moveDown().text('Description Of Goods', 40, 350);
+
+        const itemTableTop = 370;
+        generateTableRow(
+            doc,
+            itemTableTop,
+            'Description',
+            'Unit Price',
+            'Discount',
+            'IGST',
+            'SGST',
+            'CGST',
+            'QTY',
+            'Total'
+        );
+
+        invoice.items.forEach((item, i) => {
+            const y = itemTableTop + (i + 1) * 20;
+            generateTableRow(
+                doc,
+                y,
+                item.product.name,
+                item.unitPrice.toFixed(2),
+                item.discount.toFixed(2),
+                item.igst.toFixed(2),
+                item.sgst.toFixed(2),
+                item.cgst.toFixed(2),
+                item.quantity.toString(),
+                item.totalPrice.toFixed(2)
+            );
         });
 
-        doc.moveTo(50, itemY).lineTo(550, itemY).stroke();
-        doc.moveDown();
+        // ===== Summary =====
+        doc
+            .moveDown()
+            .fontSize(11)
+            .text(`Subtotal: ${invoice.subtotal.toFixed(2)}`, { align: 'right' })
+            .text(`Discount: ${invoice.totalDiscount.toFixed(2)}`, { align: 'right' })
+            .text(`IGST: ${invoice.totalIgst.toFixed(2)}`, { align: 'right' })
+            .text(`CGST: ${invoice.totalCgst.toFixed(2)}`, { align: 'right' })
+            .text(`SGST: ${invoice.totalSgst.toFixed(2)}`, { align: 'right' })
+            .text(`Grand Total: ${invoice.totalAmount.toFixed(2)}`, { align: 'right' });
 
-        // Total
-        doc.fontSize(12).text(`Total Amount: $${invoice.totalAmount.toFixed(2)}`, { align: 'right' });
-        doc.text(`Paid Amount: $${invoice.paidAmount.toFixed(2)}`, { align: 'right' });
-        doc.fontSize(14).text(`Amount Due: $${(invoice.totalAmount - invoice.paidAmount).toFixed(2)}`, { align: 'right' });
-
-        // Footer
-        doc.fontSize(8).text('Thank you for your business!', 50, 700, { align: 'center' });
+        // ===== Footer =====
+        doc
+            .moveDown()
+            .fontSize(9)
+            .text('Disclaimer: This is computer generated invoice and does not require signature', 40, 700)
+            .text('For T&C please visit www.lenskart.com', 40, 715);
 
         doc.end();
 
@@ -182,4 +283,3 @@ exports.generateInvoicePdf = async (req, res) => {
         res.status(500).json({ error: 'Failed to generate PDF invoice' });
     }
 };
-
