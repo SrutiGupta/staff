@@ -36,6 +36,7 @@ model Patient {
   updatedAt      DateTime   @updatedAt
   royalty        Royalty?
   giftCards      GiftCard[]
+  invoices       Invoice[]
 }
 
 model Royalty {
@@ -48,23 +49,26 @@ model Royalty {
 }
 
 model GiftCard {
-  id        Int      @id @default(autoincrement())
-  code      String   @unique
-  balance   Float
-  patient   Patient  @relation(fields: [patientId], references: [id])
-  patientId Int
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id           Int           @id @default(autoincrement())
+  code         String        @unique
+  balance      Float
+  patient      Patient       @relation(fields: [patientId], references: [id])
+  patientId    Int
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  transactions Transaction[]
 }
 
 model Product {
-  id          Int         @id @default(autoincrement())
-  name        String
-  description String?
-  barcode     String?     @unique
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
-  inventory   Inventory[]
+  id           Int           @id @default(autoincrement())
+  name         String
+  description  String?
+  price        Float
+  barcode      String?       @unique
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  inventory    Inventory[]
+  invoiceItems InvoiceItem[]
 }
 
 model Inventory {
@@ -74,4 +78,39 @@ model Inventory {
   quantity  Int
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model Invoice {
+  id            String        @id @default(cuid())
+  patient       Patient       @relation(fields: [patientId], references: [id])
+  patientId     Int
+  totalAmount   Float
+  paidAmount    Float         @default(0)
+  status        String        @default("UNPAID") // e.g., UNPAID, PAID, PARTIALLY_PAID
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  items         InvoiceItem[]
+  transactions  Transaction[]
+}
+
+model InvoiceItem {
+  id        Int     @id @default(autoincrement())
+  invoice   Invoice @relation(fields: [invoiceId], references: [id])
+  invoiceId String
+  product   Product @relation(fields: [productId], references: [id])
+  productId Int
+  quantity  Int
+  unitPrice Float // Price at the time of sale
+  totalPrice Float
+}
+
+model Transaction {
+  id            Int       @id @default(autoincrement())
+  invoice       Invoice   @relation(fields: [invoiceId], references: [id])
+  invoiceId     String
+  amount        Float
+  paymentMethod String // e.g., CASH, CREDIT_CARD, GIFT_CARD
+  createdAt     DateTime  @default(now())
+  giftCard      GiftCard? @relation(fields: [giftCardId], references: [id])
+  giftCardId    Int?
 }

@@ -15,6 +15,10 @@ app.use('/api/royalty', require('./routes/royalty'));
 app.use('/api/inventory', require('./routes/inventory'));
 app.use('/api/gift-card', require('./routes/giftCard'));
 app.use('/api/reporting', require('./routes/reporting'));
+app.use('/api/barcode', require('./routes/barcode'));
+app.use('/api/invoice', require('./routes/invoice'));
+app.use('/api/payment', require('./routes/payment'));
+
 
 // Centralized Error Handler
 app.use((err, req, res, next) => {
