@@ -1,22 +1,29 @@
+require('dotenv').config();
 const express = require('express');
-const path = require('path')
+const compression = require('compression');
 
 const app = express();
 
-const port = parseInt(process.env.PORT) || process.argv[3] || 8080;
+// Middleware
+app.use(compression());
+app.use(express.json());
 
-app.use(express.static(path.join(__dirname, 'public')))
-  .set('views', path.join(__dirname, 'views'))
-  .set('view engine', 'ejs');
+// Define Routes
+app.use('/api/auth', require('./routes/auth'));
+app.use('/api/attendance', require('./routes/attendance'));
+app.use('/api/royalty', require('./routes/royalty'));
+app.use('/api/inventory', require('./routes/inventory'));
+app.use('/api/gift-card', require('./routes/giftCard'));
+app.use('/api/reporting', require('./routes/reporting'));
 
-app.get('/', (req, res) => {
-  res.render('index');
+// Centralized Error Handler
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+  res.status(500).send('Something broke!');
 });
 
-app.get('/api', (req, res) => {
-  res.json({"msg": "Hello world"});
-});
+const port = process.env.PORT || 8080;
 
 app.listen(port, () => {
-  console.log(`Listening on http://localhost:${port}`);
-})
+  console.log(`Server is running on http://localhost:${port}`);
+});

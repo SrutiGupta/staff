@@ -1,0 +1,77 @@
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Staff {
+  id          Int          @id @default(autoincrement())
+  email       String       @unique
+  name        String?
+  password    String
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  attendances Attendance[]
+}
+
+model Attendance {
+  id         Int       @id @default(autoincrement())
+  staff      Staff     @relation(fields: [staffId], references: [id])
+  staffId    Int
+  loginTime  DateTime  @default(now())
+  logoutTime DateTime?
+}
+
+model Patient {
+  id             Int        @id @default(autoincrement())
+  name           String
+  age            Int
+  gender         String
+  medicalHistory String?
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+  royalty        Royalty?
+  giftCards      GiftCard[]
+}
+
+model Royalty {
+  id        Int      @id @default(autoincrement())
+  points    Int      @default(0)
+  patient   Patient  @relation(fields: [patientId], references: [id])
+  patientId Int      @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model GiftCard {
+  id        Int      @id @default(autoincrement())
+  code      String   @unique
+  balance   Float
+  patient   Patient  @relation(fields: [patientId], references: [id])
+  patientId Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Product {
+  id          Int         @id @default(autoincrement())
+  name        String
+  description String?
+  barcode     String?     @unique
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  inventory   Inventory[]
+}
+
+model Inventory {
+  id        Int      @id @default(autoincrement())
+  product   Product  @relation(fields: [productId], references: [id])
+  productId Int
+  quantity  Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
