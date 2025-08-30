@@ -1,6 +1,53 @@
-
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
+
+exports.updateStockByBarcode = async (req, res) => {
+  const { barcode, quantity } = req.body;
+
+  if (!barcode || quantity === undefined) {
+    return res.status(400).json({ error: 'Barcode and quantity are required.' });
+  }
+
+  const quantityInt = parseInt(quantity);
+
+  if (isNaN(quantityInt)) {
+    return res.status(400).json({ error: 'Quantity must be a valid number.' });
+  }
+
+  try {
+    // Step 1: Find the product by its barcode
+    const product = await prisma.product.findUnique({
+      where: { barcode: barcode },
+    });
+
+    if (!product) {
+      return res.status(404).json({ error: `Product with barcode ${barcode} not found.` });
+    }
+
+    // Step 2: Use `upsert` to efficiently update or create the inventory record
+    const inventory = await prisma.inventory.upsert({
+      where: { productId: product.id }, // Unique identifier for the inventory item
+      update: {
+        quantity: {
+          increment: quantityInt, // Add the new quantity to the existing stock
+        },
+      },
+      create: {
+        productId: product.id,
+        quantity: quantityInt, // Create a new record if it doesn't exist
+      },
+      include: {
+        product: true, // Include product details in the response
+      }
+    });
+
+    res.status(200).json(inventory);
+  } catch (error) {
+    console.error('Failed to update stock by barcode:', error);
+    res.status(500).json({ error: 'An error occurred while updating the inventory.' });
+  }
+};
+
 
 exports.addProduct = async (req, res) => {
   const { name, description, barcode, price } = req.body;

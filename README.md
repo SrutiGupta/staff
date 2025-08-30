@@ -110,6 +110,43 @@ For every protected endpoint, you must include the token in your request headers
     ```
 
 ---
+### Inventory Management (`/api/inventory`)
+
+#### **Update Stock by Barcode**
+This endpoint is designed for efficient stock-taking. You can scan a product's barcode and provide a quantity to add to the inventory. If the product is new to the inventory, it will be created automatically.
+
+*   **Method:** `POST`
+*   **URL:** `http://localhost:3000/api/inventory/stock-by-barcode`
+*   **Authentication:** Required (Bearer Token)
+*   **Request Body:**
+    ```json
+    {
+      "barcode": "9876543210",
+      "quantity": 50
+    }
+    ```
+*   **Success Response (200 OK):**
+    The response shows the updated inventory level for the product.
+    ```json
+    {
+        "id": 1,
+        "productId": 2,
+        "quantity": 50,
+        "createdAt": "2025-09-01T11:00:00.000Z",
+        "updatedAt": "2025-09-01T11:00:00.000Z",
+        "product": {
+            "id": 2,
+            "name": "New Test Product",
+            "description": "A new product for testing",
+            "price": 15.99,
+            "barcode": "9876543210",
+            "createdAt": "2025-08-30T06:31:28.244Z",
+            "updatedAt": "2025-08-30T06:31:28.244Z"
+        }
+    }
+    ```
+
+---
 ### Invoices (`/api/invoice`)
 
 #### **Create New Invoice**
