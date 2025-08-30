@@ -2,6 +2,135 @@
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
+// Define the price tiers. These can be adjusted as needed.
+const PRICE_TIERS = {
+  low: { max: 50 },
+  medium: { min: 50, max: 500 },
+  high: { min: 500 },
+};
+
+exports.getBestSellersByPriceTier = async (req, res) => {
+  const { startDate, endDate, limit = 5 } = req.query;
+  const take = parseInt(limit, 10);
+
+  const dateFilter = {};
+  if (startDate) dateFilter.gte = new Date(startDate);
+  if (endDate) dateFilter.lte = new Date(endDate);
+
+  try {
+    const items = await prisma.invoiceItem.findMany({
+      where: {
+        invoice: {
+          createdAt: dateFilter,
+        },
+      },
+      include: {
+        product: true,
+      },
+    });
+
+    const productSales = {};
+
+    for (const item of items) {
+      if (!productSales[item.productId]) {
+        productSales[item.productId] = {
+          productName: item.product.name,
+          totalQuantity: 0,
+          unitPrice: item.unitPrice,
+        };
+      }
+      productSales[item.productId].totalQuantity += item.quantity;
+    }
+
+    const bestSellers = {
+      low: [],
+      medium: [],
+      high: [],
+    };
+
+    for (const productId in productSales) {
+      const sale = productSales[productId];
+      if (sale.unitPrice < PRICE_TIERS.low.max) {
+        bestSellers.low.push(sale);
+      } else if (sale.unitPrice >= PRICE_TIERS.medium.min && sale.unitPrice < PRICE_TIERS.medium.max) {
+        bestSellers.medium.push(sale);
+      } else if (sale.unitPrice >= PRICE_TIERS.high.min) {
+        bestSellers.high.push(sale);
+      }
+    }
+
+    // Sort and limit the results for each tier
+    bestSellers.low.sort((a, b) => b.totalQuantity - a.totalQuantity).splice(take);
+    bestSellers.medium.sort((a, b) => b.totalQuantity - a.totalQuantity).splice(take);
+    bestSellers.high.sort((a, b) => b.totalQuantity - a.totalQuantity).splice(take);
+
+    res.status(200).json({
+      tierDefinitions: PRICE_TIERS,
+      bestSellers,
+    });
+
+  } catch (error) {
+    console.error('Error generating best sellers report:', error);
+    res.status(500).json({ error: 'Failed to generate best sellers report.' });
+  }
+};
+
+
+exports.getSalesByPriceTier = async (req, res) => {
+  const { startDate, endDate } = req.query;
+
+  // Build the date filter for the query
+  const dateFilter = {};
+  if (startDate) {
+    dateFilter.gte = new Date(startDate);
+  }
+  if (endDate) {
+    dateFilter.lte = new Date(endDate);
+  }
+
+  try {
+    // Fetch all invoice items within the date range
+    const items = await prisma.invoiceItem.findMany({
+      where: {
+        invoice: {
+          createdAt: dateFilter,
+        },
+      },
+      select: {
+        quantity: true,
+        unitPrice: true,
+      },
+    });
+
+    // Initialize counters for each tier
+    const salesByTier = {
+      low: { count: 0 },
+      medium: { count: 0 },
+      high: { count: 0 },
+    };
+
+    // Categorize each item and aggregate the quantities
+    for (const item of items) {
+      if (item.unitPrice < PRICE_TIERS.low.max) {
+        salesByTier.low.count += item.quantity;
+      } else if (item.unitPrice >= PRICE_TIERS.medium.min && item.unitPrice < PRICE_TIERS.medium.max) {
+        salesByTier.medium.count += item.quantity;
+      } else if (item.unitPrice >= PRICE_TIERS.high.min) {
+        salesByTier.high.count += item.quantity;
+      }
+    }
+
+    res.status(200).json({
+        tierDefinitions: PRICE_TIERS,
+        salesByTier
+    });
+
+  } catch (error) {
+    console.error('Error generating sales by price tier report:', error);
+    res.status(500).json({ error: 'Failed to generate sales report.' });
+  }
+};
+
 exports.getDailyReport = async (req, res) => {
   const { date } = req.query;
   const startDate = new Date(date);

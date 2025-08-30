@@ -404,3 +404,86 @@ This endpoint is for generating a barcode image from a product's SKU.
         }
     ]
     ```
+---
+### Reporting (`/api/reporting`)
+
+This section provides endpoints for generating business intelligence reports.
+
+#### **Get Sales by Price Tier**
+Categorizes sales volume into "low", "medium", and "high" price tiers based on the `unitPrice` at the time of sale.
+
+*   **Method:** `GET`
+*   **URL:** `http://localhost:3000/api/reporting/sales-by-price-tier`
+*   **Authentication:** Required (Bearer Token)
+*   **Query Parameters (Optional):**
+    *   `startDate` (e.g., `2025-09-01`)
+    *   `endDate` (e.g., `2025-09-30`)
+*   **Success Response (200 OK):**
+    ```json
+    {
+        "tierDefinitions": {
+            "low": { "max": 50 },
+            "medium": { "min": 50, "max": 500 },
+            "high": { "min": 500 }
+        },
+        "salesByTier": {
+            "low": { "count": 150 },
+            "medium": { "count": 85 },
+            "high": { "count": 20 }
+        }
+    }
+    ```
+
+#### **Get Best-Selling Products by Price Tier**
+Identifies the top-selling products within each price tier.
+
+*   **Method:** `GET`
+*   **URL:** `http://localhost:3000/api/reporting/best-sellers-by-price-tier`
+*   **Authentication:** Required (Bearer Token)
+*   **Query Parameters (Optional):**
+    *   `startDate` (e.g., `2025-09-01`)
+    *   `endDate` (e.g., `2025-09-30`)
+    *   `limit` (e.g., `3` to get the top 3 products per tier, defaults to 5)
+*   **Success Response (200 OK):**
+    ```json
+    {
+        "tierDefinitions": {
+            "low": { "max": 50 },
+            "medium": { "min": 50, "max": 500 },
+            "high": { "min": 500 }
+        },
+        "bestSellers": {
+            "low": [
+                {
+                    "productName": "Panadol",
+                    "totalQuantity": 75,
+                    "unitPrice": 10
+                },
+                {
+                    "productName": "Band-Aids (Box of 20)",
+                    "totalQuantity": 50,
+                    "unitPrice": 25
+                }
+            ],
+            "medium": [
+                {
+                    "productName": "Advanced Crutches",
+                    "totalQuantity": 30,
+                    "unitPrice": 350
+                },
+                {
+                    "productName": "Digital Thermometer",
+                    "totalQuantity": 25,
+                    "unitPrice": 150
+                }
+            ],
+            "high": [
+                {
+                    "productName": "Wheelchair",
+                    "totalQuantity": 5,
+                    "unitPrice": 1200
+                }
+            ]
+        }
+    }
+    ```

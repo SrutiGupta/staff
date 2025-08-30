@@ -2,48 +2,66 @@ const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
 exports.updateStockByBarcode = async (req, res) => {
-  const { barcode, quantity } = req.body;
+  const { barcode, quantity, price } = req.body;
 
   if (!barcode || quantity === undefined) {
     return res.status(400).json({ error: 'Barcode and quantity are required.' });
   }
 
-  const quantityInt = parseInt(quantity);
+  const quantityInt = parseInt(quantity, 10);
+  const newPrice = price !== undefined ? parseFloat(price) : undefined;
 
   if (isNaN(quantityInt)) {
     return res.status(400).json({ error: 'Quantity must be a valid number.' });
   }
+  if (price !== undefined && isNaN(newPrice)) {
+      return res.status(400).json({ error: 'Price must be a valid number.' });
+  }
 
   try {
-    // Step 1: Find the product by its barcode
-    const product = await prisma.product.findUnique({
-      where: { barcode: barcode },
-    });
+    const result = await prisma.$transaction(async (tx) => {
+      // Step 1: Find the product by its barcode
+      const product = await tx.product.findUnique({
+        where: { barcode: barcode },
+      });
 
-    if (!product) {
-      return res.status(404).json({ error: `Product with barcode ${barcode} not found.` });
-    }
-
-    // Step 2: Use `upsert` to efficiently update or create the inventory record
-    const inventory = await prisma.inventory.upsert({
-      where: { productId: product.id }, // Unique identifier for the inventory item
-      update: {
-        quantity: {
-          increment: quantityInt, // Add the new quantity to the existing stock
-        },
-      },
-      create: {
-        productId: product.id,
-        quantity: quantityInt, // Create a new record if it doesn't exist
-      },
-      include: {
-        product: true, // Include product details in the response
+      if (!product) {
+        throw new Error(`Product with barcode ${barcode} not found.`);
       }
+
+      // Step 2 (Optional): Update the product's price if a new price is provided
+      let updatedProduct = product;
+      if (newPrice !== undefined && product.price !== newPrice) {
+        updatedProduct = await tx.product.update({
+          where: { id: product.id },
+          data: { price: newPrice },
+        });
+      }
+
+      // Step 3: Upsert the inventory record
+      const inventory = await tx.inventory.upsert({
+        where: { productId: product.id },
+        update: {
+          quantity: {
+            increment: quantityInt,
+          },
+        },
+        create: {
+          productId: product.id,
+          quantity: quantityInt,
+        },
+      });
+
+      return { ...inventory, product: updatedProduct };
     });
 
-    res.status(200).json(inventory);
+    res.status(200).json(result);
+
   } catch (error) {
     console.error('Failed to update stock by barcode:', error);
+    if (error.message.includes('not found')) {
+      return res.status(404).json({ error: error.message });
+    }
     res.status(500).json({ error: 'An error occurred while updating the inventory.' });
   }
 };
