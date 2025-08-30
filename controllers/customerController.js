@@ -10,6 +10,20 @@ const createCustomerAndInvoice = async (req, res) => {
 
   try {
     const newInvoice = await prisma.$transaction(async (tx) => {
+      // Step 1: Verify stock for all items before making any database changes
+      for (const item of items) {
+        const inventory = await tx.inventory.findFirst({
+          where: { productId: item.productId },
+        });
+
+        if (!inventory || inventory.quantity < item.quantity) {
+          const product = await tx.product.findUnique({ where: { id: item.productId } });
+          const productName = product ? product.name : `ID ${item.productId}`;
+          throw new Error(`Insufficient stock for product: "${productName}". Requested: ${item.quantity}, Available: ${inventory ? inventory.quantity : 0}.`);
+        }
+      }
+
+      // Step 2: Create the customer
       const newCustomer = await tx.customer.create({
         data: {
           name: customer.name,
@@ -18,6 +32,7 @@ const createCustomerAndInvoice = async (req, res) => {
         },
       });
 
+      // Step 3: Calculate totals and prepare invoice data
       let subtotal = 0;
       const invoiceItemsData = items.map(item => {
         const itemTotal = item.quantity * item.unitPrice;
@@ -30,6 +45,7 @@ const createCustomerAndInvoice = async (req, res) => {
         };
       });
 
+      // Step 4: Create the invoice with its items
       const createdInvoice = await tx.invoice.create({
         data: {
           customerId: newCustomer.id,
@@ -44,6 +60,7 @@ const createCustomerAndInvoice = async (req, res) => {
         },
       });
 
+      // Step 5: Record the payment transaction if an amount was paid
       if (paidAmount > 0) {
         await tx.transaction.create({
           data: {
@@ -54,8 +71,9 @@ const createCustomerAndInvoice = async (req, res) => {
         });
       }
 
+      // Step 6: Safely decrement the inventory for each item
       for (const item of items) {
-        await tx.inventory.updateMany({
+        await tx.inventory.update({
           where: { productId: item.productId },
           data: {
             quantity: {
@@ -72,6 +90,13 @@ const createCustomerAndInvoice = async (req, res) => {
 
   } catch (error) {
     console.error('Failed to create customer invoice:', error);
+
+    // Provide a specific error for insufficient stock
+    if (error.message.startsWith('Insufficient stock')) {
+      return res.status(400).json({ error: error.message });
+    }
+
+    // Fallback to a generic error for other unexpected issues
     res.status(500).json({ error: 'An error occurred while creating the invoice.' });
   }
 };
@@ -88,7 +113,7 @@ const getAddressHotspots = async (req, res) => {
           address: 'desc',
         },
       },
-      take: 10, // Limit to the top 10 hotspots
+      take: 10,
     });
 
     const hotspots = addressCounts.map(group => ({
