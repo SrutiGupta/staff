@@ -15,4 +15,21 @@ router.get('/', authMiddleware, async (req, res) => {
   }
 });
 
+// Add a new product
+router.post('/', authMiddleware, async (req, res) => {
+  try {
+    const { name, price } = req.body;
+    const newProduct = await prisma.product.create({
+      data: {
+        name,
+        price,
+      },
+    });
+    res.status(201).json(newProduct);
+  } catch (error) {
+    console.error('Error creating product:', error);
+    res.status(500).json({ error: 'Failed to create product.' });
+  }
+});
+
 module.exports = router;
