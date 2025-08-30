@@ -1,5 +1,7 @@
+
 const { PrismaClient } = require('@prisma/client');
 const PDFDocument = require('pdfkit');
+require('dotenv').config(); // Load environment variables
 
 const prisma = new PrismaClient();
 
@@ -190,7 +192,7 @@ exports.generateInvoicePdf = async (req, res) => {
             .rect(450, 40, 120, 100)
             .stroke()
             .fontSize(10)
-            text(`Shipment Code: ${invoice.id}`, 455, 50)
+            .text(`Shipment Code: ${invoice.id}`, 455, 50)
             .text(`Order #: ${invoice.id}`, 455, 65)
             .text(`Order Date: ${invoice.createdAt.toLocaleDateString()}`, 455, 80)
             .text(`Total Quantity: ${invoice.items.reduce((acc, item) => acc + item.quantity, 0)}`, 455, 95);
@@ -289,17 +291,14 @@ exports.generateInvoicePdf = async (req, res) => {
 // Generate a plain text receipt for thermal printing
 exports.generateInvoiceThermal = async (req, res) => {
   const { id } = req.params;
+  const printerWidth = parseInt(process.env.THERMAL_PRINTER_WIDTH, 10) || 48;
 
   try {
     const invoice = await prisma.invoice.findUnique({
       where: { id },
       include: {
         patient: true,
-        items: {
-          include: {
-            product: true,
-          },
-        },
+        items: { include: { product: true } },
         prescription: true,
       },
     });
@@ -308,32 +307,31 @@ exports.generateInvoiceThermal = async (req, res) => {
       return res.status(404).json({ error: 'Invoice not found' });
     }
 
-    // --- Helper function to format lines for a 48-character width ---
-    const center = (text) => text.padStart(Math.floor((48 + text.length) / 2), ' ').padEnd(48, ' ');
-    const line = (left, right) => `${left.padEnd(24)}${right.padStart(24)}`;
-    const separator = '-'.repeat(48);
+    if (!invoice.patient) {
+        return res.status(404).json({ error: `Patient data not found for invoice ID: ${id}` });
+    }
+
+    const center = (text) => text.padStart(Math.floor((printerWidth + text.length) / 2), ' ').padEnd(printerWidth, ' ');
+    const line = (left, right) => `${left.padEnd(printerWidth/2)}${right.padStart(printerWidth/2)}`;
+    const separator = '-'.repeat(printerWidth);
 
     let receipt = [];
 
-    // --- Header ---
     receipt.push(center('Tax Invoice'));
     receipt.push(center('LENSKART SOLUTIONS PRIVATE LIMITED'));
     receipt.push(center('Gurugram (06) - 122004'));
     receipt.push(separator);
 
-    // --- Order Details ---
     receipt.push(line(`Order #: ${invoice.id}`, `Date: ${invoice.createdAt.toLocaleDateString()}`));
     receipt.push(line(`Total Qty: ${invoice.items.reduce((acc, item) => acc + item.quantity, 0)}`, ''));
     receipt.push(separator);
 
-    // --- Customer Details ---
     receipt.push('Bill To & Delivery Address:');
     receipt.push(invoice.patient.name);
     if(invoice.patient.address) receipt.push(invoice.patient.address);
     if(invoice.patient.phone) receipt.push(invoice.patient.phone);
     receipt.push(separator);
 
-    // --- Prescription ---
     if (invoice.prescription) {
         receipt.push('Prescription Details:');
         const p = invoice.prescription;
@@ -349,19 +347,18 @@ exports.generateInvoiceThermal = async (req, res) => {
         receipt.push(separator);
     }
     
-    // --- Items ---
     receipt.push('Items');
     receipt.push(line('Name/Price', 'Qty x Total'));
     receipt.push(separator);
 
     invoice.items.forEach(item => {
-      receipt.push(`${item.product.name}`);
+      const productName = item.product ? item.product.name : 'Product Not Found';
+      receipt.push(`${productName}`);
       receipt.push(line(`  @ ${item.unitPrice.toFixed(2)}`, `${item.quantity} x ${item.totalPrice.toFixed(2)}`));
        if (item.discount > 0) receipt.push(line('  Discount:', `-${item.discount.toFixed(2)}`));
     });
     receipt.push(separator);
 
-    // --- Summary ---
     receipt.push(line('Subtotal:', invoice.subtotal.toFixed(2)));
     receipt.push(line('Total Discount:', `-${invoice.totalDiscount.toFixed(2)}`));
     if (invoice.totalIgst > 0) receipt.push(line('IGST:', invoice.totalIgst.toFixed(2)));
@@ -371,7 +368,6 @@ exports.generateInvoiceThermal = async (req, res) => {
     receipt.push(line('Grand Total:', invoice.totalAmount.toFixed(2)));
     receipt.push(separator);
     
-    // --- Footer ---
     receipt.push(center('Disclaimer: This is a computer'));
     receipt.push(center('generated invoice and does not'));
     receipt.push(center('require a signature.'));
