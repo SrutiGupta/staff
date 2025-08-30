@@ -62,3 +62,59 @@ exports.getMonthlyReport = async (req, res) => {
     res.status(500).json({ error: 'Something went wrong' });
   }
 };
+
+exports.getStaffSalesReport = async (req, res) => {
+  const { startDate, endDate } = req.query;
+
+  const where = {};
+  if (startDate) {
+    where.createdAt = { ...where.createdAt, gte: new Date(startDate) };
+  }
+  if (endDate) {
+    where.createdAt = { ...where.createdAt, lte: new Date(endDate) };
+  }
+
+  try {
+    const salesByStaff = await prisma.invoice.groupBy({
+      by: ['staffId'],
+      where,
+      _sum: {
+        totalAmount: true,
+      },
+      _count: {
+        id: true,
+      },
+    });
+
+    // Get staff details
+    const staffIds = salesByStaff.map((sale) => sale.staffId);
+    const staffDetails = await prisma.staff.findMany({
+      where: {
+        id: {
+          in: staffIds,
+        },
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+      },
+    });
+
+    const staffMap = staffDetails.reduce((map, staff) => {
+      map[staff.id] = staff;
+      return map;
+    }, {});
+
+    const report = salesByStaff.map((sale) => ({
+      staff: staffMap[sale.staffId],
+      totalSales: sale._sum.totalAmount,
+      invoiceCount: sale._count.id,
+    }));
+
+    res.status(200).json(report);
+  } catch (error) {
+    console.error('Error generating staff sales report:', error);
+    res.status(500).json({ error: 'Failed to generate staff sales report.' });
+  }
+};

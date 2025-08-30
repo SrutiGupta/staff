@@ -6,6 +6,7 @@ const prisma = new PrismaClient();
 // Create a new invoice
 exports.createInvoice = async (req, res) => {
   const { patientId, prescriptionId, items } = req.body;
+  const staffId = req.user.id; // Assuming staffId is available in req.user
 
   if (!patientId || !items || !Array.isArray(items) || items.length === 0) {
     return res.status(400).json({ error: 'Patient ID and at least one item are required.' });
@@ -63,6 +64,7 @@ exports.createInvoice = async (req, res) => {
       const invoice = await prisma.invoice.create({
         data: {
           patientId,
+          staffId,
           prescriptionId,
           subtotal,
           totalDiscount,
@@ -188,7 +190,7 @@ exports.generateInvoicePdf = async (req, res) => {
             .rect(450, 40, 120, 100)
             .stroke()
             .fontSize(10)
-            .text(`Shipment Code: ${invoice.id}`, 455, 50)
+            text(`Shipment Code: ${invoice.id}`, 455, 50)
             .text(`Order #: ${invoice.id}`, 455, 65)
             .text(`Order Date: ${invoice.createdAt.toLocaleDateString()}`, 455, 80)
             .text(`Total Quantity: ${invoice.items.reduce((acc, item) => acc + item.quantity, 0)}`, 455, 95);
