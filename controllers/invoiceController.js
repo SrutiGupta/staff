@@ -283,3 +283,105 @@ exports.generateInvoicePdf = async (req, res) => {
         res.status(500).json({ error: 'Failed to generate PDF invoice' });
     }
 };
+
+// Generate a plain text receipt for thermal printing
+exports.generateInvoiceThermal = async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const invoice = await prisma.invoice.findUnique({
+      where: { id },
+      include: {
+        patient: true,
+        items: {
+          include: {
+            product: true,
+          },
+        },
+        prescription: true,
+      },
+    });
+
+    if (!invoice) {
+      return res.status(404).json({ error: 'Invoice not found' });
+    }
+
+    // --- Helper function to format lines for a 48-character width ---
+    const center = (text) => text.padStart(Math.floor((48 + text.length) / 2), ' ').padEnd(48, ' ');
+    const line = (left, right) => `${left.padEnd(24)}${right.padStart(24)}`;
+    const separator = '-'.repeat(48);
+
+    let receipt = [];
+
+    // --- Header ---
+    receipt.push(center('Tax Invoice'));
+    receipt.push(center('LENSKART SOLUTIONS PRIVATE LIMITED'));
+    receipt.push(center('Gurugram (06) - 122004'));
+    receipt.push(separator);
+
+    // --- Order Details ---
+    receipt.push(line(`Order #: ${invoice.id}`, `Date: ${invoice.createdAt.toLocaleDateString()}`));
+    receipt.push(line(`Total Qty: ${invoice.items.reduce((acc, item) => acc + item.quantity, 0)}`, ''));
+    receipt.push(separator);
+
+    // --- Customer Details ---
+    receipt.push('Bill To & Delivery Address:');
+    receipt.push(invoice.patient.name);
+    if(invoice.patient.address) receipt.push(invoice.patient.address);
+    if(invoice.patient.phone) receipt.push(invoice.patient.phone);
+    receipt.push(separator);
+
+    // --- Prescription ---
+    if (invoice.prescription) {
+        receipt.push('Prescription Details:');
+        const p = invoice.prescription;
+        receipt.push('Eye   SPH    CYL    Axis   Add');
+        if (p.rightEye) {
+            const { sph, cyl, axis, add } = p.rightEye;
+            receipt.push(`R     ${sph || '-'}    ${cyl || '-'}    ${axis || '-'}    ${add || '-'}`);
+        }
+        if (p.leftEye) {
+            const { sph, cyl, axis, add } = p.leftEye;
+            receipt.push(`L     ${sph || '-'}    ${cyl || '-'}    ${axis || '-'}    ${add || '-'}`);
+        }
+        receipt.push(separator);
+    }
+    
+    // --- Items ---
+    receipt.push('Items');
+    receipt.push(line('Name/Price', 'Qty x Total'));
+    receipt.push(separator);
+
+    invoice.items.forEach(item => {
+      receipt.push(`${item.product.name}`);
+      receipt.push(line(`  @ ${item.unitPrice.toFixed(2)}`, `${item.quantity} x ${item.totalPrice.toFixed(2)}`));
+       if (item.discount > 0) receipt.push(line('  Discount:', `-${item.discount.toFixed(2)}`));
+    });
+    receipt.push(separator);
+
+    // --- Summary ---
+    receipt.push(line('Subtotal:', invoice.subtotal.toFixed(2)));
+    receipt.push(line('Total Discount:', `-${invoice.totalDiscount.toFixed(2)}`));
+    if (invoice.totalIgst > 0) receipt.push(line('IGST:', invoice.totalIgst.toFixed(2)));
+    if (invoice.totalCgst > 0) receipt.push(line('CGST:', invoice.totalCgst.toFixed(2)));
+    if (invoice.totalSgst > 0) receipt.push(line('SGST:', invoice.totalSgst.toFixed(2)));
+    receipt.push(separator);
+    receipt.push(line('Grand Total:', invoice.totalAmount.toFixed(2)));
+    receipt.push(separator);
+    
+    // --- Footer ---
+    receipt.push(center('Disclaimer: This is a computer'));
+    receipt.push(center('generated invoice and does not'));
+    receipt.push(center('require a signature.'));
+    receipt.push(center('For T&C please visit www.lenskart.com'));
+
+    const receiptText = receipt.join('\n');
+
+    res.setHeader('Content-Type', 'text/plain');
+    res.status(200).send(receiptText);
+
+  } catch (error) {
+    console.error('Error generating thermal receipt:', error);
+    res.status(500).json({ error: 'Failed to generate thermal receipt' });
+  }
+};

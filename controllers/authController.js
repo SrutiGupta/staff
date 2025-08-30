@@ -8,17 +8,17 @@ exports.register = async (req, res) => {
   const { email, password, name } = req.body;
 
   try {
-    const existingUser = await prisma.user.findUnique({
+    const existingStaff = await prisma.staff.findUnique({
       where: { email },
     });
 
-    if (existingUser) {
-      return res.status(400).json({ error: 'User already exists' });
+    if (existingStaff) {
+      return res.status(400).json({ error: 'Staff member already exists' });
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    const user = await prisma.user.create({
+    const staff = await prisma.staff.create({
       data: {
         email,
         password: hashedPassword,
@@ -26,11 +26,11 @@ exports.register = async (req, res) => {
       },
     });
 
-    const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET, {
+    const token = jwt.sign({ staffId: staff.id }, process.env.JWT_SECRET, {
       expiresIn: '1h',
     });
 
-    res.status(201).json({ token, userId: user.id, name: user.name });
+    res.status(201).json({ token, staffId: staff.id, name: staff.name });
   } catch (error) {
     res.status(500).json({ error: 'Registration failed' });
   }
@@ -40,25 +40,25 @@ exports.login = async (req, res) => {
   const { email, password } = req.body;
 
   try {
-    const user = await prisma.user.findUnique({
+    const staff = await prisma.staff.findUnique({
       where: { email },
     });
 
-    if (!user) {
+    if (!staff) {
       return res.status(400).json({ error: 'Invalid credentials' });
     }
 
-    const isMatch = await bcrypt.compare(password, user.password);
+    const isMatch = await bcrypt.compare(password, staff.password);
 
     if (!isMatch) {
       return res.status(400).json({ error: 'Invalid credentials' });
     }
 
-    const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET, {
+    const token = jwt.sign({ staffId: staff.id }, process.env.JWT_SECRET, {
       expiresIn: '1h',
     });
 
-    res.json({ token, userId: user.id, name: user.name });
+    res.json({ token, staffId: staff.id, name: staff.name });
   } catch (error) {
     res.status(500).json({ error: 'Login failed' });
   }

@@ -6,6 +6,7 @@
   # Use https://search.nixos.org/packages to find packages
   packages = [
     pkgs.nodejs_20
+    pkgs.openssl_1_1
   ];
   # Sets environment variables in the workspace
   env = {};
