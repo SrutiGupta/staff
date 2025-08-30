@@ -192,6 +192,88 @@ For every protected endpoint, you must include the token in your request headers
     *   The API will return a plain text response formatted for a thermal printer.
 
 ---
+### Customer Management (`/api/customer`)
+
+This section handles interactions for non-patient, walk-in customers.
+
+#### **Create Customer Invoice**
+Creates a new customer and an invoice for their purchase in a single transaction. This is ideal for one-time sales.
+
+*   **Method:** `POST`
+*   **URL:** `http://localhost:3000/api/customer/invoice`
+*   **Authentication:** Required (Bearer Token)
+*   **Request Body:**
+    ```json
+    {
+      "staffId": 1,
+      "paidAmount": 165.50,
+      "paymentMethod": "Credit Card",
+      "customer": {
+        "name": "Jane Doe",
+        "phone": "555-123-4567",
+        "address": "456 Oak Ave, Sometown, USA"
+      },
+      "items": [
+        {
+          "productId": 1,
+          "quantity": 1,
+          "unitPrice": 150.00
+        },
+        {
+          "productId": 2,
+          "quantity": 1,
+          "unitPrice": 15.50
+        }
+      ]
+    }
+    ```
+*   **Success Response (201 Created):**
+    The response body will be the newly created invoice object, linked to the new customer.
+    ```json
+    {
+        "id": "clz8h3f0d0001p7bkhs8g4f8c",
+        "patientId": null,
+        "customerId": 1,
+        "staffId": 1,
+        "subtotal": 165.50,
+        "totalDiscount": 0,
+        "totalIgst": 0,
+        "totalCgst": 0,
+        "totalSgst": 0,
+        "totalAmount": 165.50,
+        "paidAmount": 165.50,
+        "status": "PAID",
+        "createdAt": "2025-09-01T10:00:00.000Z",
+        "updatedAt": "2025-09-01T10:00:00.000Z",
+        "prescriptionId": null
+    }
+    ```
+
+#### **Get Address Hotspots**
+Retrieves a list of the top 10 most frequent customer addresses, which can be used to identify business "hotspots".
+
+*   **Method:** `GET`
+*   **URL:** `http://localhost:3000/api/customer/hotspots`
+*   **Authentication:** Required (Bearer Token)
+*   **Success Response (200 OK):**
+    ```json
+    [
+        {
+            "address": "456 Oak Ave, Sometown, USA",
+            "customerCount": 15
+        },
+        {
+            "address": "123 Main St, Anytown, USA",
+            "customerCount": 9
+        },
+        {
+            "address": "789 Pine Ln, Otherville, USA",
+            "customerCount": 5
+        }
+    ]
+    ```
+
+---
 ### Barcode Generation (`/api/barcode`)
 
 This endpoint is for generating a barcode image from a product's SKU.

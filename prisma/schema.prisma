@@ -32,8 +32,8 @@ model Patient {
   name           String
   age            Int
   gender         String
-  phone          String?        // Added for invoice details
-  address        String?        // Added for invoice details
+  phone          String?
+  address        String?
   medicalHistory String?
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
@@ -41,6 +41,17 @@ model Patient {
   giftCards      GiftCard[]
   invoices       Invoice[]
   prescriptions  Prescription[]
+}
+
+// NEW: Model for walk-in customers
+model Customer {
+  id        Int       @id @default(autoincrement())
+  name      String
+  phone     String?
+  address   String    // Crucial for hotspot analysis
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  invoices  Invoice[]
 }
 
 model Royalty {
@@ -86,16 +97,21 @@ model Inventory {
 
 model Invoice {
   id             String        @id @default(cuid())
-  patient        Patient       @relation(fields: [patientId], references: [id])
-  patientId      Int
+
+  // An invoice can be for a Patient OR a Customer, so both are optional.
+  patient        Patient?      @relation(fields: [patientId], references: [id])
+  patientId      Int?
+  customer       Customer?     @relation(fields: [customerId], references: [id])
+  customerId     Int?
+
   staff          Staff         @relation(fields: [staffId], references: [id])
   staffId        Int
-  subtotal       Float         // Calculated from items
+  subtotal       Float
   totalDiscount  Float         @default(0)
   totalIgst      Float         @default(0)
   totalCgst      Float         @default(0)
   totalSgst      Float         @default(0)
-  totalAmount    Float         // Grand Total
+  totalAmount    Float
   paidAmount     Float         @default(0)
   status         String        @default("UNPAID")
   createdAt      DateTime      @default(now())

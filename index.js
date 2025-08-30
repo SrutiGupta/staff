@@ -21,6 +21,7 @@ app.use('/api/payment', require('./routes/payment'));
 app.use('/api/prescription', require('./routes/prescription'));
 app.use('/api/product', require('./routes/product'));
 app.use('/api/patient', require('./routes/patient'));
+app.use('/api/customer', require('./routes/customer'));
 
 
 // Centralized Error Handler
