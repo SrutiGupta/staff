@@ -1,3 +1,7 @@
+// Simple logout handler (stateless JWT, so just respond OK)
+exports.logout = (req, res) => {
+  res.status(200).json({ message: 'Logged out successfully' });
+};
 
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
