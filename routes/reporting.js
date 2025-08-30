@@ -6,5 +6,6 @@ const auth = require('../middleware/auth');
 
 router.get('/daily', auth, reportingController.getDailyReport);
 router.get('/monthly', auth, reportingController.getMonthlyReport);
+router.get('/staff-sales', auth, reportingController.getStaffSalesReport);
 
 module.exports = router;
