@@ -73,7 +73,7 @@ const createCustomerAndInvoice = async (req, res) => {
 
       // Step 6: Safely decrement the inventory for each item
       for (const item of items) {
-        await tx.inventory.update({
+        await tx.inventory.updateMany({
           where: { productId: item.productId },
           data: {
             quantity: {
