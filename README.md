@@ -12,7 +12,7 @@ This guide provides instructions on how to test the API endpoints for this proje
     ```bash
     npm start
     ```
-3.  The API will be available at `http://localhost:8080`.
+3.  The API will be available at `http://localhost:3000`.
 
 ## 2. Authentication (JWT)
 
@@ -21,7 +21,7 @@ Most endpoints are protected and require a JSON Web Token (JWT) to be sent in th
 ### How to Get Your JWT
 
 1.  **Open Postman** and create a new `POST` request.
-2.  **URL:** `http://localhost:8080/api/attendance/login`
+2.  **URL:** `http://localhost:3000/api/auth/login`
 3.  **Body Tab:** Select `raw` and `JSON`.
 4.  **Request Body:**
     ```json
@@ -35,7 +35,7 @@ Most endpoints are protected and require a JSON Web Token (JWT) to be sent in th
     **Success Response (200 OK):**
     ```json
     {
-      "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiaWF0IjoxNzE1ODg3ODc4LCJleHAiOjE3MTU5NzQyNzh9.xxxxxxxxxxxx"
+      "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiaWF0IjoxNzU2NTM1MTQyLCJleHAiOjE3NTY2MjE1NDJ9.YXGu3P4HT2qfJ50YEV77ArE2ff0n0I0rWRKJKMLfCt4"
     }
     ```
 
@@ -53,42 +53,32 @@ For every protected endpoint, you must include the token in your request headers
 
 ## 3. API Endpoints
 
-### User Authentication (`/api/auth`)
+### Patient Management (`/api/patient`)
 
-These endpoints are for non-staff user accounts.
-
-#### **Register User**
+#### **Create New Patient**
 *   **Method:** `POST`
-*   **URL:** `http://localhost:8080/api/auth/register`
+*   **URL:** `http://localhost:3000/api/patient`
+*   **Authentication:** Required (Bearer Token)
 *   **Request Body:**
     ```json
     {
-        "name": "Test User",
-        "email": "user@example.com",
-        "password": "password123"
+        "name": "Test Patient",
+        "age": 30,
+        "gender": "Male"
     }
     ```
-*   **Success Response (200 OK):**
+*   **Success Response (201 Created):**
     ```json
     {
-        "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MiwiaWF0IjoxNzE1ODg4MjAwLCJleHAiOjE3MTU5NzQ2MDB9.yyyyyyyyyyyy"
-    }
-    ```
-
-#### **Login User**
-*   **Method:** `POST`
-*   **URL:** `http://localhost:8080/api/auth/login`
-*   **Request Body:**
-    ```json
-    {
-        "email": "user@example.com",
-        "password": "password123"
-    }
-    ```
-*   **Success Response (200 OK):**
-    ```json
-    {
-        "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MiwiaWF0IjoxNzE1ODg4MjMwfQ.zzzzzzzzzzzzz"
+        "id": 1,
+        "name": "Test Patient",
+        "age": 30,
+        "gender": "Male",
+        "phone": null,
+        "address": null,
+        "medicalHistory": null,
+        "createdAt": "2025-08-30T06:35:54.248Z",
+        "updatedAt": "2025-08-30T06:35:54.248Z"
     }
     ```
 
@@ -97,7 +87,7 @@ These endpoints are for non-staff user accounts.
 
 #### **Get All Products**
 *   **Method:** `GET`
-*   **URL:** `http://localhost:8080/api/product`
+*   **URL:** `http://localhost:3000/api/product`
 *   **Authentication:** Required (Bearer Token)
 *   **Success Response (200 OK):**
     ```json
@@ -109,8 +99,12 @@ These endpoints are for non-staff user accounts.
         },
         {
             "id": 2,
-            "name": "Vitamin C",
-            "price": "25.50"
+            "name": "New Test Product",
+            "description": "A new product for testing",
+            "price": 15.99,
+            "barcode": "9876543210",
+            "createdAt": "2025-08-30T06:31:28.244Z",
+            "updatedAt": "2025-08-30T06:31:28.244Z"
         }
     ]
     ```
@@ -120,59 +114,82 @@ These endpoints are for non-staff user accounts.
 
 #### **Create New Invoice**
 *   **Method:** `POST`
-*   **URL:** `http://localhost:8080/api/invoice`
+*   **URL:** `http://localhost:3000/api/invoice`
 *   **Authentication:** Required (Bearer Token)
 *   **Request Body:**
     ```json
     {
-        "patientId": "PATIENT-001",
-        "amount": 35.50,
+        "patientId": 1,
         "items": [
             {
-                "productId": 1,
-                "quantity": 1
-            },
-            {
                 "productId": 2,
-                "quantity": 1
+                "quantity": 2
             }
         ]
     }
     ```
-*   **Success Response (200 OK):**
+*   **Success Response (201 Created):**
     ```json
     {
-        "id": 1,
-        "patientId": "PATIENT-001",
-        "amount": "35.50",
-        "createdAt": "2023-10-27T10:00:00.000Z",
-        "updatedAt": "2023-10-27T10:00:00.000Z"
+        "id": "cmexw2eh50003p7gbkmnpdw3q",
+        "patientId": 1,
+        "subtotal": 31.98,
+        "totalDiscount": 0,
+        "totalIgst": 0,
+        "totalCgst": 0,
+        "totalSgst": 0,
+        "totalAmount": 31.98,
+        "paidAmount": 0,
+        "status": "UNPAID",
+        "createdAt": "2025-08-30T06:36:46.409Z",
+        "updatedAt": "2025-08-30T06:36:46.409Z",
+        "prescriptionId": null,
+        "items": [
+            {
+                "id": 2,
+                "invoiceId": "cmexw2eh50003p7gbkmnpdw3q",
+                "productId": 2,
+                "quantity": 2,
+                "unitPrice": 15.99,
+                "discount": 0,
+                "igst": 0,
+                "cgst": 0,
+                "sgst": 0,
+                "totalPrice": 31.98,
+                "product": {
+                    "id": 2,
+                    "name": "New Test Product",
+                    "description": "A new product for testing",
+                    "price": 15.99,
+                    "barcode": "9876543210",
+                    "createdAt": "2025-08-30T06:31:28.244Z",
+                    "updatedAt": "2025-08-30T06:31:28.244Z"
+                }
+            }
+        ]
     }
     ```
 
-#### **Get All Invoices**
+#### **Get Invoice by ID**
 *   **Method:** `GET`
-*   **URL:** `http://localhost:8080/api/invoice`
+*   **URL:** `http://localhost:3000/api/invoice/cmexw2eh50003p7gbkmnpdw3q` (Replace with a real Invoice ID)
 *   **Authentication:** Required (Bearer Token)
 *   **Success Response (200 OK):**
-    ```json
-    [
-        {
-            "id": 1,
-            "patientId": "PATIENT-001",
-            "amount": "35.50",
-            "createdAt": "2023-10-27T10:00:00.000Z",
-            "updatedAt": "2023-10-27T10:00:00.000Z"
-        }
-    ]
-    ```
+    *   Returns the full invoice object with patient, items, and product details.
 
 #### **Download Invoice PDF**
 *   **Method:** `GET`
-*   **URL:** `http://localhost:8080/api/invoice/1/pdf` (Replace `1` with a real Invoice ID)
+*   **URL:** `http://localhost:3000/api/invoice/cmexw2eh50003p7gbkmnpdw3q/pdf` (Replace with a real Invoice ID)
 *   **Authentication:** Required (Bearer Token)
 *   **Success Response (200 OK):**
     *   The API will return a PDF file. Postman will give you an option to "Save Response to File".
+
+#### **Generate Thermal Printer Receipt**
+*   **Method:** `GET`
+*   **URL:** `http://localhost:3000/api/invoice/cmexw2eh50003p7gbkmnpdw3q/thermal` (Replace with a real Invoice ID)
+*   **Authentication:** Required (Bearer Token)
+*   **Success Response (200 OK):**
+    *   The API will return a plain text response formatted for a thermal printer.
 
 ---
 ### Barcode Generation (`/api/barcode`)
@@ -181,7 +198,7 @@ This endpoint is for generating a barcode image from a product's SKU.
 
 #### **Generate Barcode**
 *   **Method:** `GET`
-*   **URL:** `http://localhost:8080/api/barcode/YOUR-SKU-HERE` (e.g., `http://localhost:8080/api/barcode/LENS-KRT-001`)
+*   **URL:** `http://localhost:3000/api/barcode/YOUR-SKU-HERE` (e.g., `http://localhost:3000/api/barcode/9876543210`)
 *   **Authentication:** Not Required
 *   **Success Response (200 OK):**
     *   The API will return a PNG image. Postman will display the barcode image in the response body viewer.
@@ -191,12 +208,12 @@ This endpoint is for generating a barcode image from a product's SKU.
 
 #### **Add Royalty Points**
 *   **Method:** `POST`
-*   **URL:** `http://localhost:8080/api/royalty`
+*   **URL:** `http://localhost:3000/api/royalty`
 *   **Authentication:** Required (Bearer Token)
 *   **Request Body:**
     ```json
     {
-        "patientId": "PATIENT-001",
+        "patientId": 1,
         "points": 100
     }
     ```
@@ -204,21 +221,21 @@ This endpoint is for generating a barcode image from a product's SKU.
     ```json
     {
         "id": 1,
-        "patientId": "PATIENT-001",
+        "patientId": 1,
         "points": 100
     }
     ```
 
 #### **Get Royalty Points by Patient**
 *   **Method:** `GET`
-*   **URL:** `http://localhost:8080/api/royalty/PATIENT-001` (Replace `PATIENT-001` with a real ID)
+*   **URL:** `http://localhost:3000/api/royalty/1` (Replace `1` with a real Patient ID)
 *   **Authentication:** Required (Bearer Token)
 *   **Success Response (200 OK):**
     ```json
     [
         {
             "id": 1,
-            "patientId": "PATIENT-001",
+            "patientId": 1,
             "points": 100
         }
     ]
@@ -229,7 +246,7 @@ This endpoint is for generating a barcode image from a product's SKU.
 
 #### **Get All Attendance Records**
 *   **Method:** `GET`
-*   **URL:** `http://localhost:8080/api/attendance`
+*   **URL:** `http://localhost:3000/api/attendance`
 *   **Authentication:** Required (Bearer Token)
 *   **Success Response (200 OK):**
     ```json
@@ -250,7 +267,7 @@ This endpoint is for generating a barcode image from a product's SKU.
 
 #### **Get Attendance by Staff ID**
 *   **Method:** `GET`
-*   **URL:** `http://localhost:8080/api/attendance/1` (Replace `1` with a real Staff ID)
+*   **URL:** `http://localhost:3000/api/attendance/1` (Replace `1` with a real Staff ID)
 *   **Authentication:** Required (Bearer Token)
 *   **Success Response (200 OK):**
     ```json
