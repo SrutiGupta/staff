@@ -371,7 +371,7 @@ exports.generateInvoiceThermal = async (req, res) => {
     receipt.push(center('Disclaimer: This is a computer'));
     receipt.push(center('generated invoice and does not'));
     receipt.push(center('require a signature.'));
-    receipt.push(center('For T&C please visit www.lenskart.com'));
+    receipt.push(center('For T&C please visit www.company.com'));
 
     const receiptText = receipt.join('\n');
 
