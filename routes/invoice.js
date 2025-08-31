@@ -1,9 +1,10 @@
 const express = require('express');
 const router = express.Router();
 const invoiceController = require('../controllers/invoiceController');
+const authMiddleware = require('../middleware/auth');
 
 // Create a new invoice
-router.post('/', invoiceController.createInvoice);
+router.post('/', authMiddleware, invoiceController.createInvoice);
 
 // Get a single invoice by ID
 router.get('/:id', invoiceController.getInvoice);
