@@ -46,9 +46,9 @@ exports.getPrescription = async (req, res) => {
   try {
     const { id } = req.params;
 
-    // Do NOT use parseInt if your ID is a string (CUID or UUID)
+    // Convert id to integer since Prescription.id is Int type
     const prescription = await prisma.prescription.findUnique({
-      where: { id }, // Keep as string
+      where: { id: parseInt(id) },
       include: { patient: true },
     });
 
