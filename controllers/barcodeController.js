@@ -1,41 +1,69 @@
 const bwipjs = require('bwip-js');
+const { createCanvas, loadImage } = require('canvas');
 
-exports.generateBarcode = async (req, res) => {
+exports.generateBarcodeLabel = async (req, res) => {
   try {
-    // Accept both /barcode/:data and /barcode?data=xyz
-    const data = req.params.data || req.query.data;
+    // Data will come from frontend (query or body)
+    const {
+      name,          // Product name
+      description,   // Product description
+      price,         // Product price
+      data,          // Barcode value (SKU, ID, etc.)
+      bcid = 'code128',   // Barcode type
+      scale = 3,          // Scaling
+      height = 20,        // Barcode height
+      includetext = false // Barcode text, default false since we draw our own
+    } = req.body; // <-- frontend sends JSON in body (POST request)
 
-    // Input validation
-    if (!data || data.trim() === '') {
-      return res.status(400).json({ error: 'Data is required to generate a barcode' });
+    // Validate required fields
+    if (!name || !price || !data) {
+      return res.status(400).json({
+        error: 'Missing required fields: name, price, data',
+      });
     }
 
-    // Allow customization via query params
-    const {
-      bcid = 'code128',        // Default barcode type
-      scale = 3,               // Default scaling
-      height = 20,             // Default height (better for scanners)
-      includetext = true,      // Show text below barcode
-      textxalign = 'center',   // Centered text
-    } = req.query;
-
-    // Generate PNG buffer
-    const png = await bwipjs.toBuffer({
-      bcid,                    
-      text: data,              
-      scale: parseInt(scale),  
+    // Generate barcode buffer
+    const barcodeBuffer = await bwipjs.toBuffer({
+      bcid,
+      text: data,
+      scale: parseInt(scale),
       height: parseInt(height),
-      includetext: includetext !== 'false', 
-      textxalign,
+      includetext: includetext === true, // only true if frontend sends true
     });
 
-    // Response headers
+    // Create canvas for full label
+    const canvas = createCanvas(400, 150);
+    const ctx = canvas.getContext('2d');
+
+    // Background white
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Product name
+    ctx.font = 'bold 16px Arial';
+    ctx.fillStyle = '#000';
+    ctx.fillText(name, 10, 25);
+
+    // Description (optional)
+    if (description) {
+      ctx.font = '12px Arial';
+      ctx.fillText(description, 10, 45);
+    }
+
+    // Price (align right)
+    ctx.font = 'bold 14px Arial';
+    ctx.fillText(price, 300, 25);
+
+    // Load barcode onto canvas
+    const barcodeImg = await loadImage(barcodeBuffer);
+    ctx.drawImage(barcodeImg, 10, 60, 300, 60);
+
+    // Send final label as PNG
     res.set('Content-Type', 'image/png');
-    res.set('Cache-Control', 'public, max-age=86400'); // cache for 1 day
-    res.status(200).send(png);
+    res.send(canvas.toBuffer());
 
   } catch (error) {
-    console.error('Error generating barcode:', error.message);
-    res.status(500).json({ error: 'Internal server error while generating barcode' });
+    console.error('Error generating barcode label:', error.message);
+    res.status(500).json({ error: 'Internal server error while generating label' });
   }
 };
