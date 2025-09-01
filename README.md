@@ -328,15 +328,40 @@ Retrieves a list of the top 10 most frequent customer addresses, which can be us
 
 ### Barcode Generation (`/api/barcode`)
 
-This endpoint is for generating a barcode image from a product's SKU.
+This endpoint generates a custom barcode label with product information.
 
-#### **Generate Barcode**
+#### **Generate Barcode Label**
 
-- **Method:** `GET`
-- **URL:** `http://localhost:3000/api/barcode/YOUR-SKU-HERE` (e.g., `http://localhost:3000/api/barcode/9876543210`)
+- **Method:** `POST`
+- **URL:** `http://localhost:3000/api/barcode`
 - **Authentication:** Not Required
+- **Request Body:**
+  ```json
+  {
+    "name": "Product Name",
+    "description": "Product Description",
+    "price": "$19.99",
+    "data": "1234567890",
+    "bcid": "code128",
+    "scale": 3,
+    "height": 20,
+    "includetext": false
+  }
+  ```
+- **Required Fields:**
+  - `name`: Product name (string)
+  - `price`: Product price (string)
+  - `data`: Barcode data/value (string)
+- **Optional Fields:**
+  - `description`: Product description (string)
+  - `bcid`: Barcode type (string, default: "code128")
+  - `scale`: Scaling factor (number, default: 3)
+  - `height`: Barcode height (number, default: 20)
+  - `includetext`: Include text below barcode (boolean, default: false)
 - **Success Response (200 OK):**
-  - The API will return a PNG image. Postman will display the barcode image in the response body viewer.
+  - Returns a PNG image containing the barcode label with product information
+  - Content-Type: `image/png`
+  - Postman will display the barcode label image in the response body viewer
 
 ---
 
