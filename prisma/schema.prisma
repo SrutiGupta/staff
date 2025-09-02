@@ -74,22 +74,66 @@ model GiftCard {
   transactions Transaction[]
 }
 
+model Company {
+  id          Int       @id @default(autoincrement())
+  name        String    @unique
+  description String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  products    Product[]
+}
+
 model Product {
   id           Int           @id @default(autoincrement())
   name         String
   description  String?
   price        Float
   barcode      String?       @unique
+  
+  // Eyewear categorization
+  eyewearType  EyewearType   // GLASSES, SUNGLASSES, LENSES
+  frameType    FrameType?    // RECTANGULAR, OVAL, ROUND, etc. (null for lenses)
+  
+  // Company/Brand information
+  company      Company       @relation(fields: [companyId], references: [id])
+  companyId    Int
+  
+  // Additional product attributes
+  material     String?       // Frame material (metal, plastic, etc.)
+  color        String?       // Frame color
+  size         String?       // Frame size (S, M, L or specific measurements)
+  model        String?       // Model number/name
+  
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
   inventory    Inventory[]
   invoiceItems InvoiceItem[]
 }
 
+enum EyewearType {
+  GLASSES
+  SUNGLASSES
+  LENSES
+}
+
+enum FrameType {
+  RECTANGULAR
+  OVAL
+  ROUND
+  SQUARE
+  AVIATOR
+  WAYFARER
+  CAT_EYE
+  CLUBMASTER
+  RIMLESS
+  SEMI_RIMLESS
+  WRAP_AROUND
+}
+
 model Inventory {
   id        Int      @id @default(autoincrement())
   product   Product  @relation(fields: [productId], references: [id])
-  productId Int
+  productId Int      @unique
   quantity  Int
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
