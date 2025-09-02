@@ -628,3 +628,422 @@ Identifies the top-selling products within each price tier.
     }
   }
   ```
+
+---
+
+### Authentication & Staff Management (`/api/auth`)
+
+#### **Register New Staff**
+
+- **Method:** `POST`
+- **URL:** `http://localhost:3000/api/auth/register`
+- **Authentication:** Not Required
+- **Request Body:**
+  ```json
+  {
+    "email": "newstaff@example.com",
+    "password": "securePassword123",
+    "name": "John Smith"
+  }
+  ```
+- **Success Response (201 Created):**
+  ```json
+  {
+    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "staffId": 2,
+    "name": "John Smith"
+  }
+  ```
+
+#### **Staff Logout**
+
+- **Method:** `POST`
+- **URL:** `http://localhost:3000/api/auth/logout`
+- **Authentication:** Not Required
+- **Request Body:** No body required
+- **Success Response (200 OK):**
+  ```json
+  {
+    "message": "Logged out successfully"
+  }
+  ```
+
+---
+
+### Staff Attendance Login (`/api/attendance`)
+
+#### **Staff Login with Attendance Tracking**
+
+This endpoint logs in staff and automatically records attendance entry.
+
+- **Method:** `POST`
+- **URL:** `http://localhost:3000/api/attendance/login`
+- **Authentication:** Not Required
+- **Request Body:**
+  ```json
+  {
+    "email": "staff@example.com",
+    "password": "password"
+  }
+  ```
+- **Success Response (200 OK):**
+  ```json
+  {
+    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+  }
+  ```
+
+---
+
+### Product Management (`/api/product`)
+
+#### **Add New Product**
+
+- **Method:** `POST`
+- **URL:** `http://localhost:3000/api/product`
+- **Authentication:** Required (Bearer Token)
+- **Request Body:**
+  ```json
+  {
+    "name": "New Medical Device",
+    "price": 299.99
+  }
+  ```
+- **Success Response (201 Created):**
+  ```json
+  {
+    "id": 3,
+    "name": "New Medical Device",
+    "description": null,
+    "price": 299.99,
+    "barcode": null,
+    "createdAt": "2025-09-02T10:00:00.000Z",
+    "updatedAt": "2025-09-02T10:00:00.000Z"
+  }
+  ```
+
+---
+
+### Inventory Management - Additional Endpoints (`/api/inventory`)
+
+#### **Add Product to Inventory**
+
+- **Method:** `POST`
+- **URL:** `http://localhost:3000/api/inventory/product`
+- **Authentication:** Required (Bearer Token)
+- **Request Body:**
+  ```json
+  {
+    "name": "Blood Pressure Monitor",
+    "price": 89.99,
+    "barcode": "1234567890123",
+    "initialStock": 25
+  }
+  ```
+- **Success Response (201 Created):**
+  ```json
+  {
+    "product": {
+      "id": 4,
+      "name": "Blood Pressure Monitor",
+      "price": 89.99,
+      "barcode": "1234567890123",
+      "createdAt": "2025-09-02T10:00:00.000Z",
+      "updatedAt": "2025-09-02T10:00:00.000Z"
+    },
+    "inventory": {
+      "id": 2,
+      "productId": 4,
+      "quantity": 25,
+      "createdAt": "2025-09-02T10:00:00.000Z",
+      "updatedAt": "2025-09-02T10:00:00.000Z"
+    }
+  }
+  ```
+
+#### **Stock In (Add Stock)**
+
+- **Method:** `POST`
+- **URL:** `http://localhost:3000/api/inventory/stock-in`
+- **Authentication:** Required (Bearer Token)
+- **Request Body:**
+  ```json
+  {
+    "productId": 1,
+    "quantity": 100
+  }
+  ```
+- **Success Response (200 OK):**
+  ```json
+  {
+    "id": 1,
+    "productId": 1,
+    "quantity": 150,
+    "createdAt": "2025-09-01T10:00:00.000Z",
+    "updatedAt": "2025-09-02T10:00:00.000Z"
+  }
+  ```
+
+#### **Stock Out (Remove Stock)**
+
+- **Method:** `POST`
+- **URL:** `http://localhost:3000/api/inventory/stock-out`
+- **Authentication:** Required (Bearer Token)
+- **Request Body:**
+  ```json
+  {
+    "productId": 1,
+    "quantity": 25
+  }
+  ```
+- **Success Response (200 OK):**
+  ```json
+  {
+    "id": 1,
+    "productId": 1,
+    "quantity": 125,
+    "createdAt": "2025-09-01T10:00:00.000Z",
+    "updatedAt": "2025-09-02T10:00:00.000Z"
+  }
+  ```
+
+#### **Get All Inventory**
+
+- **Method:** `GET`
+- **URL:** `http://localhost:3000/api/inventory`
+- **Authentication:** Required (Bearer Token)
+- **Success Response (200 OK):**
+  ```json
+  [
+    {
+      "id": 1,
+      "productId": 1,
+      "quantity": 125,
+      "createdAt": "2025-09-01T10:00:00.000Z",
+      "updatedAt": "2025-09-02T10:00:00.000Z",
+      "product": {
+        "id": 1,
+        "name": "Panadol",
+        "description": null,
+        "price": 10.0,
+        "barcode": null,
+        "createdAt": "2025-08-30T06:00:00.000Z",
+        "updatedAt": "2025-08-30T06:00:00.000Z"
+      }
+    }
+  ]
+  ```
+
+#### **Update Product Details**
+
+- **Method:** `PUT`
+- **URL:** `http://localhost:3000/api/inventory/product/:productId`
+- **Authentication:** Required (Bearer Token)
+- **URL Parameters:**
+  - `productId` (required): Product ID to update
+- **Example URL:** `http://localhost:3000/api/inventory/product/1`
+- **Request Body:**
+  ```json
+  {
+    "name": "Updated Product Name",
+    "price": 12.99,
+    "description": "Updated description",
+    "barcode": "9876543210987"
+  }
+  ```
+- **Success Response (200 OK):**
+  ```json
+  {
+    "id": 1,
+    "name": "Updated Product Name",
+    "description": "Updated description",
+    "price": 12.99,
+    "barcode": "9876543210987",
+    "createdAt": "2025-08-30T06:00:00.000Z",
+    "updatedAt": "2025-09-02T10:00:00.000Z"
+  }
+  ```
+
+---
+
+### Payment Processing (`/api/payment`)
+
+#### **Process Payment for Invoice**
+
+- **Method:** `POST`
+- **URL:** `http://localhost:3000/api/payment`
+- **Authentication:** Not Required
+- **Request Body:**
+  ```json
+  {
+    "invoiceId": "cmexw2eh50003p7gbkmnpdw3q",
+    "amount": 165.5,
+    "paymentMethod": "Credit Card"
+  }
+  ```
+- **Success Response (200 OK):**
+  ```json
+  {
+    "id": 1,
+    "invoiceId": "cmexw2eh50003p7gbkmnpdw3q",
+    "amount": 165.5,
+    "paymentMethod": "Credit Card",
+    "createdAt": "2025-09-02T10:00:00.000Z"
+  }
+  ```
+
+---
+
+### Gift Card Management (`/api/gift-card`)
+
+#### **Issue New Gift Card**
+
+- **Method:** `POST`
+- **URL:** `http://localhost:3000/api/gift-card/issue`
+- **Authentication:** Required (Bearer Token)
+- **Request Body:**
+  ```json
+  {
+    "patientId": 1,
+    "balance": 100.0
+  }
+  ```
+- **Success Response (201 Created):**
+  ```json
+  {
+    "id": 1,
+    "code": "GC-ABC123DEF456",
+    "balance": 100.0,
+    "patientId": 1,
+    "createdAt": "2025-09-02T10:00:00.000Z",
+    "updatedAt": "2025-09-02T10:00:00.000Z"
+  }
+  ```
+
+#### **Redeem Gift Card**
+
+- **Method:** `POST`
+- **URL:** `http://localhost:3000/api/gift-card/redeem`
+- **Authentication:** Required (Bearer Token)
+- **Request Body:**
+  ```json
+  {
+    "code": "GC-ABC123DEF456",
+    "amount": 25.0,
+    "invoiceId": "cmexw2eh50003p7gbkmnpdw3q"
+  }
+  ```
+- **Success Response (200 OK):**
+  ```json
+  {
+    "id": 1,
+    "code": "GC-ABC123DEF456",
+    "balance": 75.0,
+    "patientId": 1,
+    "createdAt": "2025-09-02T10:00:00.000Z",
+    "updatedAt": "2025-09-02T10:01:00.000Z"
+  }
+  ```
+
+#### **Check Gift Card Balance**
+
+- **Method:** `GET`
+- **URL:** `http://localhost:3000/api/gift-card/:code`
+- **Authentication:** Required (Bearer Token)
+- **URL Parameters:**
+  - `code` (required): Gift card code
+- **Example URL:** `http://localhost:3000/api/gift-card/GC-ABC123DEF456`
+- **Success Response (200 OK):**
+  ```json
+  {
+    "id": 1,
+    "code": "GC-ABC123DEF456",
+    "balance": 75.0,
+    "patientId": 1,
+    "createdAt": "2025-09-02T10:00:00.000Z",
+    "updatedAt": "2025-09-02T10:01:00.000Z",
+    "patient": {
+      "id": 1,
+      "name": "Test Patient",
+      "email": "patient@example.com"
+    }
+  }
+  ```
+
+---
+
+### Additional Reporting Endpoints (`/api/reporting`)
+
+#### **Get Daily Sales Report**
+
+- **Method:** `GET`
+- **URL:** `http://localhost:3000/api/reporting/daily`
+- **Authentication:** Required (Bearer Token)
+- **Query Parameters (Optional):**
+  - `date` (e.g., `2025-09-02`)
+- **Success Response (200 OK):**
+  ```json
+  {
+    "date": "2025-09-02",
+    "totalSales": 1250.75,
+    "totalOrders": 15,
+    "averageOrderValue": 83.38
+  }
+  ```
+
+#### **Get Monthly Sales Report**
+
+- **Method:** `GET`
+- **URL:** `http://localhost:3000/api/reporting/monthly`
+- **Authentication:** Required (Bearer Token)
+- **Query Parameters (Optional):**
+  - `month` (e.g., `2025-09`)
+- **Success Response (200 OK):**
+  ```json
+  {
+    "month": "2025-09",
+    "totalSales": 25430.5,
+    "totalOrders": 234,
+    "averageOrderValue": 108.68,
+    "dailyBreakdown": [
+      {
+        "date": "2025-09-01",
+        "sales": 1340.25,
+        "orders": 12
+      },
+      {
+        "date": "2025-09-02",
+        "sales": 1250.75,
+        "orders": 15
+      }
+    ]
+  }
+  ```
+
+#### **Get Staff Sales Report**
+
+- **Method:** `GET`
+- **URL:** `http://localhost:3000/api/reporting/staff-sales`
+- **Authentication:** Required (Bearer Token)
+- **Query Parameters (Optional):**
+  - `startDate` (e.g., `2025-09-01`)
+  - `endDate` (e.g., `2025-09-30`)
+- **Success Response (200 OK):**
+  ```json
+  [
+    {
+      "staffId": 1,
+      "staffName": "John Doe",
+      "totalSales": 12450.75,
+      "totalOrders": 89,
+      "averageOrderValue": 139.9
+    },
+    {
+      "staffId": 2,
+      "staffName": "Jane Smith",
+      "totalSales": 8930.25,
+      "totalOrders": 67,
+      "averageOrderValue": 133.29
+    }
+  ]
+  ```
