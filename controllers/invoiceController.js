@@ -1,7 +1,7 @@
 
 const { PrismaClient } = require('@prisma/client');
 const PDFDocument = require('pdfkit');
-require('dotenv').config(); // Load environment variables
+require('dotenv').config(); 
 
 const prisma = new PrismaClient();
 

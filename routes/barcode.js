@@ -1,7 +1,7 @@
-const express = require('express');
+const express = require("express");
 const router = express.Router();
-const barcodeController = require('../controllers/barcodeController');
+const barcodeController = require("../controllers/barcodeController");
 
-router.post('/', barcodeController.generateBarcodeLabel);
+router.post("/", barcodeController.generateBarcodeLabel);
 
 module.exports = router;

@@ -131,7 +131,6 @@ model InvoiceItem {
   quantity   Int
   unitPrice  Float
   discount   Float   @default(0)
-  igst       Float   @default(0)
   cgst       Float   @default(0)
   sgst       Float   @default(0)
   totalPrice Float
