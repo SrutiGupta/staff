@@ -164,15 +164,61 @@ exports.addProduct = async (req, res) => {
 };
 
 exports.stockIn = async (req, res) => {
-  const { productId, quantity } = req.body;
+  const { productId, barcode, quantity } = req.body;
+
+  // Support both traditional (productId) and barcode-based stock-in
+  if (!productId && !barcode) {
+    return res.status(400).json({
+      error: "Either productId or barcode is required.",
+      examples: {
+        traditional: { productId: 15, quantity: 10 },
+        barcodeScan: { barcode: "RAY0015678901", quantity: 10 },
+      },
+    });
+  }
+
+  if (!quantity) {
+    return res.status(400).json({ error: "Quantity is required." });
+  }
 
   try {
+    let product;
+
+    // Find product by barcode or productId
+    if (barcode) {
+      product = await prisma.product.findUnique({
+        where: { barcode: barcode },
+        include: { company: true },
+      });
+
+      if (!product) {
+        return res.status(404).json({
+          error: `Product with barcode ${barcode} not found.`,
+          suggestion:
+            "Verify the barcode or add the product to the system first.",
+        });
+      }
+    } else {
+      product = await prisma.product.findUnique({
+        where: { id: parseInt(productId) },
+        include: { company: true },
+      });
+
+      if (!product) {
+        return res.status(404).json({
+          error: `Product with ID ${productId} not found.`,
+        });
+      }
+    }
+
+    // Check if inventory exists
     const existingInventory = await prisma.inventory.findFirst({
-      where: { productId: parseInt(productId) },
+      where: { productId: product.id },
     });
 
+    let inventory;
     if (existingInventory) {
-      const inventory = await prisma.inventory.update({
+      inventory = await prisma.inventory.update({
         where: { id: existingInventory.id },
         data: {
           quantity: {
@@ -180,16 +226,34 @@ exports.stockIn = async (req, res) => {
           },
         },
       });
-      res.status(200).json(inventory);
     } else {
-      const inventory = await prisma.inventory.create({
+      inventory = await prisma.inventory.create({
         data: {
-          productId: parseInt(productId),
+          productId: product.id,
           quantity: parseInt(quantity),
         },
       });
-      res.status(201).json(inventory);
     }
+
+    // Enhanced response with product details
+    const response = {
+      ...inventory,
+      product: product,
+      stockInDetails: {
+        method: barcode ? "barcode_scan" : "product_id",
+        identifier: barcode || productId,
+        productName: product.name,
+        eyewearType: product.eyewearType,
+        frameType: product.frameType,
+        company: product.company.name,
+        addedQuantity: parseInt(quantity),
+        newQuantity: inventory.quantity,
+        previousQuantity: existingInventory ? existingInventory.quantity : 0,
+      },
+    };
+
+    const statusCode = existingInventory ? 200 : 201;
+    res.status(statusCode).json(response);
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: "Something went wrong" });
@@ -197,16 +261,76 @@ exports.stockIn = async (req, res) => {
 };
 
 exports.stockOut = async (req, res) => {
-  const { productId, quantity } = req.body;
+  const { productId, barcode, quantity } = req.body;
+
+  // Support both traditional (productId) and barcode-based stock-out
+  if (!productId && !barcode) {
+    return res.status(400).json({
+      error: "Either productId or barcode is required.",
+      examples: {
+        traditional: { productId: 15, quantity: 5 },
+        barcodeScan: { barcode: "RAY0015678901", quantity: 5 },
+      },
+    });
+  }
+
+  if (!quantity) {
+    return res.status(400).json({ error: "Quantity is required." });
+  }
 
   try {
-    const inventory = await prisma.inventory.updateMany({
-      where: {
-        productId: parseInt(productId),
-        quantity: {
-          gte: parseInt(quantity),
+    let product;
+
+    // Find product by barcode or productId
+    if (barcode) {
+      product = await prisma.product.findUnique({
+        where: { barcode: barcode },
+        include: {
+          company: true,
+          inventory: true,
         },
-      },
+      });
+
+      if (!product) {
+        return res.status(404).json({
+          error: `Product with barcode ${barcode} not found.`,
+        });
+      }
+    } else {
+      product = await prisma.product.findUnique({
+        where: { id: parseInt(productId) },
+        include: {
+          company: true,
+          inventory: true,
+        },
+      });
+
+      if (!product) {
+        return res.status(404).json({
+          error: `Product with ID ${productId} not found.`,
+        });
+      }
+    }
+
+    // Check current inventory
+    const currentInventory = product.inventory[0];
+    if (!currentInventory) {
+      return res.status(400).json({
+        error: `No inventory found for product: ${product.name}`,
+        suggestion: "Add stock to this product first.",
+      });
+    }
+
+    if (currentInventory.quantity < parseInt(quantity)) {
+      return res.status(400).json({
+        error: `Insufficient stock. Available: ${currentInventory.quantity}, Requested: ${quantity}`,
+        availableStock: currentInventory.quantity,
+      });
+    }
+
+    // Update inventory
+    const updatedInventory = await prisma.inventory.update({
+      where: { id: currentInventory.id },
       data: {
         quantity: {
           decrement: parseInt(quantity),
@@ -214,10 +338,211 @@ exports.stockOut = async (req, res) => {
       },
     });
 
-    res.status(200).json(inventory);
+    // Enhanced response with product details
+    const response = {
+      ...updatedInventory,
+      product: product,
+      stockOutDetails: {
+        method: barcode ? "barcode_scan" : "product_id",
+        identifier: barcode || productId,
+        productName: product.name,
+        eyewearType: product.eyewearType,
+        frameType: product.frameType,
+        company: product.company.name,
+        removedQuantity: parseInt(quantity),
+        previousQuantity: currentInventory.quantity,
+        newQuantity: updatedInventory.quantity,
+        lowStockWarning:
+          updatedInventory.quantity <= 5 ? "Low stock alert!" : null,
+      },
+    };
+
+    res.status(200).json(response);
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: "Something went wrong" });
+  }
+};
+
+// New function: Stock-out by barcode scanning
+exports.stockOutByBarcode = async (req, res) => {
+  const { barcode, quantity } = req.body;
+
+  if (!barcode || quantity === undefined) {
+    return res
+      .status(400)
+      .json({ error: "Barcode and quantity are required." });
+  }
+
+  const quantityInt = parseInt(quantity, 10);
+
+  if (isNaN(quantityInt) || quantityInt <= 0) {
+    return res
+      .status(400)
+      .json({ error: "Quantity must be a positive number." });
+  }
+
+  try {
+    const result = await prisma.$transaction(async (tx) => {
+      // Step 1: Find the product by its barcode with company information
+      const product = await tx.product.findUnique({
+        where: { barcode: barcode },
+        include: {
+          company: true,
+          inventory: true,
+        },
+      });
+
+      if (!product) {
+        throw new Error(`Product with barcode ${barcode} not found.`);
+      }
+
+      // Step 2: Check if inventory exists and has sufficient stock
+      const inventory = await tx.inventory.findUnique({
+        where: { productId: product.id },
+      });
+
+      if (!inventory) {
+        throw new Error(`No inventory found for product: ${product.name}`);
+      }
+
+      if (inventory.quantity < quantityInt) {
+        throw new Error(
+          `Insufficient stock. Available: ${inventory.quantity}, Requested: ${quantityInt}`
+        );
+      }
+
+      // Step 3: Update the inventory record
+      const updatedInventory = await tx.inventory.update({
+        where: { productId: product.id },
+        data: {
+          quantity: {
+            decrement: quantityInt,
+          },
+        },
+      });
+
+      return {
+        ...updatedInventory,
+        product: product,
+        stockOutDetails: {
+          productName: product.name,
+          eyewearType: product.eyewearType,
+          frameType: product.frameType,
+          company: product.company.name,
+          previousQuantity: inventory.quantity,
+          removedQuantity: quantityInt,
+          newQuantity: updatedInventory.quantity,
+          lowStockWarning:
+            updatedInventory.quantity <= 5 ? "Low stock alert!" : null,
+        },
+      };
+    });
+
+    res.status(200).json(result);
+  } catch (error) {
+    console.error("Failed to stock-out by barcode:", error);
+    if (
+      error.message.includes("not found") ||
+      error.message.includes("Insufficient stock") ||
+      error.message.includes("No inventory")
+    ) {
+      return res.status(400).json({ error: error.message });
+    }
+    res
+      .status(500)
+      .json({ error: "An error occurred while updating the inventory." });
+  }
+};
+
+// Get product details by barcode scanning (for product enlisting/selection)
+exports.getProductByBarcode = async (req, res) => {
+  const { barcode } = req.params;
+
+  if (!barcode) {
+    return res.status(400).json({ error: "Barcode is required." });
+  }
+
+  try {
+    const product = await prisma.product.findUnique({
+      where: { barcode: barcode },
+      include: {
+        company: true,
+        inventory: true,
+      },
+    });
+
+    if (!product) {
+      return res.status(404).json({
+        error: `Product with barcode ${barcode} not found.`,
+        suggestion:
+          "Check if the barcode is correct or if the product needs to be added to the system.",
+      });
+    }
+
+    // Format the response with all relevant details
+    const productDetails = {
+      id: product.id,
+      name: product.name,
+      description: product.description,
+      price: product.price,
+      barcode: product.barcode,
+
+      // Eyewear categorization
+      eyewearType: product.eyewearType,
+      frameType: product.frameType,
+
+      // Company information
+      company: {
+        id: product.company.id,
+        name: product.company.name,
+        description: product.company.description,
+      },
+
+      // Product attributes
+      material: product.material,
+      color: product.color,
+      size: product.size,
+      model: product.model,
+
+      // Current inventory
+      inventory:
+        product.inventory.length > 0
+          ? {
+              quantity: product.inventory[0].quantity,
+              lastUpdated: product.inventory[0].updatedAt,
+              stockStatus:
+                product.inventory[0].quantity > 10
+                  ? "In Stock"
+                  : product.inventory[0].quantity > 0
+                  ? "Low Stock"
+                  : "Out of Stock",
+            }
+          : {
+              quantity: 0,
+              stockStatus: "No Inventory Record",
+            },
+
+      // Timestamps
+      createdAt: product.createdAt,
+      updatedAt: product.updatedAt,
+    };
+
+    res.status(200).json({
+      success: true,
+      message: "Product found successfully",
+      product: productDetails,
+      scanResult: {
+        scannedBarcode: barcode,
+        productFound: true,
+        quickInfo: `${product.company.name} ${product.eyewearType} - ${product.name} ($${product.price})`,
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching product by barcode:", error);
+    res
+      .status(500)
+      .json({ error: "Something went wrong while fetching product details." });
   }
 };
 

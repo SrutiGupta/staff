@@ -9,12 +9,24 @@ router.post(
   auth,
   inventoryController.updateStockByBarcode
 );
+router.post(
+  "/stock-out-by-barcode",
+  auth,
+  inventoryController.stockOutByBarcode
+);
+
+// Barcode-based product lookup/enlisting
+router.get(
+  "/product/barcode/:barcode",
+  auth,
+  inventoryController.getProductByBarcode
+);
 
 // Product management
 router.post("/product", auth, inventoryController.addProduct);
 router.put("/product/:productId", auth, inventoryController.updateProduct);
 
-// Stock operations
+// Traditional stock operations (by product ID)
 router.post("/stock-in", auth, inventoryController.stockIn);
 router.post("/stock-out", auth, inventoryController.stockOut);
 
