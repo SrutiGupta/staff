@@ -12,12 +12,10 @@ const createCustomerAndInvoice = async (req, res) => {
     !Array.isArray(items) ||
     items.length === 0
   ) {
-    return res
-      .status(400)
-      .json({
-        error:
-          "Missing required fields: customer details and items are required.",
-      });
+    return res.status(400).json({
+      error:
+        "Missing required fields: customer details and items are required.",
+    });
   }
 
   try {
