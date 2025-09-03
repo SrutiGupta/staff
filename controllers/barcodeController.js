@@ -62,11 +62,9 @@ exports.generateBarcodeForProduct = async (req, res) => {
     }
 
     if (!isUnique) {
-      return res
-        .status(500)
-        .json({
-          error: "Unable to generate unique barcode. Please try again.",
-        });
+      return res.status(500).json({
+        error: "Unable to generate unique barcode. Please try again.",
+      });
     }
 
     // Update product with new barcode
