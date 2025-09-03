@@ -1,5 +1,4 @@
-
-const { PrismaClient } = require('@prisma/client');
+const { PrismaClient } = require("@prisma/client");
 const prisma = new PrismaClient();
 
 exports.issueCard = async (req, res) => {
@@ -16,7 +15,7 @@ exports.issueCard = async (req, res) => {
     });
     res.status(201).json(giftCard);
   } catch (error) {
-    res.status(500).json({ error: 'Something went wrong' });
+    res.status(500).json({ error: "Something went wrong" });
   }
 };
 
@@ -29,11 +28,11 @@ exports.redeemCard = async (req, res) => {
     });
 
     if (!giftCard) {
-      return res.status(404).json({ error: 'Gift card not found' });
+      return res.status(404).json({ error: "Gift card not found" });
     }
 
     if (giftCard.balance < amount) {
-      return res.status(400).json({ error: 'Insufficient balance' });
+      return res.status(400).json({ error: "Insufficient balance" });
     }
 
     const updatedGiftCard = await prisma.giftCard.update({
@@ -47,7 +46,7 @@ exports.redeemCard = async (req, res) => {
 
     res.status(200).json(updatedGiftCard);
   } catch (error) {
-    res.status(500).json({ error: 'Something went wrong' });
+    res.status(500).json({ error: "Something went wrong" });
   }
 };
 
@@ -60,11 +59,11 @@ exports.getCardBalance = async (req, res) => {
     });
 
     if (!giftCard) {
-      return res.status(404).json({ error: 'Gift card not found' });
+      return res.status(404).json({ error: "Gift card not found" });
     }
 
     res.status(200).json({ balance: giftCard.balance });
   } catch (error) {
-    res.status(500).json({ error: 'Something went wrong' });
+    res.status(500).json({ error: "Something went wrong" });
   }
 };
