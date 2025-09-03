@@ -89,6 +89,7 @@ model Product {
   description  String?
   price        Float
   barcode      String?       @unique
+  sku          String?       @unique  // Stock Keeping Unit - unique internal identifier
   
   // Eyewear categorization
   eyewearType  EyewearType   // GLASSES, SUNGLASSES, LENSES

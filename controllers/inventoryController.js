@@ -62,15 +62,75 @@ exports.updateStockByBarcode = async (req, res) => {
       });
 
       return {
-        ...inventory,
-        product: updatedProduct,
+        success: true,
+        message: "Stock updated successfully via barcode scan",
+        inventory: {
+          id: inventory.id,
+          productId: inventory.productId,
+          quantity: inventory.quantity,
+          lastUpdated: inventory.updatedAt,
+        },
+        productDetails: {
+          // Product identification
+          id: updatedProduct.id,
+          sku: updatedProduct.sku, // ← SKU (Stock Keeping Unit)
+          barcode: updatedProduct.barcode,
+          name: updatedProduct.name,
+          description: updatedProduct.description,
+
+          // Product specifications
+          model: updatedProduct.model,
+          size: updatedProduct.size,
+          color: updatedProduct.color,
+          material: updatedProduct.material,
+          price: updatedProduct.price,
+
+          // Eyewear categorization
+          eyewearType: updatedProduct.eyewearType,
+          frameType: updatedProduct.frameType,
+
+          // Company information
+          company: {
+            id: updatedProduct.company.id,
+            name: updatedProduct.company.name,
+            description: updatedProduct.company.description,
+          },
+        },
         stockInDetails: {
+          method: "barcode_scan",
+          scannedBarcode: barcode,
           productName: updatedProduct.name,
+          productId: updatedProduct.id,
+          sku: updatedProduct.sku, // ← SKU in operation details
+          model: updatedProduct.model,
+          size: updatedProduct.size,
+          color: updatedProduct.color,
+          price: updatedProduct.price,
           eyewearType: updatedProduct.eyewearType,
           frameType: updatedProduct.frameType,
           company: updatedProduct.company.name,
-          newQuantity: inventory.quantity,
           addedQuantity: quantityInt,
+          newQuantity: inventory.quantity,
+          previousQuantity: inventory.quantity - quantityInt,
+          stockOperation: "STOCK_IN",
+          timestamp: new Date().toISOString(),
+        },
+        inventoryStatus: {
+          currentStock: inventory.quantity,
+          stockLevel:
+            inventory.quantity > 20
+              ? "HIGH"
+              : inventory.quantity > 10
+              ? "MEDIUM"
+              : inventory.quantity > 0
+              ? "LOW"
+              : "OUT_OF_STOCK",
+          statusMessage:
+            inventory.quantity > 10
+              ? "In Stock"
+              : inventory.quantity > 0
+              ? "Low Stock"
+              : "Out of Stock",
         },
       };
     });
@@ -92,6 +152,7 @@ exports.addProduct = async (req, res) => {
     name,
     description,
     barcode,
+    sku, // ← Added SKU support
     price,
     eyewearType,
     frameType,
@@ -139,6 +200,7 @@ exports.addProduct = async (req, res) => {
         name,
         description,
         barcode,
+        sku, // ← Include SKU in product creation
         price: parseFloat(price),
         eyewearType,
         frameType: eyewearType === "LENSES" ? null : frameType,
@@ -235,20 +297,80 @@ exports.stockIn = async (req, res) => {
       });
     }
 
-    // Enhanced response with product details
+    // Enhanced response with complete product details
     const response = {
-      ...inventory,
-      product: product,
+      success: true,
+      message: `Stock-in successful via ${
+        barcode ? "barcode scan" : "product ID"
+      }`,
+      inventory: {
+        id: inventory.id,
+        productId: inventory.productId,
+        quantity: inventory.quantity,
+        lastUpdated: inventory.updatedAt,
+      },
+      productDetails: {
+        // Product identification
+        id: product.id,
+        sku: product.sku, // ← SKU (Stock Keeping Unit)
+        barcode: product.barcode,
+        name: product.name,
+        description: product.description,
+
+        // Product specifications
+        model: product.model,
+        size: product.size,
+        color: product.color,
+        material: product.material,
+        price: product.price,
+
+        // Eyewear categorization
+        eyewearType: product.eyewearType,
+        frameType: product.frameType,
+
+        // Company information
+        company: {
+          id: product.company.id,
+          name: product.company.name,
+          description: product.company.description,
+        },
+      },
       stockInDetails: {
         method: barcode ? "barcode_scan" : "product_id",
         identifier: barcode || productId,
+        scannedBarcode: barcode,
+        productId: product.id,
+        sku: product.sku, // ← SKU in operation details
         productName: product.name,
+        model: product.model,
+        size: product.size,
+        color: product.color,
+        price: product.price,
         eyewearType: product.eyewearType,
         frameType: product.frameType,
         company: product.company.name,
         addedQuantity: parseInt(quantity),
         newQuantity: inventory.quantity,
         previousQuantity: existingInventory ? existingInventory.quantity : 0,
+        stockOperation: "STOCK_IN",
+        timestamp: new Date().toISOString(),
+      },
+      inventoryStatus: {
+        currentStock: inventory.quantity,
+        stockLevel:
+          inventory.quantity > 20
+            ? "HIGH"
+            : inventory.quantity > 10
+            ? "MEDIUM"
+            : inventory.quantity > 0
+            ? "LOW"
+            : "OUT_OF_STOCK",
+        statusMessage:
+          inventory.quantity > 10
+            ? "In Stock"
+            : inventory.quantity > 0
+            ? "Low Stock"
+            : "Out of Stock",
       },
     };
 
@@ -483,6 +605,7 @@ exports.getProductByBarcode = async (req, res) => {
     // Format the response with all relevant details
     const productDetails = {
       id: product.id,
+      sku: product.sku, // ← SKU (Stock Keeping Unit)
       name: product.name,
       description: product.description,
       price: product.price,

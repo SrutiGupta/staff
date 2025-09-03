@@ -10,6 +10,22 @@ function generateUniqueBarcode(productId, companyPrefix = "EYE") {
   return `${companyPrefix}${paddedId}${timestamp}`;
 }
 
+// Generate a unique SKU (Stock Keeping Unit) for a product
+function generateUniqueSKU(
+  productId,
+  companyCode,
+  eyewearType,
+  frameType = null
+) {
+  const paddedId = productId.toString().padStart(4, "0");
+  const eyewearCode = eyewearType.substring(0, 3).toUpperCase(); // GLA, SUN, LEN
+  const frameCode = frameType ? frameType.substring(0, 3).toUpperCase() : "GEN";
+  const timestamp = Date.now().toString().slice(-4); // Last 4 digits
+
+  return `${companyCode}-${eyewearCode}-${frameCode}-${paddedId}-${timestamp}`;
+  // Example: RAY-SUN-AVI-0003-5678 (Ray-Ban Sunglasses Aviator Product#3)
+}
+
 // Generate and assign barcode to a product without barcode
 exports.generateBarcodeForProduct = async (req, res) => {
   const { productId } = req.params;
@@ -89,6 +105,101 @@ exports.generateBarcodeForProduct = async (req, res) => {
     res
       .status(500)
       .json({ error: "Something went wrong while generating barcode." });
+  }
+};
+
+// Generate and assign SKU to a product without SKU
+exports.generateSKUForProduct = async (req, res) => {
+  const { productId } = req.params;
+  const { companyCode } = req.body; // Optional company code override
+
+  try {
+    // Check if product exists and doesn't have a SKU
+    const product = await prisma.product.findUnique({
+      where: { id: parseInt(productId) },
+      include: { company: true },
+    });
+
+    if (!product) {
+      return res.status(404).json({ error: "Product not found." });
+    }
+
+    if (product.sku) {
+      return res.status(400).json({
+        error: "Product already has a SKU.",
+        existingSKU: product.sku,
+      });
+    }
+
+    // Generate unique SKU
+    let newSKU;
+    let isUnique = false;
+    let attempts = 0;
+    const maxAttempts = 10;
+
+    while (!isUnique && attempts < maxAttempts) {
+      const companyCodeToUse =
+        companyCode || product.company.name.substring(0, 3).toUpperCase();
+      newSKU = generateUniqueSKU(
+        product.id,
+        companyCodeToUse,
+        product.eyewearType,
+        product.frameType
+      );
+
+      // Check if SKU is unique
+      const existingProduct = await prisma.product.findUnique({
+        where: { sku: newSKU },
+      });
+
+      if (!existingProduct) {
+        isUnique = true;
+      } else {
+        attempts++;
+        // Add random suffix if collision occurs
+        newSKU += Math.floor(Math.random() * 100)
+          .toString()
+          .padStart(2, "0");
+      }
+    }
+
+    if (!isUnique) {
+      return res.status(500).json({
+        error: "Unable to generate unique SKU. Please try again.",
+      });
+    }
+
+    // Update product with new SKU
+    const updatedProduct = await prisma.product.update({
+      where: { id: parseInt(productId) },
+      data: { sku: newSKU },
+      include: {
+        company: true,
+        inventory: true,
+      },
+    });
+
+    res.status(200).json({
+      message: "SKU generated successfully",
+      product: updatedProduct,
+      generatedSKU: newSKU,
+      skuBreakdown: {
+        company: updatedProduct.company.name.substring(0, 3).toUpperCase(),
+        eyewearType: product.eyewearType.substring(0, 3).toUpperCase(),
+        frameType: product.frameType
+          ? product.frameType.substring(0, 3).toUpperCase()
+          : "GEN",
+        productId: product.id.toString().padStart(4, "0"),
+        timestamp: newSKU.split("-").pop(),
+      },
+      nextStep:
+        "SKU can now be used for internal tracking and inventory management",
+    });
+  } catch (error) {
+    console.error("Error generating SKU for product:", error);
+    res
+      .status(500)
+      .json({ error: "Something went wrong while generating SKU." });
   }
 };
 

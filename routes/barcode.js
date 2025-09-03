@@ -13,6 +13,13 @@ router.post(
   barcodeController.generateBarcodeForProduct
 );
 
+// Generate and assign SKU to a product without SKU
+router.post(
+  "/sku/generate/:productId",
+  auth,
+  barcodeController.generateSKUForProduct
+);
+
 // Get products that don't have barcodes (need barcode generation)
 router.get("/missing", auth, barcodeController.getProductsWithoutBarcodes);
 
