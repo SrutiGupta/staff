@@ -6,19 +6,25 @@ const prisma = new PrismaClient();
 
 // Create a new invoice
 exports.createInvoice = async (req, res) => {
-  const { patientId, prescriptionId, items } = req.body;
+  const { patientId, customerId, prescriptionId, items } = req.body;
   const staffId = req.user.id; // Assuming staffId is available in req.user
 
-  if (!patientId || !items || !Array.isArray(items) || items.length === 0) {
+  // Validate that either patientId or customerId is provided, but not both
+  if ((!patientId && !customerId) || (patientId && customerId)) {
     return res
       .status(400)
-      .json({ error: "Patient ID and at least one item are required." });
+      .json({
+        error: "Either Patient ID or Customer ID is required, but not both.",
+      });
+  }
+
+  if (!items || !Array.isArray(items) || items.length === 0) {
+    return res.status(400).json({ error: "At least one item is required." });
   }
 
   try {
     let subtotal = 0;
     let totalDiscount = 0;
-    let totalIgst = 0;
     let totalCgst = 0;
     let totalSgst = 0;
     const invoiceItems = [];
@@ -44,16 +50,14 @@ exports.createInvoice = async (req, res) => {
 
       const itemSubtotal = product.price * item.quantity;
       const itemDiscount = item.discount || 0;
-      const itemIgst = item.igst || 0;
       const itemCgst = item.cgst || 0;
       const itemSgst = item.sgst || 0;
+      // Note: IGST is handled at invoice level, not item level based on schema
 
-      const totalPrice =
-        itemSubtotal - itemDiscount + itemIgst + itemCgst + itemSgst;
+      const totalPrice = itemSubtotal - itemDiscount + itemCgst + itemSgst;
 
       subtotal += itemSubtotal;
       totalDiscount += itemDiscount;
-      totalIgst += itemIgst;
       totalCgst += itemCgst;
       totalSgst += itemSgst;
 
@@ -62,39 +66,52 @@ exports.createInvoice = async (req, res) => {
         quantity: item.quantity,
         unitPrice: product.price,
         discount: itemDiscount,
-        igst: itemIgst,
         cgst: itemCgst,
         sgst: itemSgst,
         totalPrice: totalPrice,
       });
     }
 
+    // Calculate total IGST at invoice level (can be based on business logic)
+    // For now, setting to 0 but you can add logic here
+    const totalIgst = req.body.totalIgst || 0;
+
     const totalAmount =
       subtotal - totalDiscount + totalIgst + totalCgst + totalSgst;
 
     // Create the invoice and its items in a transaction
     const newInvoice = await prisma.$transaction(async (prisma) => {
-      const invoice = await prisma.invoice.create({
-        data: {
-          patientId,
-          staffId,
-          prescriptionId,
-          subtotal,
-          totalDiscount,
-          totalIgst,
-          totalCgst,
-          totalSgst,
-          totalAmount,
-          items: {
-            create: invoiceItems,
-          },
+      const invoiceData = {
+        staffId,
+        prescriptionId: prescriptionId || null,
+        subtotal,
+        totalDiscount,
+        totalIgst,
+        totalCgst,
+        totalSgst,
+        totalAmount,
+        items: {
+          create: invoiceItems,
         },
+      };
+
+      // Add either patientId or customerId
+      if (patientId) {
+        invoiceData.patientId = patientId;
+      } else {
+        invoiceData.customerId = customerId;
+      }
+
+      const invoice = await prisma.invoice.create({
+        data: invoiceData,
         include: {
           items: {
             include: {
               product: true,
             },
           },
+          patient: true,
+          customer: true,
         },
       });
 
@@ -128,9 +145,15 @@ exports.getInvoice = async (req, res) => {
       where: { id },
       include: {
         patient: true,
+        customer: true,
+        staff: true,
         items: {
           include: {
-            product: true,
+            product: {
+              include: {
+                company: true,
+              },
+            },
           },
         },
         transactions: true,
@@ -167,9 +190,15 @@ exports.generateInvoicePdf = async (req, res) => {
       where: { id },
       include: {
         patient: true,
+        customer: true,
+        staff: true,
         items: {
           include: {
-            product: true,
+            product: {
+              include: {
+                company: true,
+              },
+            },
           },
         },
         prescription: true,
@@ -218,22 +247,28 @@ exports.generateInvoicePdf = async (req, res) => {
       );
 
     // ===== Bill To & Delivery =====
+    const clientInfo = invoice.patient || invoice.customer;
+    const clientName = clientInfo ? clientInfo.name : "Unknown Client";
+    const clientAddress = clientInfo ? clientInfo.address || "" : "";
+    const clientPhone = clientInfo ? clientInfo.phone || "" : "";
+
     doc
       .moveDown()
       .fontSize(11)
       .text("Bill To Address", 40, 160, { underline: true })
-      .text(invoice.patient.name)
-      .text(invoice.patient.address || "")
-      .text(invoice.patient.phone || "");
+      .text(clientName)
+      .text(clientAddress)
+      .text(clientPhone);
 
     doc
       .text("Address Of Delivery", 300, 160, { underline: true })
-      .text(invoice.patient.name)
-      .text(invoice.patient.address || "")
-      .text(invoice.patient.phone || "");
+      .text(clientName)
+      .text(clientAddress)
+      .text(clientPhone);
 
     // ===== Prescription Table =====
-    if (invoice.prescription) {
+    // Only show prescription if the invoice is for a patient and has prescription data
+    if (invoice.prescription && invoice.patient) {
       doc.moveDown().fontSize(11).text("Prescription Details:", 40, 250);
 
       const prescTableTop = 270;
@@ -294,13 +329,21 @@ exports.generateInvoicePdf = async (req, res) => {
 
     invoice.items.forEach((item, i) => {
       const y = itemTableTop + (i + 1) * 20;
+      const productName = item.product
+        ? item.product.name
+        : "Product Not Found";
+      const companyName =
+        item.product && item.product.company
+          ? ` (${item.product.company.name})`
+          : "";
+
       generateTableRow(
         doc,
         y,
-        item.product.name,
+        productName + companyName,
         item.unitPrice.toFixed(2),
         item.discount.toFixed(2),
-        item.igst.toFixed(2),
+        "0.00", // IGST - using 0 as schema doesn't have igst field in InvoiceItem
         item.sgst.toFixed(2),
         item.cgst.toFixed(2),
         item.quantity.toString(),
@@ -349,7 +392,17 @@ exports.generateInvoiceThermal = async (req, res) => {
       where: { id },
       include: {
         patient: true,
-        items: { include: { product: true } },
+        customer: true,
+        staff: true,
+        items: {
+          include: {
+            product: {
+              include: {
+                company: true,
+              },
+            },
+          },
+        },
         prescription: true,
       },
     });
@@ -358,10 +411,12 @@ exports.generateInvoiceThermal = async (req, res) => {
       return res.status(404).json({ error: "Invoice not found" });
     }
 
-    if (!invoice.patient) {
+    // Get client information (either patient or customer)
+    const clientInfo = invoice.patient || invoice.customer;
+    if (!clientInfo) {
       return res
         .status(404)
-        .json({ error: `Patient data not found for invoice ID: ${id}` });
+        .json({ error: `Client data not found for invoice ID: ${id}` });
     }
 
     const center = (text) =>
@@ -397,12 +452,13 @@ exports.generateInvoiceThermal = async (req, res) => {
     receipt.push(separator);
 
     receipt.push("Bill To & Delivery Address:");
-    receipt.push(invoice.patient.name);
-    if (invoice.patient.address) receipt.push(invoice.patient.address);
-    if (invoice.patient.phone) receipt.push(invoice.patient.phone);
+    receipt.push(clientInfo.name);
+    if (clientInfo.address) receipt.push(clientInfo.address);
+    if (clientInfo.phone) receipt.push(clientInfo.phone);
     receipt.push(separator);
 
-    if (invoice.prescription) {
+    // Only show prescription if invoice is for a patient and has prescription data
+    if (invoice.prescription && invoice.patient) {
       receipt.push("Prescription Details:");
       const p = invoice.prescription;
       receipt.push("Eye   SPH    CYL    Axis   Add");
@@ -433,7 +489,12 @@ exports.generateInvoiceThermal = async (req, res) => {
       const productName = item.product
         ? item.product.name
         : "Product Not Found";
-      receipt.push(`${productName}`);
+      const companyName =
+        item.product && item.product.company
+          ? ` (${item.product.company.name})`
+          : "";
+
+      receipt.push(`${productName}${companyName}`);
       receipt.push(
         line(
           `  @ ${item.unitPrice.toFixed(2)}`,
@@ -442,6 +503,10 @@ exports.generateInvoiceThermal = async (req, res) => {
       );
       if (item.discount > 0)
         receipt.push(line("  Discount:", `-${item.discount.toFixed(2)}`));
+      if (item.cgst > 0)
+        receipt.push(line("  CGST:", `${item.cgst.toFixed(2)}`));
+      if (item.sgst > 0)
+        receipt.push(line("  SGST:", `${item.sgst.toFixed(2)}`));
     });
     receipt.push(separator);
 
@@ -471,5 +536,270 @@ exports.generateInvoiceThermal = async (req, res) => {
   } catch (error) {
     console.error("Error generating thermal receipt:", error);
     res.status(500).json({ error: "Failed to generate thermal receipt" });
+  }
+};
+
+// Get all invoices with optional filtering
+exports.getAllInvoices = async (req, res) => {
+  try {
+    const {
+      page = 1,
+      limit = 10,
+      status,
+      patientId,
+      customerId,
+      staffId,
+      startDate,
+      endDate,
+    } = req.query;
+
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const take = parseInt(limit);
+
+    const where = {};
+
+    if (status) where.status = status;
+    if (patientId) where.patientId = parseInt(patientId);
+    if (customerId) where.customerId = parseInt(customerId);
+    if (staffId) where.staffId = parseInt(staffId);
+
+    if (startDate || endDate) {
+      where.createdAt = {};
+      if (startDate) where.createdAt.gte = new Date(startDate);
+      if (endDate) where.createdAt.lte = new Date(endDate);
+    }
+
+    const [invoices, total] = await Promise.all([
+      prisma.invoice.findMany({
+        where,
+        include: {
+          patient: true,
+          customer: true,
+          staff: true,
+          items: {
+            include: {
+              product: {
+                include: {
+                  company: true,
+                },
+              },
+            },
+          },
+          transactions: true,
+        },
+        orderBy: { createdAt: "desc" },
+        skip,
+        take,
+      }),
+      prisma.invoice.count({ where }),
+    ]);
+
+    res.status(200).json({
+      invoices,
+      pagination: {
+        currentPage: parseInt(page),
+        totalPages: Math.ceil(total / take),
+        totalItems: total,
+        itemsPerPage: take,
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching invoices:", error);
+    res.status(500).json({ error: "Failed to fetch invoices." });
+  }
+};
+
+// Update invoice status
+exports.updateInvoiceStatus = async (req, res) => {
+  const { id } = req.params;
+  const { status } = req.body;
+
+  const validStatuses = [
+    "UNPAID",
+    "PAID",
+    "PARTIALLY_PAID",
+    "CANCELLED",
+    "REFUNDED",
+  ];
+
+  if (!validStatuses.includes(status)) {
+    return res.status(400).json({
+      error: `Invalid status. Valid statuses are: ${validStatuses.join(", ")}`,
+    });
+  }
+
+  try {
+    const updatedInvoice = await prisma.invoice.update({
+      where: { id },
+      data: { status },
+      include: {
+        patient: true,
+        customer: true,
+        staff: true,
+        items: {
+          include: {
+            product: true,
+          },
+        },
+        transactions: true,
+      },
+    });
+
+    res.status(200).json(updatedInvoice);
+  } catch (error) {
+    console.error("Error updating invoice status:", error);
+    if (error.code === "P2025") {
+      return res.status(404).json({ error: "Invoice not found." });
+    }
+    res.status(500).json({ error: "Failed to update invoice status." });
+  }
+};
+
+// Add payment to invoice
+exports.addPayment = async (req, res) => {
+  const { id } = req.params;
+  const { amount, paymentMethod, giftCardId } = req.body;
+
+  if (!amount || amount <= 0) {
+    return res.status(400).json({ error: "Valid payment amount is required." });
+  }
+
+  if (!paymentMethod) {
+    return res.status(400).json({ error: "Payment method is required." });
+  }
+
+  try {
+    const result = await prisma.$transaction(async (prisma) => {
+      // Get current invoice
+      const invoice = await prisma.invoice.findUnique({
+        where: { id },
+        include: { transactions: true },
+      });
+
+      if (!invoice) {
+        throw new Error("Invoice not found");
+      }
+
+      // Calculate current paid amount
+      const currentPaidAmount = invoice.transactions.reduce(
+        (sum, transaction) => sum + transaction.amount,
+        0
+      );
+
+      // Check if payment amount is valid
+      const remainingAmount = invoice.totalAmount - currentPaidAmount;
+      if (amount > remainingAmount) {
+        throw new Error(
+          `Payment amount exceeds remaining balance of ${remainingAmount.toFixed(
+            2
+          )}`
+        );
+      }
+
+      // Handle gift card payment
+      if (giftCardId && paymentMethod === "GIFT_CARD") {
+        const giftCard = await prisma.giftCard.findUnique({
+          where: { id: parseInt(giftCardId) },
+        });
+
+        if (!giftCard) {
+          throw new Error("Gift card not found");
+        }
+
+        if (giftCard.balance < amount) {
+          throw new Error("Insufficient gift card balance");
+        }
+
+        // Update gift card balance
+        await prisma.giftCard.update({
+          where: { id: parseInt(giftCardId) },
+          data: { balance: { decrement: amount } },
+        });
+      }
+
+      // Create transaction
+      const transaction = await prisma.transaction.create({
+        data: {
+          invoiceId: id,
+          amount: parseFloat(amount),
+          paymentMethod,
+          giftCardId: giftCardId ? parseInt(giftCardId) : null,
+        },
+      });
+
+      // Update invoice paid amount and status
+      const newPaidAmount = currentPaidAmount + parseFloat(amount);
+      let newStatus = "PARTIALLY_PAID";
+
+      if (newPaidAmount >= invoice.totalAmount) {
+        newStatus = "PAID";
+      } else if (newPaidAmount === 0) {
+        newStatus = "UNPAID";
+      }
+
+      const updatedInvoice = await prisma.invoice.update({
+        where: { id },
+        data: {
+          paidAmount: newPaidAmount,
+          status: newStatus,
+        },
+        include: {
+          patient: true,
+          customer: true,
+          staff: true,
+          items: {
+            include: {
+              product: true,
+            },
+          },
+          transactions: true,
+        },
+      });
+
+      return { invoice: updatedInvoice, transaction };
+    });
+
+    res.status(201).json(result);
+  } catch (error) {
+    console.error("Error adding payment:", error);
+    res.status(500).json({ error: error.message || "Failed to add payment." });
+  }
+};
+
+// Delete invoice (soft delete by updating status)
+exports.deleteInvoice = async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const invoice = await prisma.invoice.findUnique({
+      where: { id },
+      include: { transactions: true },
+    });
+
+    if (!invoice) {
+      return res.status(404).json({ error: "Invoice not found." });
+    }
+
+    // Check if invoice has payments
+    if (invoice.transactions.length > 0) {
+      return res.status(400).json({
+        error:
+          "Cannot delete invoice with existing payments. Please cancel instead.",
+      });
+    }
+
+    // Update status to cancelled instead of hard delete
+    const cancelledInvoice = await prisma.invoice.update({
+      where: { id },
+      data: { status: "CANCELLED" },
+    });
+
+    res.status(200).json({
+      message: "Invoice cancelled successfully",
+      invoice: cancelledInvoice,
+    });
+  } catch (error) {
+    console.error("Error deleting invoice:", error);
+    res.status(500).json({ error: "Failed to delete invoice." });
   }
 };

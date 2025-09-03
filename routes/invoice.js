@@ -1,18 +1,38 @@
-const express = require('express');
+const express = require("express");
 const router = express.Router();
-const invoiceController = require('../controllers/invoiceController');
-const authMiddleware = require('../middleware/auth');
+const invoiceController = require("../controllers/invoiceController");
+const authMiddleware = require("../middleware/auth");
 
-// Create a new invoice
-router.post('/', authMiddleware, invoiceController.createInvoice);
+// Get all invoices with optional filtering - REQUIRES AUTH
+router.get("/", authMiddleware, invoiceController.getAllInvoices);
 
-// Get a single invoice by ID
-router.get('/:id', invoiceController.getInvoice);
+// Create a new invoice - REQUIRES AUTH
+router.post("/", authMiddleware, invoiceController.createInvoice);
 
-// Generate a PDF for an invoice
-router.get('/:id/pdf', invoiceController.generateInvoicePdf);
+// Get a single invoice by ID - REQUIRES AUTH
+router.get("/:id", authMiddleware, invoiceController.getInvoice);
 
-// Generate a plain text receipt for thermal printing
-router.get('/:id/thermal', invoiceController.generateInvoiceThermal);
+// Update invoice status - REQUIRES AUTH
+router.patch(
+  "/:id/status",
+  authMiddleware,
+  invoiceController.updateInvoiceStatus
+);
+
+// Add payment to invoice - REQUIRES AUTH
+router.post("/:id/payment", authMiddleware, invoiceController.addPayment);
+
+// Delete/Cancel invoice - REQUIRES AUTH
+router.delete("/:id", authMiddleware, invoiceController.deleteInvoice);
+
+// Generate a PDF for an invoice - REQUIRES AUTH
+router.get("/:id/pdf", authMiddleware, invoiceController.generateInvoicePdf);
+
+// Generate a plain text receipt for thermal printing - REQUIRES AUTH
+router.get(
+  "/:id/thermal",
+  authMiddleware,
+  invoiceController.generateInvoiceThermal
+);
 
 module.exports = router;
