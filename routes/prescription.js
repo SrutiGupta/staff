@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const prescriptionController = require("../controllers/prescriptionController");
 const authMiddleware = require("../middleware/auth");
+const invoiceController = require("../controllers/invoiceController");
 
 // Create a new prescription
 router.post("/", authMiddleware, prescriptionController.createPrescription);
@@ -12,11 +13,11 @@ router.get("/", authMiddleware, prescriptionController.getAllPrescriptions);
 // Get a prescription by ID
 router.get("/:id", authMiddleware, prescriptionController.getPrescription);
 
-// Generate PDF for prescription's invoice
+// invoice.routes.js
 router.get(
   "/:id/pdf",
   authMiddleware,
-  prescriptionController.generatePrescriptionPdf
+  invoiceController.generateInvoicePdf
 );
 
 // Generate thermal print for prescription's invoice
