@@ -26,7 +26,7 @@ router.post("/:id/payment", authMiddleware, invoiceController.addPayment);
 router.delete("/:id", authMiddleware, invoiceController.deleteInvoice);
 
 // Generate a PDF for an invoice - REQUIRES AUTH
-router.get("/:id/pdf", authMiddleware, invoiceController.generateInvoicePdf);
+router.post("/pdf", authMiddleware, invoiceController.generateInvoicePdf);
 
 // Generate a plain text receipt for thermal printing - REQUIRES AUTH
 router.get(

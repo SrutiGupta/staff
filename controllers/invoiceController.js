@@ -1,5 +1,6 @@
 const { PrismaClient } = require("@prisma/client");
 const PDFDocument = require("pdfkit");
+const bwipjs = require("bwip-js");
 require("dotenv").config();
 
 const prisma = new PrismaClient();
@@ -11,11 +12,9 @@ exports.createInvoice = async (req, res) => {
 
   // Validate that either patientId or customerId is provided, but not both
   if ((!patientId && !customerId) || (patientId && customerId)) {
-    return res
-      .status(400)
-      .json({
-        error: "Either Patient ID or Customer ID is required, but not both.",
-      });
+    return res.status(400).json({
+      error: "Either Patient ID or Customer ID is required, but not both.",
+    });
   }
 
   if (!items || !Array.isArray(items) || items.length === 0) {
@@ -183,203 +182,115 @@ function generateTableRow(doc, y, ...cols) {
 
 // Generate and stream an invoice PDF
 exports.generateInvoicePdf = async (req, res) => {
-  const { id } = req.params;
+  const invoice = req.body; // ✅ take data from request body
+  const doc = new PDFDocument({ margin: 30, size: "A4" });
 
-  try {
-    const invoice = await prisma.invoice.findUnique({
-      where: { id },
-      include: {
-        patient: true,
-        customer: true,
-        staff: true,
-        items: {
-          include: {
-            product: {
-              include: {
-                company: true,
-              },
-            },
-          },
-        },
-        prescription: true,
-      },
+  // --- STREAM RESPONSE ---
+  res.setHeader("Content-Type", "application/pdf");
+  res.setHeader(
+    "Content-Disposition",
+    `attachment; filename=invoice-${invoice.invoiceNo}.pdf`
+  );
+  doc.pipe(res);
+
+  // --- HEADER ---
+  doc
+    .fontSize(18)
+    .text("Clear Eyes Optical", { align: "center" })
+    .moveDown(0.2);
+  doc
+    .fontSize(10)
+    .text("68 Jessore Road, Diamond Plaza", { align: "center" })
+    .text("Kolkata +91-96765 43210", { align: "center" });
+
+  // --- BARCODE ---
+  const barcodePng = await bwipjs.toBuffer({
+    bcid: "code128",
+    text: invoice.invoiceNo, // from req.body
+    scale: 2,
+    height: 10,
+    includetext: false,
+  });
+  doc.image(barcodePng, 430, 50, { width: 120, height: 40 });
+  doc.fontSize(10).text(invoice.invoiceNo, 460, 95);
+
+  // --- INVOICE INFO ---
+  doc.fontSize(10).text(`Invoice No: ${invoice.invoiceNo}`, 40, 120);
+  doc.text(`Date: ${invoice.date}`, 450, 120);
+
+  // --- CUSTOMER INFO ---
+  doc.moveDown(1);
+  doc
+    .fontSize(11)
+    .text(`Customer Name: ${invoice.customer.name}`)
+    .text(`Mobile: ${invoice.customer.phone}`);
+
+  // --- CUSTOMER EYE POWER TABLE ---
+  doc.moveDown(1);
+  doc.fontSize(11).text("Customer Eye Power");
+
+  const tableTop = 200;
+  const colX = [40, 120, 200, 280, 360];
+
+  // Header row
+  doc.fontSize(10).text("Eye", colX[0], tableTop);
+  doc.text("Sphere", colX[1], tableTop);
+  doc.text("Cylinder", colX[2], tableTop);
+  doc.text("Axis", colX[3], tableTop);
+  doc.text("GST", colX[4], tableTop);
+
+  // Rows from req.body.eyePower
+  invoice.eyePower.forEach((eye, i) => {
+    const y = tableTop + 20 * (i + 1);
+    doc.text(eye.eye, colX[0], y);
+    doc.text(eye.sphere.toString(), colX[1], y);
+    doc.text(eye.cylinder.toString(), colX[2], y);
+    doc.text(eye.axis.toString(), colX[3], y);
+    doc.text(eye.gst.toString(), colX[4], y);
+  });
+
+  // --- PRODUCT DETAILS TABLE ---
+  doc.moveDown(3);
+  doc.fontSize(11).text("Product Details");
+
+  const prodTableTop = tableTop + 80;
+  const prodCols = [40, 200, 260, 330, 400];
+
+  doc.fontSize(10).text("Product", prodCols[0], prodTableTop);
+  doc.text("Qty", prodCols[1], prodTableTop);
+  doc.text("Rate", prodCols[2], prodTableTop);
+  doc.text("Discount", prodCols[3], prodTableTop);
+  doc.text("Total", prodCols[4], prodTableTop);
+
+  invoice.products.forEach((p, i) => {
+    const y = prodTableTop + 20 * (i + 1);
+    doc.text(p.name, prodCols[0], y);
+    doc.text(p.qty.toString(), prodCols[1], y);
+    doc.text(p.rate.toString(), prodCols[2], y);
+    doc.text(`${p.discount}%`, prodCols[3], y);
+    doc.text(p.total.toString(), prodCols[4], y);
+  });
+
+  // --- SUMMARY ---
+  doc.moveDown(4);
+  doc
+    .fontSize(10)
+    .text(`Subtotal: ${invoice.subtotal}`, { align: "right" })
+    .text(`GST (Included): ${invoice.gst}`, { align: "right" })
+    .text(`Advance Paid: ${invoice.advancePaid}`, { align: "right" })
+    .fontSize(12)
+    .text(`Balance: ${invoice.balance}`, { align: "right" });
+
+  // --- FOOTER ---
+  doc.moveDown(2);
+  doc.fontSize(11).text("Thank You for Shopping with Us!", { align: "center" });
+  doc
+    .fontSize(9)
+    .text("Visit again. Follow us on Instagram @cleareyes_optical", {
+      align: "center",
     });
 
-    if (!invoice) {
-      return res.status(404).json({ error: "Invoice not found" });
-    }
-
-    const doc = new PDFDocument({ margin: 30, size: "A4" });
-
-    res.setHeader("Content-Type", "application/pdf");
-    res.setHeader(
-      "Content-Disposition",
-      `attachment; filename=invoice-${invoice.id}.pdf`
-    );
-
-    doc.pipe(res);
-
-    // ===== Header =====
-    doc.fontSize(16).text("Tax Invoice", 250, 40, { align: "center" });
-
-    doc
-      .fontSize(10)
-      .text("LENSKART SOLUTIONS PRIVATE LIMITED", 250, 60, { align: "center" })
-      .text("Property No 29/24/2, 25/2/1 ... Gurugram (06) - 122004", 250, 75, {
-        align: "center",
-      });
-
-    // Right top box (Shipment details)
-    doc
-      .rect(450, 40, 120, 100)
-      .stroke()
-      .fontSize(10)
-      .text(`Shipment Code: ${invoice.id}`, 455, 50)
-      .text(`Order #: ${invoice.id}`, 455, 65)
-      .text(`Order Date: ${invoice.createdAt.toLocaleDateString()}`, 455, 80)
-      .text(
-        `Total Quantity: ${invoice.items.reduce(
-          (acc, item) => acc + item.quantity,
-          0
-        )}`,
-        455,
-        95
-      );
-
-    // ===== Bill To & Delivery =====
-    const clientInfo = invoice.patient || invoice.customer;
-    const clientName = clientInfo ? clientInfo.name : "Unknown Client";
-    const clientAddress = clientInfo ? clientInfo.address || "" : "";
-    const clientPhone = clientInfo ? clientInfo.phone || "" : "";
-
-    doc
-      .moveDown()
-      .fontSize(11)
-      .text("Bill To Address", 40, 160, { underline: true })
-      .text(clientName)
-      .text(clientAddress)
-      .text(clientPhone);
-
-    doc
-      .text("Address Of Delivery", 300, 160, { underline: true })
-      .text(clientName)
-      .text(clientAddress)
-      .text(clientPhone);
-
-    // ===== Prescription Table =====
-    // Only show prescription if the invoice is for a patient and has prescription data
-    if (invoice.prescription && invoice.patient) {
-      doc.moveDown().fontSize(11).text("Prescription Details:", 40, 250);
-
-      const prescTableTop = 270;
-      const p = invoice.prescription;
-      const rightEye = p.rightEye || {};
-      const leftEye = p.leftEye || {};
-      generateTableRow(
-        doc,
-        prescTableTop,
-        "Eye",
-        "SPH",
-        "CYL",
-        "Axis",
-        "Add",
-        "PD",
-        "BC"
-      );
-      generateTableRow(
-        doc,
-        prescTableTop + 20,
-        "Right",
-        rightEye.sph || "",
-        rightEye.cyl || "",
-        rightEye.axis || "",
-        rightEye.add || "",
-        rightEye.pd || "",
-        rightEye.bc || ""
-      );
-      generateTableRow(
-        doc,
-        prescTableTop + 40,
-        "Left",
-        leftEye.sph || "",
-        leftEye.cyl || "",
-        leftEye.axis || "",
-        leftEye.add || "",
-        leftEye.pd || "",
-        leftEye.bc || ""
-      );
-    }
-
-    // ===== Item Table =====
-    doc.moveDown().text("Description Of Goods", 40, 350);
-
-    const itemTableTop = 370;
-    generateTableRow(
-      doc,
-      itemTableTop,
-      "Description",
-      "Unit Price",
-      "Discount",
-      "IGST",
-      "SGST",
-      "CGST",
-      "QTY",
-      "Total"
-    );
-
-    invoice.items.forEach((item, i) => {
-      const y = itemTableTop + (i + 1) * 20;
-      const productName = item.product
-        ? item.product.name
-        : "Product Not Found";
-      const companyName =
-        item.product && item.product.company
-          ? ` (${item.product.company.name})`
-          : "";
-
-      generateTableRow(
-        doc,
-        y,
-        productName + companyName,
-        item.unitPrice.toFixed(2),
-        item.discount.toFixed(2),
-        "0.00", // IGST - using 0 as schema doesn't have igst field in InvoiceItem
-        item.sgst.toFixed(2),
-        item.cgst.toFixed(2),
-        item.quantity.toString(),
-        item.totalPrice.toFixed(2)
-      );
-    });
-
-    // ===== Summary =====
-    doc
-      .moveDown()
-      .fontSize(11)
-      .text(`Subtotal: ${invoice.subtotal.toFixed(2)}`, { align: "right" })
-      .text(`Discount: ${invoice.totalDiscount.toFixed(2)}`, { align: "right" })
-      .text(`IGST: ${invoice.totalIgst.toFixed(2)}`, { align: "right" })
-      .text(`CGST: ${invoice.totalCgst.toFixed(2)}`, { align: "right" })
-      .text(`SGST: ${invoice.totalSgst.toFixed(2)}`, { align: "right" })
-      .text(`Grand Total: ${invoice.totalAmount.toFixed(2)}`, {
-        align: "right",
-      });
-
-    // ===== Footer =====
-    doc
-      .moveDown()
-      .fontSize(9)
-      .text(
-        "Disclaimer: This is computer generated invoice and does not require signature",
-        40,
-        700
-      )
-      .text("For T&C please visit www.lenskart.com", 40, 715);
-
-    doc.end();
-  } catch (error) {
-    console.error("Error generating PDF:", error);
-    res.status(500).json({ error: "Failed to generate PDF invoice" });
-  }
+  doc.end();
 };
 
 // Generate a plain text receipt for thermal printing
