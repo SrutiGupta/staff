@@ -101,3 +101,99 @@ exports.getAllPrescriptions = async (req, res) => {
     res.status(500).json({ error: "Failed to fetch prescriptions." });
   }
 };
+
+// Generate PDF for prescription's invoice
+exports.generatePrescriptionPdf = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const prescriptionId = parseInt(id);
+
+    // Find the invoice that uses this prescription
+    const invoice = await prisma.invoice.findFirst({
+      where: { prescriptionId },
+      include: {
+        patient: true,
+        customer: true,
+        staff: true,
+        items: {
+          include: {
+            product: {
+              include: {
+                company: true,
+              },
+            },
+          },
+        },
+        prescription: true,
+      },
+    });
+
+    if (!invoice) {
+      return res.status(404).json({
+        error:
+          "No invoice found for this prescription ID. Please create an invoice that uses prescriptionId: " +
+          prescriptionId +
+          " first.",
+      });
+    }
+
+    // Use the existing invoice PDF generation logic
+    const invoiceController = require("./invoiceController");
+
+    // Temporarily set the invoice ID in params and call the existing function
+    req.params.id = invoice.id;
+    return await invoiceController.generateInvoicePdf(req, res);
+  } catch (error) {
+    console.error("Error generating prescription PDF:", error);
+    res.status(500).json({ error: "Failed to generate prescription PDF" });
+  }
+};
+
+// Generate thermal print for prescription's invoice
+exports.generatePrescriptionThermal = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const prescriptionId = parseInt(id);
+
+    // Find the invoice that uses this prescription
+    const invoice = await prisma.invoice.findFirst({
+      where: { prescriptionId },
+      include: {
+        patient: true,
+        customer: true,
+        staff: true,
+        items: {
+          include: {
+            product: {
+              include: {
+                company: true,
+              },
+            },
+          },
+        },
+        prescription: true,
+      },
+    });
+
+    if (!invoice) {
+      return res.status(404).json({
+        error:
+          "No invoice found for this prescription ID. Please create an invoice that uses prescriptionId: " +
+          prescriptionId +
+          " first.",
+      });
+    }
+
+    // Use the existing invoice thermal generation logic
+    const invoiceController = require("./invoiceController");
+
+    // Temporarily set the invoice ID in params and call the existing function
+    req.params.id = invoice.id;
+    return await invoiceController.generateInvoiceThermal(req, res);
+  } catch (error) {
+    console.error("Error generating prescription thermal:", error);
+    res
+      .status(500)
+      .json({ error: "Failed to generate prescription thermal print" });
+  }
+};
