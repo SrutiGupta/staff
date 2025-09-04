@@ -1,138 +1,520 @@
-# Invoice System API Documentation
+# Complete Invoice System API Documentation
 
 ## Overview
 
-The Invoice System has been completely rewritten to support both customers and patients with comprehensive validation, standardized response formats, and proper authentication for all endpoints.
+This comprehensive API documentation covers the complete invoice system including patient management, customer management, prescription handling, invoice generation, PDF creation, and thermal printing.
 
 ## Authentication
 
-All endpoints require Bearer Token authentication except where noted.
+All endpoints require Bearer Token authentication:
 
-## Standard Response Format
-
-All endpoints follow a consistent response format:
-
-### Success Response:
-
-```json
-{
-  "success": true,
-  "message": "Operation description",
-  "data": {
-    /* actual data */
-  }
-}
+```
+Authorization: Bearer YOUR_JWT_TOKEN
 ```
 
-### Error Response:
+## Base URL
 
-```json
-{
-  "success": false,
-  "error": "Error description",
-  "data": null
-}
+```
+http://localhost:3000/api
 ```
 
-## API Endpoints
+---
 
-### 1. Create Invoice
+## 🏥 PATIENT MANAGEMENT
 
-**POST** `/api/invoice`
+### 1. Create Patient
 
-**Authentication:** Required
+**POST** `/api/patient`
 
 **Request Body:**
 
 ```json
 {
-  "patientId": 1, // Optional: For patient invoices
-  "customerId": 2, // Optional: For customer invoices
-  "prescriptionId": 3, // Optional: Link to prescription
-  "totalIgst": 18.0, // Optional: Total IGST amount
+  "name": "John Doe",
+  "age": 35,
+  "gender": "Male",
+  "phone": "+91-9876543210",
+  "address": "123 Main Street, City",
+  "medicalHistory": "No significant medical history"
+}
+```
+
+**Response (201):**
+
+```json
+{
+  "id": 1,
+  "name": "John Doe",
+  "age": 35,
+  "gender": "Male",
+  "phone": "+91-9876543210",
+  "address": "123 Main Street, City",
+  "medicalHistory": "No significant medical history",
+  "createdAt": "2025-09-04T10:30:00.000Z",
+  "updatedAt": "2025-09-04T10:30:00.000Z"
+}
+```
+
+### 2. Get All Patients
+
+**GET** `/api/patient?page=1&limit=10&search=john`
+
+**Query Parameters:**
+
+- `page`: Page number (default: 1)
+- `limit`: Items per page (default: 10)
+- `search`: Search by name or phone
+
+**Response (200):**
+
+```json
+{
+  "patients": [
+    {
+      "id": 1,
+      "name": "John Doe",
+      "age": 35,
+      "gender": "Male",
+      "phone": "+91-9876543210",
+      "address": "123 Main Street, City",
+      "medicalHistory": "No significant medical history",
+      "createdAt": "2025-09-04T10:30:00.000Z",
+      "updatedAt": "2025-09-04T10:30:00.000Z"
+    }
+  ],
+  "total": 1,
+  "page": 1,
+  "totalPages": 1
+}
+```
+
+### 3. Get Single Patient
+
+**GET** `/api/patient/:id`
+
+**Response (200):**
+
+```json
+{
+  "id": 1,
+  "name": "John Doe",
+  "age": 35,
+  "gender": "Male",
+  "phone": "+91-9876543210",
+  "address": "123 Main Street, City",
+  "medicalHistory": "No significant medical history",
+  "prescriptions": [
+    {
+      "id": 1,
+      "rightEye": { "sph": "-1.25", "cyl": "-0.50", "axis": "180" },
+      "leftEye": { "sph": "-1.50", "cyl": "-0.75", "axis": "170" },
+      "createdAt": "2025-09-04T10:35:00.000Z"
+    }
+  ],
+  "invoices": [
+    {
+      "id": "cmf47cx1r0001uswopqybr7e4",
+      "totalAmount": 4220.0,
+      "status": "PAID"
+    }
+  ],
+  "createdAt": "2025-09-04T10:30:00.000Z",
+  "updatedAt": "2025-09-04T10:30:00.000Z"
+}
+```
+
+---
+
+## 👥 CUSTOMER MANAGEMENT
+
+### 1. Create Customer
+
+**POST** `/api/customer`
+
+**Request Body:**
+
+```json
+{
+  "name": "Jane Smith",
+  "phone": "+91-9876543210",
+  "address": "456 Oak Ave, Sometown, USA"
+}
+```
+
+**Response (201):**
+
+```json
+{
+  "id": 1,
+  "name": "Jane Smith",
+  "phone": "+91-9876543210",
+  "address": "456 Oak Ave, Sometown, USA",
+  "createdAt": "2025-09-04T10:30:00.000Z",
+  "updatedAt": "2025-09-04T10:30:00.000Z"
+}
+```
+
+### 2. Get All Customers
+
+**GET** `/api/customer?page=1&limit=10&search=jane`
+
+**Response (200):**
+
+```json
+{
+  "customers": [
+    {
+      "id": 1,
+      "name": "Jane Smith",
+      "phone": "+91-9876543210",
+      "address": "456 Oak Ave, Sometown, USA",
+      "createdAt": "2025-09-04T10:30:00.000Z",
+      "updatedAt": "2025-09-04T10:30:00.000Z"
+    }
+  ],
+  "total": 1,
+  "page": 1,
+  "totalPages": 1
+}
+```
+
+### 3. Get Single Customer
+
+**GET** `/api/customer/:id`
+
+**Response (200):**
+
+```json
+{
+  "id": 1,
+  "name": "Jane Smith",
+  "phone": "+91-9876543210",
+  "address": "456 Oak Ave, Sometown, USA",
+  "invoices": [
+    {
+      "id": "cmf47cx1r0001uswopqybr7e4",
+      "totalAmount": 150.0,
+      "status": "PAID",
+      "items": [
+        {
+          "id": 1,
+          "quantity": 1,
+          "unitPrice": 150.0,
+          "product": {
+            "name": "Ray-Ban Aviator Classic"
+          }
+        }
+      ]
+    }
+  ],
+  "createdAt": "2025-09-04T10:30:00.000Z",
+  "updatedAt": "2025-09-04T10:30:00.000Z"
+}
+```
+
+### 4. Create Customer + Invoice (Walk-in)
+
+**POST** `/api/customer/invoice`
+
+**Request Body:**
+
+```json
+{
+  "customer": {
+    "name": "Walk-in Customer",
+    "phone": "+91-9876543210",
+    "address": "123 Street, City"
+  },
   "items": [
     {
-      "productId": 5,
+      "productId": 1,
+      "quantity": 1,
+      "unitPrice": 2500,
+      "discount": 250
+    }
+  ],
+  "staffId": 1,
+  "paidAmount": 1000,
+  "paymentMethod": "cash"
+}
+```
+
+### 5. Get Address Hotspots
+
+**GET** `/api/customer/hotspots`
+
+**Response (200):**
+
+```json
+[
+  {
+    "address": "Main Street",
+    "customerCount": 15
+  },
+  {
+    "address": "Oak Avenue",
+    "customerCount": 12
+  }
+]
+```
+
+---
+
+## 👁️ PRESCRIPTION MANAGEMENT
+
+### 1. Create Prescription
+
+**POST** `/api/prescription`
+
+**Request Body:**
+
+```json
+{
+  "patientId": 1,
+  "rightEye": {
+    "sph": "-1.25",
+    "cyl": "-0.50",
+    "axis": "180",
+    "add": "0.00",
+    "pd": "32",
+    "bc": "8.6"
+  },
+  "leftEye": {
+    "sph": "-1.50",
+    "cyl": "-0.75",
+    "axis": "170",
+    "add": "0.00",
+    "pd": "32",
+    "bc": "8.6"
+  }
+}
+```
+
+**Response (201):**
+
+```json
+{
+  "id": 1,
+  "patientId": 1,
+  "rightEye": {
+    "sph": "-1.25",
+    "cyl": "-0.50",
+    "axis": "180",
+    "add": "0.00",
+    "pd": "32",
+    "bc": "8.6"
+  },
+  "leftEye": {
+    "sph": "-1.50",
+    "cyl": "-0.75",
+    "axis": "170",
+    "add": "0.00",
+    "pd": "32",
+    "bc": "8.6"
+  },
+  "createdAt": "2025-09-04T10:35:00.000Z",
+  "updatedAt": "2025-09-04T10:35:00.000Z"
+}
+```
+
+### 2. Get All Prescriptions
+
+**GET** `/api/prescription?page=1&limit=10&patientId=1`
+
+**Response (200):**
+
+```json
+{
+  "prescriptions": [
+    {
+      "id": 1,
+      "patientId": 1,
+      "rightEye": { "sph": "-1.25", "cyl": "-0.50", "axis": "180" },
+      "leftEye": { "sph": "-1.50", "cyl": "-0.75", "axis": "170" },
+      "patient": {
+        "id": 1,
+        "name": "John Doe"
+      },
+      "createdAt": "2025-09-04T10:35:00.000Z"
+    }
+  ],
+  "total": 1,
+  "page": 1,
+  "totalPages": 1
+}
+```
+
+### 3. Get Single Prescription
+
+**GET** `/api/prescription/:id`
+
+**Response (200):**
+
+```json
+{
+  "id": 1,
+  "patientId": 1,
+  "rightEye": {
+    "sph": "-1.25",
+    "cyl": "-0.50",
+    "axis": "180",
+    "add": "0.00",
+    "pd": "32",
+    "bc": "8.6"
+  },
+  "leftEye": {
+    "sph": "-1.50",
+    "cyl": "-0.75",
+    "axis": "170",
+    "add": "0.00",
+    "pd": "32",
+    "bc": "8.6"
+  },
+  "patient": {
+    "id": 1,
+    "name": "John Doe",
+    "age": 35,
+    "gender": "Male"
+  },
+  "createdAt": "2025-09-04T10:35:00.000Z",
+  "updatedAt": "2025-09-04T10:35:00.000Z"
+}
+```
+
+---
+
+## 🧾 INVOICE MANAGEMENT
+
+### 1. Create Invoice
+
+**POST** `/api/invoice`
+
+**For Patient Invoice:**
+
+```json
+{
+  "patientId": 1,
+  "prescriptionId": 1,
+  "items": [
+    {
+      "productId": 1,
+      "quantity": 1,
+      "unitPrice": 2500,
+      "discount": 250
+    },
+    {
+      "productId": 2,
       "quantity": 2,
-      "discount": 10.0, // Optional: Item discount
-      "cgst": 9.0, // Optional: CGST amount
-      "sgst": 9.0 // Optional: SGST amount
+      "unitPrice": 800,
+      "discount": 80
     }
   ]
 }
 ```
 
-**Validation Rules:**
-
-- Either `patientId` OR `customerId` required (not both)
-- `items` array must contain at least one item
-- Each item must have valid `productId` and `quantity > 0`
-
-**Success Response (201):**
+**For Customer Invoice:**
 
 ```json
 {
-  "success": true,
-  "message": "Invoice created successfully",
-  "data": {
-    "id": "clz8h3f0d0001p7bkhs8g4f8c",
-    "patientId": 1,
-    "customerId": null,
-    "staffId": 1,
-    "subtotal": 300.00,
-    "totalDiscount": 20.00,
-    "totalIgst": 18.00,
-    "totalCgst": 18.00,
-    "totalSgst": 18.00,
-    "totalAmount": 334.00,
-    "paidAmount": 0,
-    "status": "UNPAID",
-    "items": [...],
-    "patient": {...},
-    "customer": null,
-    "staff": {...}
+  "customerId": 1,
+  "items": [
+    {
+      "productId": 1,
+      "quantity": 1,
+      "unitPrice": 150,
+      "discount": 0
+    }
+  ]
+}
+```
+
+**Response (201):**
+
+```json
+{
+  "id": "cmf47cx1r0001uswopqybr7e4",
+  "patientId": 1,
+  "customerId": null,
+  "staffId": 1,
+  "prescriptionId": 1,
+  "subtotal": 3770.0,
+  "totalDiscount": 330.0,
+  "totalIgst": 0.0,
+  "totalCgst": 332.1,
+  "totalSgst": 332.1,
+  "totalAmount": 4104.2,
+  "paidAmount": 0.0,
+  "status": "UNPAID",
+  "createdAt": "2025-09-04T10:40:00.000Z",
+  "updatedAt": "2025-09-04T10:40:00.000Z",
+  "items": [
+    {
+      "id": 1,
+      "productId": 1,
+      "quantity": 1,
+      "unitPrice": 2500.0,
+      "discount": 250.0,
+      "cgst": 202.5,
+      "sgst": 202.5,
+      "totalPrice": 2250.0,
+      "product": {
+        "name": "Premium Frame Model XYZ",
+        "company": {
+          "name": "Acme Eyewear"
+        }
+      }
+    }
+  ],
+  "patient": {
+    "id": 1,
+    "name": "John Doe"
   }
 }
 ```
 
 ### 2. Get All Invoices
 
-**GET** `/api/invoice`
-
-**Authentication:** Required
+**GET** `/api/invoice?page=1&limit=10&status=PAID&patientId=1&prescriptionId=1`
 
 **Query Parameters:**
 
-```
-?page=1&limit=10&status=PAID&patientId=1&customerId=2&staffId=1&startDate=2025-01-01&endDate=2025-12-31
-```
-
-**Parameters:**
-
-- `page`: Page number (default: 1, min: 1)
-- `limit`: Items per page (default: 10, min: 1, max: 100)
-- `status`: Filter by status (UNPAID, PAID, PARTIALLY_PAID, CANCELLED, REFUNDED)
+- `page`: Page number (default: 1)
+- `limit`: Items per page (default: 10)
+- `status`: UNPAID, PAID, PARTIALLY_PAID, CANCELLED, REFUNDED
 - `patientId`: Filter by patient ID
 - `customerId`: Filter by customer ID
 - `staffId`: Filter by staff ID
-- `startDate`: Filter by creation date (YYYY-MM-DD)
-- `endDate`: Filter by creation date (YYYY-MM-DD)
+- `prescriptionId`: Filter by prescription ID
+- `startDate`: Filter by date (YYYY-MM-DD)
+- `endDate`: Filter by date (YYYY-MM-DD)
 
-**Success Response (200):**
+**Response (200):**
 
 ```json
 {
-  "success": true,
-  "message": "Invoices retrieved successfully",
-  "data": {
-    "invoices": [...],
-    "pagination": {
-      "currentPage": 1,
-      "totalPages": 5,
-      "totalItems": 50,
-      "itemsPerPage": 10
+  "invoices": [
+    {
+      "id": "cmf47cx1r0001uswopqybr7e4",
+      "patientId": 1,
+      "totalAmount": 4104.2,
+      "status": "PAID",
+      "createdAt": "2025-09-04T10:40:00.000Z",
+      "patient": {
+        "name": "John Doe"
+      },
+      "items": [
+        {
+          "quantity": 1,
+          "product": {
+            "name": "Premium Frame Model XYZ"
+          }
+        }
+      ]
     }
-  }
+  ],
+  "total": 1,
+  "page": 1,
+  "totalPages": 1
 }
 ```
 
@@ -140,31 +522,54 @@ All endpoints follow a consistent response format:
 
 **GET** `/api/invoice/:id`
 
-**Authentication:** Required
-
-**Success Response (200):**
+**Response (200):**
 
 ```json
 {
-  "success": true,
-  "message": "Invoice retrieved successfully",
-  "data": {
-    "id": "clz8h3f0d0001p7bkhs8g4f8c",
-    "patient": {...},
-    "customer": {...},
-    "staff": {...},
-    "items": [...],
-    "transactions": [...],
-    "prescription": {...}
-  }
+  "id": "cmf47cx1r0001uswopqybr7e4",
+  "patientId": 1,
+  "prescriptionId": 1,
+  "subtotal": 3770.0,
+  "totalAmount": 4104.2,
+  "status": "PAID",
+  "patient": {
+    "id": 1,
+    "name": "John Doe",
+    "phone": "+91-9876543210"
+  },
+  "prescription": {
+    "id": 1,
+    "rightEye": { "sph": "-1.25", "cyl": "-0.50", "axis": "180" },
+    "leftEye": { "sph": "-1.50", "cyl": "-0.75", "axis": "170" }
+  },
+  "items": [
+    {
+      "id": 1,
+      "quantity": 1,
+      "unitPrice": 2500.0,
+      "totalPrice": 2250.0,
+      "product": {
+        "name": "Premium Frame Model XYZ",
+        "company": {
+          "name": "Acme Eyewear"
+        }
+      }
+    }
+  ],
+  "transactions": [
+    {
+      "id": 1,
+      "amount": 4104.2,
+      "paymentMethod": "CASH",
+      "createdAt": "2025-09-04T11:00:00.000Z"
+    }
+  ]
 }
 ```
 
 ### 4. Update Invoice Status
 
 **PATCH** `/api/invoice/:id/status`
-
-**Authentication:** Required
 
 **Request Body:**
 
@@ -174,216 +579,256 @@ All endpoints follow a consistent response format:
 }
 ```
 
-**Valid Statuses:**
-
-- UNPAID
-- PAID
-- PARTIALLY_PAID
-- CANCELLED
-- REFUNDED
-
-**Success Response (200):**
-
-```json
-{
-  "success": true,
-  "message": "Invoice status updated successfully",
-  "data": {
-    /* updated invoice object */
-  }
-}
-```
+**Valid Statuses:** UNPAID, PAID, PARTIALLY_PAID, CANCELLED, REFUNDED
 
 ### 5. Add Payment
 
 **POST** `/api/invoice/:id/payment`
 
-**Authentication:** Required
-
 **Request Body:**
 
 ```json
 {
-  "amount": 150.0,
+  "amount": 2000.0,
   "paymentMethod": "CASH",
-  "giftCardId": 5 // Optional: For gift card payments
+  "giftCardId": 5
 }
 ```
 
-**Valid Payment Methods:**
-
-- CASH
-- CARD
-- UPI
-- GIFT_CARD
-- BANK_TRANSFER
-
-**Success Response (201):**
-
-```json
-{
-  "success": true,
-  "message": "Payment added successfully",
-  "data": {
-    "invoice": {
-      /* updated invoice */
-    },
-    "transaction": {
-      /* new transaction */
-    }
-  }
-}
-```
+**Valid Payment Methods:** CASH, CARD, UPI, GIFT_CARD, BANK_TRANSFER
 
 ### 6. Cancel Invoice
 
 **DELETE** `/api/invoice/:id`
 
-**Authentication:** Required
+---
 
-**Success Response (200):**
+## 📄 PDF GENERATION
 
-```json
-{
-  "success": true,
-  "message": "Invoice cancelled successfully",
-  "data": {
-    /* cancelled invoice object */
-  }
-}
-```
-
-**Note:** Invoices with existing payments cannot be deleted and must be cancelled instead.
-
-### 7. Generate PDF
+### Generate Invoice PDF
 
 **GET** `/api/invoice/:id/pdf`
 
-**Authentication:** Required
+**Response:** PDF file download with:
 
-**Response:** PDF file download
+- Clear Eyes Optical branding
+- Barcode with invoice ID
+- Customer/Patient information
+- Eye power table (for patients with prescriptions)
+- Product details with pricing
+- Tax breakdown and totals
 
-### 8. Generate Thermal Print
+**Example:**
+
+```bash
+curl -X GET "http://localhost:3000/api/invoice/cmf47cx1r0001uswopqybr7e4/pdf" \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  --output invoice.pdf
+```
+
+---
+
+## 🖨️ THERMAL PRINTING
+
+### Generate Thermal Receipt
 
 **GET** `/api/invoice/:id/thermal`
 
-**Authentication:** Required
-
 **Response:** Plain text formatted for thermal printers
 
-## Error Codes
+**Example Response:**
 
-- **400 Bad Request:** Invalid request parameters or body
-- **401 Unauthorized:** Missing or invalid authentication token
-- **404 Not Found:** Invoice, product, or related entity not found
-- **500 Internal Server Error:** Server processing error
-
-## Features
-
-### Dual Client Support
-
-- Supports both patient and customer invoices
-- Prescription data only available for patient invoices
-- Proper validation ensures only one client type per invoice
-
-### Tax Handling
-
-- Item-level CGST and SGST
-- Invoice-level IGST
-- Automatic tax calculation and totals
-
-### Payment Processing
-
-- Multiple payment methods
-- Gift card integration with balance deduction
-- Automatic status updates based on payment amount
-- Payment history tracking
-
-### Inventory Management
-
-- Automatic stock validation before invoice creation
-- Stock deduction upon invoice creation
-- Prevents overselling
-
-### Thermal Printing
-
-- Configurable printer width via environment variables
-- Proper formatting for thermal printers
-- Shows prescription details for patient invoices
-- Company information when available
-
-### Security
-
-- All endpoints require authentication
-- Proper input validation
-- SQL injection protection via Prisma ORM
-- Error message sanitization
-
-## Environment Variables
-
-```env
-THERMAL_PRINTER_WIDTH=48          # Width for thermal printer formatting
-THERMAL_PRINTER_IP=192.168.1.100  # IP address of thermal printer
-THERMAL_PRINTER_PORT=9100          # Port for thermal printer
+```
+            Tax Invoice
+          Clear Eyes Optical
+      68 Jessore Road, Diamond Plaza
+        Kolkata +91-96765 43210
+------------------------------------------------
+Order #: cmf47cx1r0001uswopqybr7e4
+Date: 9/4/2025
+Total Qty: 3
+------------------------------------------------
+Bill To & Delivery Address:
+John Doe
+123 Main Street, City
++91-9876543210
+------------------------------------------------
+Prescription Details:
+Eye   SPH     CYL     Axis    Add     PD      BC
+------------------------------------------------
+R     -1.25   -0.50   180     0.00    32      8.6
+L     -1.50   -0.75   170     0.00    32      8.6
+------------------------------------------------
+Items
+Name/Price                     Qty x Total
+------------------------------------------------
+Premium Frame Model XYZ (Acme Eyewear)
+  @ 2500.00                         1 x 2250.00
+  Discount:                               -250.00
+  CGST:                                   202.50
+  SGST:                                   202.50
+------------------------------------------------
+Subtotal:                               3770.00
+Total Discount:                         -330.00
+CGST:                                   332.10
+SGST:                                   332.10
+------------------------------------------------
+Grand Total:                            4104.20
+------------------------------------------------
+      Thank You for Shopping with Us!
+       Visit again. Follow us on Instagram
+            @cleareyes_optical
+------------------------------------------------
 ```
 
-## Usage Examples
+---
 
-### Create Patient Invoice
+## 🚨 ERROR RESPONSES
+
+All endpoints return consistent error formats:
+
+### 400 Bad Request
+
+```json
+{
+  "error": "Missing required fields: name and address are required."
+}
+```
+
+### 401 Unauthorized
+
+```json
+{
+  "error": "Access denied. No token provided."
+}
+```
+
+### 404 Not Found
+
+```json
+{
+  "error": "Invoice not found"
+}
+```
+
+### 500 Internal Server Error
+
+```json
+{
+  "error": "Failed to create invoice."
+}
+```
+
+---
+
+## 🧪 POSTMAN TESTING EXAMPLES
+
+### 1. Complete Patient Flow
 
 ```bash
-curl -X POST http://localhost:3000/api/invoice \
-  -H "Authorization: Bearer YOUR_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "patientId": 1,
-    "prescriptionId": 2,
-    "items": [
-      {
-        "productId": 5,
-        "quantity": 1,
-        "cgst": 9.00,
-        "sgst": 9.00
-      }
-    ]
-  }'
+# 1. Create Patient
+POST http://localhost:3000/api/patient
+{
+  "name": "John Doe",
+  "age": 35,
+  "gender": "Male",
+  "phone": "+91-9876543210"
+}
+
+# 2. Create Prescription
+POST http://localhost:3000/api/prescription
+{
+  "patientId": 1,
+  "rightEye": {"sph": "-1.25", "cyl": "-0.50", "axis": "180"},
+  "leftEye": {"sph": "-1.50", "cyl": "-0.75", "axis": "170"}
+}
+
+# 3. Create Invoice
+POST http://localhost:3000/api/invoice
+{
+  "patientId": 1,
+  "prescriptionId": 1,
+  "items": [{"productId": 1, "quantity": 1, "unitPrice": 2500}]
+}
+
+# 4. Add Payment
+POST http://localhost:3000/api/invoice/INVOICE_ID/payment
+{
+  "amount": 2500,
+  "paymentMethod": "CASH"
+}
+
+# 5. Generate PDF
+GET http://localhost:3000/api/invoice/INVOICE_ID/pdf
 ```
 
-### Create Customer Invoice
+### 2. Walk-in Customer Flow
 
 ```bash
-curl -X POST http://localhost:3000/api/invoice \
-  -H "Authorization: Bearer YOUR_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "customerId": 3,
-    "items": [
-      {
-        "productId": 8,
-        "quantity": 2,
-        "discount": 20.00
-      }
-    ]
-  }'
+# 1. Create Customer + Invoice
+POST http://localhost:3000/api/customer/invoice
+{
+  "customer": {"name": "Jane Doe", "address": "123 Street"},
+  "items": [{"productId": 1, "quantity": 1, "unitPrice": 150}],
+  "staffId": 1,
+  "paidAmount": 150,
+  "paymentMethod": "cash"
+}
+
+# 2. Generate Receipt
+GET http://localhost:3000/api/invoice/INVOICE_ID/thermal
 ```
 
-### Add Payment
+### 3. Search & Filter Examples
 
 ```bash
-curl -X POST http://localhost:3000/api/invoice/INVOICE_ID/payment \
-  -H "Authorization: Bearer YOUR_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "amount": 150.00,
-    "paymentMethod": "CASH"
-  }'
+# Search patients
+GET http://localhost:3000/api/patient?search=john&page=1&limit=5
+
+# Filter invoices by prescription
+GET http://localhost:3000/api/invoice?prescriptionId=1
+
+# Filter invoices by date range
+GET http://localhost:3000/api/invoice?startDate=2025-09-01&endDate=2025-09-30
+
+# Get customer hotspots
+GET http://localhost:3000/api/customer/hotspots
 ```
 
-### Filter Invoices
+---
 
-```bash
-curl "http://localhost:3000/api/invoice?status=PAID&page=1&limit=20" \
-  -H "Authorization: Bearer YOUR_TOKEN"
-```
+## 📝 FIELD DEFINITIONS
 
-This documentation covers the complete invoice system with proper validation, authentication, and standardized responses.
+### Eye Power Fields:
+
+- **SPH** (Sphere): Corrects nearsightedness (-) or farsightedness (+)
+- **CYL** (Cylinder): Corrects astigmatism
+- **Axis**: Direction of astigmatism correction (0-180 degrees)
+- **Add**: Additional magnification for reading glasses
+- **PD** (Pupillary Distance): Distance between pupils in mm
+- **BC** (Base Curve): Curvature of contact lens
+
+### Invoice Statuses:
+
+- **UNPAID**: No payments made
+- **PARTIALLY_PAID**: Some payment made, balance remaining
+- **PAID**: Full payment completed
+- **CANCELLED**: Invoice cancelled before completion
+- **REFUNDED**: Payment refunded after completion
+
+---
+
+## 🎯 SUMMARY
+
+This API provides complete functionality for:
+
+- ✅ Patient management with prescriptions
+- ✅ Customer management for walk-ins
+- ✅ Comprehensive invoice system
+- ✅ PDF generation with barcode
+- ✅ Thermal printing support
+- ✅ Payment processing
+- ✅ Search and filtering
+- ✅ Proper authentication and validation
+
+All endpoints are ready for production use with proper error handling and consistent response formats.

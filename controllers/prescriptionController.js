@@ -66,3 +66,38 @@ exports.getPrescription = async (req, res) => {
     res.status(500).json({ error: "Failed to fetch prescription." });
   }
 };
+
+// Get all prescriptions with optional filtering
+exports.getAllPrescriptions = async (req, res) => {
+  try {
+    const { page = 1, limit = 10, patientId } = req.query;
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const take = parseInt(limit);
+
+    const where = {};
+    if (patientId) {
+      where.patientId = parseInt(patientId);
+    }
+
+    const [prescriptions, total] = await Promise.all([
+      prisma.prescription.findMany({
+        where,
+        skip,
+        take,
+        include: { patient: true },
+        orderBy: { createdAt: "desc" },
+      }),
+      prisma.prescription.count({ where }),
+    ]);
+
+    res.status(200).json({
+      prescriptions,
+      total,
+      page: parseInt(page),
+      totalPages: Math.ceil(total / take),
+    });
+  } catch (error) {
+    console.error("Error fetching prescriptions:", error);
+    res.status(500).json({ error: "Failed to fetch prescriptions." });
+  }
+};

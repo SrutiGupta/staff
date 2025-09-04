@@ -152,7 +152,102 @@ const getAddressHotspots = async (req, res) => {
   }
 };
 
+// Create a standalone customer
+const createCustomer = async (req, res) => {
+  const { name, phone, address } = req.body;
+
+  if (!name || !address) {
+    return res.status(400).json({
+      error: "Missing required fields: name and address are required.",
+    });
+  }
+
+  try {
+    const newCustomer = await prisma.customer.create({
+      data: {
+        name,
+        phone,
+        address,
+      },
+    });
+
+    res.status(201).json(newCustomer);
+  } catch (error) {
+    console.error("Error creating customer:", error);
+    res.status(500).json({ error: "Failed to create customer." });
+  }
+};
+
+// Get all customers with optional filtering
+const getAllCustomers = async (req, res) => {
+  try {
+    const { page = 1, limit = 10, search } = req.query;
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const take = parseInt(limit);
+
+    const where = {};
+    if (search) {
+      where.OR = [
+        { name: { contains: search, mode: "insensitive" } },
+        { phone: { contains: search, mode: "insensitive" } },
+        { address: { contains: search, mode: "insensitive" } },
+      ];
+    }
+
+    const [customers, total] = await Promise.all([
+      prisma.customer.findMany({
+        where,
+        skip,
+        take,
+        orderBy: { createdAt: "desc" },
+      }),
+      prisma.customer.count({ where }),
+    ]);
+
+    res.status(200).json({
+      customers,
+      total,
+      page: parseInt(page),
+      totalPages: Math.ceil(total / take),
+    });
+  } catch (error) {
+    console.error("Error fetching customers:", error);
+    res.status(500).json({ error: "Failed to fetch customers." });
+  }
+};
+
+// Get a single customer by ID
+const getCustomer = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const customer = await prisma.customer.findUnique({
+      where: { id: parseInt(id) },
+      include: {
+        invoices: {
+          include: {
+            items: {
+              include: { product: true },
+            },
+          },
+        },
+      },
+    });
+
+    if (!customer) {
+      return res.status(404).json({ error: "Customer not found." });
+    }
+
+    res.status(200).json(customer);
+  } catch (error) {
+    console.error("Error fetching customer:", error);
+    res.status(500).json({ error: "Failed to fetch customer." });
+  }
+};
+
 module.exports = {
   createCustomerAndInvoice,
   getAddressHotspots,
+  createCustomer,
+  getAllCustomers,
+  getCustomer,
 };

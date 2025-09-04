@@ -443,8 +443,9 @@ exports.generateInvoiceThermal = async (req, res) => {
     let receipt = [];
 
     receipt.push(center("Tax Invoice"));
-    receipt.push(center("LENSKART SOLUTIONS PRIVATE LIMITED"));
-    receipt.push(center("Gurugram (06) - 122004"));
+    receipt.push(center("Clear Eyes Optical"));
+    receipt.push(center("68 Jessore Road, Diamond Plaza"));
+    receipt.push(center("Kolkata +91-96765 43210"));
     receipt.push(separator);
 
     receipt.push(
@@ -470,27 +471,35 @@ exports.generateInvoiceThermal = async (req, res) => {
     if (clientInfo.phone) receipt.push(clientInfo.phone);
     receipt.push(separator);
 
-    // Only show prescription if invoice is for a patient and has prescription data
+    // Show prescription only for patients (customers don't have prescriptions in schema)
     if (invoice.prescription && invoice.patient) {
       receipt.push("Prescription Details:");
       const p = invoice.prescription;
-      receipt.push("Eye   SPH    CYL    Axis   Add");
+
+      // Create properly aligned prescription table
+      receipt.push("Eye   SPH     CYL     Axis    Add     PD      BC");
+      receipt.push("-".repeat(48));
+
       if (p.rightEye) {
-        const { sph, cyl, axis, add } = p.rightEye;
-        receipt.push(
-          `R     ${sph || "-"}    ${cyl || "-"}    ${axis || "-"}    ${
-            add || "-"
-          }`
-        );
+        const { sph, cyl, axis, add, pd, bc } = p.rightEye;
+        const rightEyeLine = `R     ${(sph || "-").padEnd(7)} ${(
+          cyl || "-"
+        ).padEnd(7)} ${(axis || "-").padEnd(7)} ${(add || "-").padEnd(7)} ${(
+          pd || "-"
+        ).padEnd(7)} ${bc || "-"}`;
+        receipt.push(rightEyeLine);
       }
+
       if (p.leftEye) {
-        const { sph, cyl, axis, add } = p.leftEye;
-        receipt.push(
-          `L     ${sph || "-"}    ${cyl || "-"}    ${axis || "-"}    ${
-            add || "-"
-          }`
-        );
+        const { sph, cyl, axis, add, pd, bc } = p.leftEye;
+        const leftEyeLine = `L     ${(sph || "-").padEnd(7)} ${(
+          cyl || "-"
+        ).padEnd(7)} ${(axis || "-").padEnd(7)} ${(add || "-").padEnd(7)} ${(
+          pd || "-"
+        ).padEnd(7)} ${bc || "-"}`;
+        receipt.push(leftEyeLine);
       }
+
       receipt.push(separator);
     }
 
@@ -537,10 +546,10 @@ exports.generateInvoiceThermal = async (req, res) => {
     receipt.push(line("Grand Total:", invoice.totalAmount.toFixed(2)));
     receipt.push(separator);
 
-    receipt.push(center("Disclaimer: This is a computer"));
-    receipt.push(center("generated invoice and does not"));
-    receipt.push(center("require a signature."));
-    receipt.push(center("For T&C please visit www.company.com"));
+    receipt.push(center("Thank You for Shopping with Us!"));
+    receipt.push(center("Visit again. Follow us on Instagram"));
+    receipt.push(center("@cleareyes_optical"));
+    receipt.push(separator);
 
     const receiptText = receipt.join("\n");
 
@@ -562,6 +571,7 @@ exports.getAllInvoices = async (req, res) => {
       patientId,
       customerId,
       staffId,
+      prescriptionId,
       startDate,
       endDate,
     } = req.query;
@@ -575,6 +585,7 @@ exports.getAllInvoices = async (req, res) => {
     if (patientId) where.patientId = parseInt(patientId);
     if (customerId) where.customerId = parseInt(customerId);
     if (staffId) where.staffId = parseInt(staffId);
+    if (prescriptionId) where.prescriptionId = parseInt(prescriptionId);
 
     if (startDate || endDate) {
       where.createdAt = {};
