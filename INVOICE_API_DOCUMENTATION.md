@@ -605,7 +605,7 @@ http://localhost:3000/api
 
 ## 📄 PDF GENERATION
 
-### Generate Invoice PDF
+### 1. Generate Invoice PDF (Direct)
 
 **GET** `/api/invoice/:id/pdf`
 
@@ -626,15 +626,54 @@ curl -X GET "http://localhost:3000/api/invoice/cmf47cx1r0001uswopqybr7e4/pdf" \
   --output invoice.pdf
 ```
 
+### 2. Generate PDF from Prescription ID
+
+**GET** `/api/prescription/:id/pdf`
+
+**Description:** Finds the invoice associated with the prescription and generates PDF
+
+**Response:** Same PDF format as direct invoice PDF
+
+**Example:**
+
+```bash
+curl -X GET "http://localhost:3000/api/prescription/1/pdf" \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  --output prescription-invoice.pdf
+```
+
+**Error Response (404):**
+
+```json
+{
+  "error": "No invoice found for this prescription ID. Please create an invoice that uses prescriptionId: 1 first."
+}
+```
+
 ---
 
 ## 🖨️ THERMAL PRINTING
 
-### Generate Thermal Receipt
+### 1. Generate Thermal Receipt (Direct)
 
 **GET** `/api/invoice/:id/thermal`
 
 **Response:** Plain text formatted for thermal printers
+
+### 2. Generate Thermal Print from Prescription ID
+
+**GET** `/api/prescription/:id/thermal`
+
+**Description:** Finds the invoice associated with the prescription and generates thermal print
+
+**Response:** Same thermal format as direct invoice thermal
+
+**Example:**
+
+```bash
+curl -X GET "http://localhost:3000/api/prescription/1/thermal" \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
 
 **Example Response:**
 
@@ -679,6 +718,167 @@ Grand Total:                            4104.20
        Visit again. Follow us on Instagram
             @cleareyes_optical
 ------------------------------------------------
+```
+
+---
+
+## 🧪 COMPLETE TESTING WORKFLOW
+
+### Prescription to Invoice to PDF Generation
+
+Follow these steps to test the complete workflow from prescription creation to PDF/thermal generation:
+
+#### Step 1: Check if Prescription Exists
+
+**GET** `/api/prescription/:id`
+
+```bash
+curl -X GET "http://localhost:3000/api/prescription/1" \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+
+**Expected Response (200):**
+
+```json
+{
+  "id": 1,
+  "patientId": 2,
+  "rightEye": {
+    "sph": "-1.25",
+    "cyl": "-0.50",
+    "axis": "180",
+    "add": "0.00",
+    "pd": "32",
+    "bc": "8.6"
+  },
+  "leftEye": {
+    "sph": "-1.50",
+    "cyl": "-0.75",
+    "axis": "170",
+    "add": "0.00",
+    "pd": "32",
+    "bc": "8.6"
+  },
+  "createdAt": "2025-09-04T06:42:39.407Z",
+  "updatedAt": "2025-09-04T06:42:39.407Z"
+}
+```
+
+#### Step 2: Check if Any Invoice Uses This Prescription
+
+**GET** `/api/invoice?prescriptionId=1`
+
+```bash
+curl -X GET "http://localhost:3000/api/invoice?prescriptionId=1" \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+
+**If No Invoice Exists (Response):**
+
+```json
+{
+  "invoices": [],
+  "total": 0,
+  "page": 1,
+  "totalPages": 0
+}
+```
+
+#### Step 3: Create Invoice with Prescription ID
+
+**POST** `/api/invoice`
+
+```bash
+curl -X POST "http://localhost:3000/api/invoice" \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "patientId": 2,
+    "prescriptionId": 1,
+    "items": [
+      {
+        "productId": 1,
+        "quantity": 1
+      }
+    ]
+  }'
+```
+
+**Expected Response (201):**
+
+```json
+{
+  "id": "cmf5ggtzx0001usysm8uujms3",
+  "patientId": 2,
+  "prescriptionId": 1,
+  "staffId": 2,
+  "subtotal": 150,
+  "totalAmount": 150,
+  "status": "UNPAID",
+  "items": [
+    {
+      "id": 2,
+      "productId": 1,
+      "quantity": 1,
+      "unitPrice": 150,
+      "totalPrice": 150,
+      "product": {
+        "name": "Ray-Ban Aviator Classic"
+      }
+    }
+  ],
+  "patient": {
+    "name": "tanmay joddar"
+  }
+}
+```
+
+#### Step 4: Generate PDF or Thermal Print
+
+**Option A: Direct Invoice PDF/Thermal**
+
+```bash
+# PDF
+curl -X GET "http://localhost:3000/api/invoice/cmf5ggtzx0001usysm8uujms3/pdf" \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  --output invoice.pdf
+
+# Thermal
+curl -X GET "http://localhost:3000/api/invoice/cmf5ggtzx0001usysm8uujms3/thermal" \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+
+**Option B: Prescription-Based PDF/Thermal**
+
+```bash
+# PDF
+curl -X GET "http://localhost:3000/api/prescription/1/pdf" \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  --output prescription.pdf
+
+# Thermal
+curl -X GET "http://localhost:3000/api/prescription/1/thermal" \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+
+#### Alternative: PowerShell Commands for Windows
+
+```powershell
+# Login first
+$response = Invoke-RestMethod -Uri "http://localhost:3000/api/auth/login" -Method POST -Headers @{"Content-Type"="application/json"} -Body '{"email":"staff@example.com","password":"password"}'
+$token = $response.token
+
+# Check prescription
+Invoke-RestMethod -Uri "http://localhost:3000/api/prescription/1" -Method GET -Headers @{"Authorization"="Bearer $token"}
+
+# Create invoice
+Invoke-RestMethod -Uri "http://localhost:3000/api/invoice" -Method POST -Headers @{"Content-Type"="application/json"; "Authorization"="Bearer $token"} -Body '{"patientId": 2, "prescriptionId": 1, "items": [{"productId": 1, "quantity": 1}]}'
+
+# Generate PDF
+Invoke-WebRequest -Uri "http://localhost:3000/api/prescription/1/pdf" -Method GET -Headers @{"Authorization"="Bearer $token"} -OutFile "prescription.pdf"
+
+# Generate thermal
+Invoke-RestMethod -Uri "http://localhost:3000/api/prescription/1/thermal" -Method GET -Headers @{"Authorization"="Bearer $token"}
 ```
 
 ---

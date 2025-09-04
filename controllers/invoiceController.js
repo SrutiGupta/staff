@@ -8,7 +8,7 @@ const prisma = new PrismaClient();
 // Create a new invoice
 exports.createInvoice = async (req, res) => {
   const { patientId, customerId, prescriptionId, items } = req.body;
-  const staffId = req.user.id; // Assuming staffId is available in req.user
+  const staffId = req.user.staffId; // staffId is available in req.user from JWT token
 
   // Validate that either patientId or customerId is provided, but not both
   if ((!patientId && !customerId) || (patientId && customerId)) {

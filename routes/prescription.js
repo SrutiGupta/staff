@@ -13,11 +13,11 @@ router.get("/", authMiddleware, prescriptionController.getAllPrescriptions);
 // Get a prescription by ID
 router.get("/:id", authMiddleware, prescriptionController.getPrescription);
 
-// invoice.routes.js
+// Generate PDF for prescription's invoice
 router.get(
   "/:id/pdf",
   authMiddleware,
-  invoiceController.generateInvoicePdf
+  prescriptionController.generatePrescriptionPdf
 );
 
 // Generate thermal print for prescription's invoice
