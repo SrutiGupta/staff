@@ -1,7 +1,6 @@
 require("dotenv").config();
 const express = require("express");
 const compression = require("compression");
-
 const companyRoutes = require("./portal/company/routes/companyRoutes");
 const retailerRoutes = require("./portal/retailer/routes/retailerRoutes");
 
