@@ -2,13 +2,16 @@ require("dotenv").config();
 const express = require("express");
 const compression = require("compression");
 
+const companyRoutes = require("./portal/company/routes/companyRoutes");
+const retailerRoutes = require("./portal/retailer/routes/retailerRoutes");
+
 const app = express();
 
 // Middleware
 app.use(compression());
 app.use(express.json());
 
-// Define Routes
+// Define Routes (existing modules)
 app.use("/api/auth", require("./routes/auth"));
 app.use("/api/attendance", require("./routes/attendance"));
 app.use("/api/royalty", require("./routes/royalty"));
@@ -23,6 +26,15 @@ app.use("/api/product", require("./routes/product"));
 app.use("/api/patient", require("./routes/patient"));
 app.use("/api/customer", require("./routes/customer"));
 
+// New Company & Retailer APIs
+app.use("/company", companyRoutes);
+app.use("/retailer", retailerRoutes);
+
+// Health check
+app.get("/", (req, res) => {
+  res.send(" Backend Running for Company & Retailer");
+});
+
 // Centralized Error Handler
 app.use((err, req, res, next) => {
   console.error(err.stack);
@@ -30,7 +42,6 @@ app.use((err, req, res, next) => {
 });
 
 const port = process.env.PORT || 3000;
-
 app.listen(port, () => {
-  console.log(`Server is running on http://localhost:${port}`);
+  console.log(` Server is running on http://localhost:${port}`);
 });
