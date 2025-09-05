@@ -15,7 +15,7 @@ Authorization: Bearer YOUR_JWT_TOKEN
 ## Base URL
 
 ```
-http://localhost:3000/api
+http://localhost:8080/api
 ```
 
 ---
@@ -621,7 +621,7 @@ http://localhost:3000/api
 **Example:**
 
 ```bash
-curl -X GET "http://localhost:3000/api/invoice/cmf47cx1r0001uswopqybr7e4/pdf" \
+curl -X GET "http://localhost:8080/api/invoice/cmf47cx1r0001uswopqybr7e4/pdf" \
   -H "Authorization: Bearer YOUR_TOKEN" \
   --output invoice.pdf
 ```
@@ -637,7 +637,7 @@ curl -X GET "http://localhost:3000/api/invoice/cmf47cx1r0001uswopqybr7e4/pdf" \
 **Example:**
 
 ```bash
-curl -X GET "http://localhost:3000/api/prescription/1/pdf" \
+curl -X GET "http://localhost:8080/api/prescription/1/pdf" \
   -H "Authorization: Bearer YOUR_TOKEN" \
   --output prescription-invoice.pdf
 ```
@@ -671,7 +671,7 @@ curl -X GET "http://localhost:3000/api/prescription/1/pdf" \
 **Example:**
 
 ```bash
-curl -X GET "http://localhost:3000/api/prescription/1/thermal" \
+curl -X GET "http://localhost:8080/api/prescription/1/thermal" \
   -H "Authorization: Bearer YOUR_TOKEN"
 ```
 
@@ -733,7 +733,7 @@ Follow these steps to test the complete workflow from prescription creation to P
 **GET** `/api/prescription/:id`
 
 ```bash
-curl -X GET "http://localhost:3000/api/prescription/1" \
+curl -X GET "http://localhost:8080/api/prescription/1" \
   -H "Authorization: Bearer YOUR_TOKEN"
 ```
 
@@ -769,7 +769,7 @@ curl -X GET "http://localhost:3000/api/prescription/1" \
 **GET** `/api/invoice?prescriptionId=1`
 
 ```bash
-curl -X GET "http://localhost:3000/api/invoice?prescriptionId=1" \
+curl -X GET "http://localhost:8080/api/invoice?prescriptionId=1" \
   -H "Authorization: Bearer YOUR_TOKEN"
 ```
 
@@ -789,7 +789,7 @@ curl -X GET "http://localhost:3000/api/invoice?prescriptionId=1" \
 **POST** `/api/invoice`
 
 ```bash
-curl -X POST "http://localhost:3000/api/invoice" \
+curl -X POST "http://localhost:8080/api/invoice" \
   -H "Authorization: Bearer YOUR_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -839,12 +839,12 @@ curl -X POST "http://localhost:3000/api/invoice" \
 
 ```bash
 # PDF
-curl -X GET "http://localhost:3000/api/invoice/cmf5ggtzx0001usysm8uujms3/pdf" \
+curl -X GET "http://localhost:8080/api/invoice/cmf5ggtzx0001usysm8uujms3/pdf" \
   -H "Authorization: Bearer YOUR_TOKEN" \
   --output invoice.pdf
 
 # Thermal
-curl -X GET "http://localhost:3000/api/invoice/cmf5ggtzx0001usysm8uujms3/thermal" \
+curl -X GET "http://localhost:8080/api/invoice/cmf5ggtzx0001usysm8uujms3/thermal" \
   -H "Authorization: Bearer YOUR_TOKEN"
 ```
 
@@ -852,12 +852,12 @@ curl -X GET "http://localhost:3000/api/invoice/cmf5ggtzx0001usysm8uujms3/thermal
 
 ```bash
 # PDF
-curl -X GET "http://localhost:3000/api/prescription/1/pdf" \
+curl -X GET "http://localhost:8080/api/prescription/1/pdf" \
   -H "Authorization: Bearer YOUR_TOKEN" \
   --output prescription.pdf
 
 # Thermal
-curl -X GET "http://localhost:3000/api/prescription/1/thermal" \
+curl -X GET "http://localhost:8080/api/prescription/1/thermal" \
   -H "Authorization: Bearer YOUR_TOKEN"
 ```
 
@@ -865,20 +865,20 @@ curl -X GET "http://localhost:3000/api/prescription/1/thermal" \
 
 ```powershell
 # Login first
-$response = Invoke-RestMethod -Uri "http://localhost:3000/api/auth/login" -Method POST -Headers @{"Content-Type"="application/json"} -Body '{"email":"staff@example.com","password":"password"}'
+$response = Invoke-RestMethod -Uri "http://localhost:8080/api/auth/login" -Method POST -Headers @{"Content-Type"="application/json"} -Body '{"email":"staff@example.com","password":"password"}'
 $token = $response.token
 
 # Check prescription
-Invoke-RestMethod -Uri "http://localhost:3000/api/prescription/1" -Method GET -Headers @{"Authorization"="Bearer $token"}
+Invoke-RestMethod -Uri "http://localhost:8080/api/prescription/1" -Method GET -Headers @{"Authorization"="Bearer $token"}
 
 # Create invoice
-Invoke-RestMethod -Uri "http://localhost:3000/api/invoice" -Method POST -Headers @{"Content-Type"="application/json"; "Authorization"="Bearer $token"} -Body '{"patientId": 2, "prescriptionId": 1, "items": [{"productId": 1, "quantity": 1}]}'
+Invoke-RestMethod -Uri "http://localhost:8080/api/invoice" -Method POST -Headers @{"Content-Type"="application/json"; "Authorization"="Bearer $token"} -Body '{"patientId": 2, "prescriptionId": 1, "items": [{"productId": 1, "quantity": 1}]}'
 
 # Generate PDF
-Invoke-WebRequest -Uri "http://localhost:3000/api/prescription/1/pdf" -Method GET -Headers @{"Authorization"="Bearer $token"} -OutFile "prescription.pdf"
+Invoke-WebRequest -Uri "http://localhost:8080/api/prescription/1/pdf" -Method GET -Headers @{"Authorization"="Bearer $token"} -OutFile "prescription.pdf"
 
 # Generate thermal
-Invoke-RestMethod -Uri "http://localhost:3000/api/prescription/1/thermal" -Method GET -Headers @{"Authorization"="Bearer $token"}
+Invoke-RestMethod -Uri "http://localhost:8080/api/prescription/1/thermal" -Method GET -Headers @{"Authorization"="Bearer $token"}
 ```
 
 ---
@@ -927,7 +927,7 @@ All endpoints return consistent error formats:
 
 ```bash
 # 1. Create Patient
-POST http://localhost:3000/api/patient
+POST http://localhost:8080/api/patient
 {
   "name": "John Doe",
   "age": 35,
@@ -936,7 +936,7 @@ POST http://localhost:3000/api/patient
 }
 
 # 2. Create Prescription
-POST http://localhost:3000/api/prescription
+POST http://localhost:8080/api/prescription
 {
   "patientId": 1,
   "rightEye": {"sph": "-1.25", "cyl": "-0.50", "axis": "180"},
@@ -944,7 +944,7 @@ POST http://localhost:3000/api/prescription
 }
 
 # 3. Create Invoice
-POST http://localhost:3000/api/invoice
+POST http://localhost:8080/api/invoice
 {
   "patientId": 1,
   "prescriptionId": 1,
@@ -952,21 +952,21 @@ POST http://localhost:3000/api/invoice
 }
 
 # 4. Add Payment
-POST http://localhost:3000/api/invoice/INVOICE_ID/payment
+POST http://localhost:8080/api/invoice/INVOICE_ID/payment
 {
   "amount": 2500,
   "paymentMethod": "CASH"
 }
 
 # 5. Generate PDF
-GET http://localhost:3000/api/invoice/INVOICE_ID/pdf
+GET http://localhost:8080/api/invoice/INVOICE_ID/pdf
 ```
 
 ### 2. Walk-in Customer Flow
 
 ```bash
 # 1. Create Customer + Invoice
-POST http://localhost:3000/api/customer/invoice
+POST http://localhost:8080/api/customer/invoice
 {
   "customer": {"name": "Jane Doe", "address": "123 Street"},
   "items": [{"productId": 1, "quantity": 1, "unitPrice": 150}],
@@ -976,23 +976,23 @@ POST http://localhost:3000/api/customer/invoice
 }
 
 # 2. Generate Receipt
-GET http://localhost:3000/api/invoice/INVOICE_ID/thermal
+GET http://localhost:8080/api/invoice/INVOICE_ID/thermal
 ```
 
 ### 3. Search & Filter Examples
 
 ```bash
 # Search patients
-GET http://localhost:3000/api/patient?search=john&page=1&limit=5
+GET http://localhost:8080/api/patient?search=john&page=1&limit=5
 
 # Filter invoices by prescription
-GET http://localhost:3000/api/invoice?prescriptionId=1
+GET http://localhost:8080/api/invoice?prescriptionId=1
 
 # Filter invoices by date range
-GET http://localhost:3000/api/invoice?startDate=2025-09-01&endDate=2025-09-30
+GET http://localhost:8080/api/invoice?startDate=2025-09-01&endDate=2025-09-30
 
 # Get customer hotspots
-GET http://localhost:3000/api/customer/hotspots
+GET http://localhost:8080/api/customer/hotspots
 ```
 
 ---

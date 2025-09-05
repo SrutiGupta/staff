@@ -40,7 +40,7 @@ app.use((err, req, res, next) => {
   res.status(500).send("Something broke!");
 });
 
-const port = process.env.PORT || 3000;
+const port = process.env.PORT || 8080;
 app.listen(port, () => {
   console.log(` Server is running on http://localhost:${port}`);
 });

@@ -12,7 +12,7 @@ This guide provides instructions on how to test the API endpoints for this proje
     ```bash
     npm start
     ```
-3.  The API will be available at `http://localhost:3000`.
+3.  The API will be available at `http://localhost:8080`.
 
 ## 2. Authentication (JWT)
 
@@ -21,7 +21,7 @@ Most endpoints are protected and require a JSON Web Token (JWT) to be sent in th
 ### How to Get Your JWT
 
 1.  **Open Postman** and create a new `POST` request.
-2.  **URL:** `http://localhost:3000/api/auth/login`
+2.  **URL:** `http://localhost:8080/api/auth/login`
 3.  **Body Tab:** Select `raw` and `JSON`.
 4.  **Request Body:**
     ```json
@@ -59,7 +59,7 @@ For every protected endpoint, you must include the token in your request headers
 #### **Create New Patient**
 
 - **Method:** `POST`
-- **URL:** `http://localhost:3000/api/patient`
+- **URL:** `http://localhost:8080/api/patient`
 - **Authentication:** Required (Bearer Token)
 - **Request Body:**
 
@@ -108,7 +108,7 @@ For every protected endpoint, you must include the token in your request headers
 #### **Get All Products**
 
 - **Method:** `GET`
-- **URL:** `http://localhost:3000/api/product`
+- **URL:** `http://localhost:8080/api/product`
 - **Authentication:** Required (Bearer Token)
 - **Success Response (200 OK):**
   ```json
@@ -139,7 +139,7 @@ For every protected endpoint, you must include the token in your request headers
 This endpoint is designed for efficient stock-taking. You can scan a product's barcode and provide a quantity to add to the inventory. If the product is new to the inventory, it will be created automatically.
 
 - **Method:** `POST`
-- **URL:** `http://localhost:3000/api/inventory/stock-by-barcode`
+- **URL:** `http://localhost:8080/api/inventory/stock-by-barcode`
 - **Authentication:** Required (Bearer Token)
 - **Request Body:**
   ```json
@@ -176,7 +176,7 @@ This endpoint is designed for efficient stock-taking. You can scan a product's b
 #### **Create New Invoice**
 
 - **Method:** `POST`
-- **URL:** `http://localhost:3000/api/invoice`
+- **URL:** `http://localhost:8080/api/invoice`
 - **Authentication:** Required (Bearer Token)
 - **Request Body:**
   ```json
@@ -235,7 +235,7 @@ This endpoint is designed for efficient stock-taking. You can scan a product's b
 #### **Get Invoice by ID**
 
 - **Method:** `GET`
-- **URL:** `http://localhost:3000/api/invoice/cmexw2eh50003p7gbkmnpdw3q` (Replace with a real Invoice ID)
+- **URL:** `http://localhost:8080/api/invoice/cmexw2eh50003p7gbkmnpdw3q` (Replace with a real Invoice ID)
 - **Authentication:** Required (Bearer Token)
 - **Success Response (200 OK):**
   - Returns the full invoice object with patient, items, and product details.
@@ -243,7 +243,7 @@ This endpoint is designed for efficient stock-taking. You can scan a product's b
 #### **Download Invoice PDF**
 
 - **Method:** `GET`
-- **URL:** `http://localhost:3000/api/invoice/cmexw2eh50003p7gbkmnpdw3q/pdf` (Replace with a real Invoice ID)
+- **URL:** `http://localhost:8080/api/invoice/cmexw2eh50003p7gbkmnpdw3q/pdf` (Replace with a real Invoice ID)
 - **Authentication:** Required (Bearer Token)
 - **Success Response (200 OK):**
   - The API will return a PDF file. Postman will give you an option to "Save Response to File".
@@ -251,7 +251,7 @@ This endpoint is designed for efficient stock-taking. You can scan a product's b
 #### **Generate Thermal Printer Receipt**
 
 - **Method:** `GET`
-- **URL:** `http://localhost:3000/api/invoice/cmexw2eh50003p7gbkmnpdw3q/thermal` (Replace with a real Invoice ID)
+- **URL:** `http://localhost:8080/api/invoice/cmexw2eh50003p7gbkmnpdw3q/thermal` (Replace with a real Invoice ID)
 - **Authentication:** Required (Bearer Token)
 - **Success Response (200 OK):**
   - The API will return a plain text response formatted for a thermal printer.
@@ -267,7 +267,7 @@ This section handles interactions for non-patient, walk-in customers.
 Creates a new customer and an invoice for their purchase in a single transaction. This is ideal for one-time sales.
 
 - **Method:** `POST`
-- **URL:** `http://localhost:3000/api/customer/invoice`
+- **URL:** `http://localhost:8080/api/customer/invoice`
 - **Authentication:** Required (Bearer Token)
 - **Request Body:**
   ```json
@@ -321,7 +321,7 @@ Creates a new customer and an invoice for their purchase in a single transaction
 Retrieves a list of the top 10 most frequent customer addresses, which can be used to identify business "hotspots".
 
 - **Method:** `GET`
-- **URL:** `http://localhost:3000/api/customer/hotspots`
+- **URL:** `http://localhost:8080/api/customer/hotspots`
 - **Authentication:** Required (Bearer Token)
 - **Success Response (200 OK):**
   ```json
@@ -350,7 +350,7 @@ This endpoint generates a custom barcode label with product information.
 #### **Generate Barcode Label**
 
 - **Method:** `POST`
-- **URL:** `http://localhost:3000/api/barcode`
+- **URL:** `http://localhost:8080/api/barcode`
 - **Authentication:** Not Required
 - **Request Body:**
   ```json
@@ -387,7 +387,7 @@ This endpoint generates a custom barcode label with product information.
 #### **Add Royalty Points**
 
 - **Method:** `POST`
-- **URL:** `http://localhost:3000/api/royalty`
+- **URL:** `http://localhost:8080/api/royalty`
 - **Authentication:** Required (Bearer Token)
 - **Request Body:**
   ```json
@@ -408,7 +408,7 @@ This endpoint generates a custom barcode label with product information.
 #### **Get Royalty Points by Patient**
 
 - **Method:** `GET`
-- **URL:** `http://localhost:3000/api/royalty/1` (Replace `1` with a real Patient ID)
+- **URL:** `http://localhost:8080/api/royalty/1` (Replace `1` with a real Patient ID)
 - **Authentication:** Required (Bearer Token)
 - **Success Response (200 OK):**
   ```json
@@ -428,7 +428,7 @@ This endpoint generates a custom barcode label with product information.
 #### **Get All Attendance Records**
 
 - **Method:** `GET`
-- **URL:** `http://localhost:3000/api/attendance`
+- **URL:** `http://localhost:8080/api/attendance`
 - **Authentication:** Required (Bearer Token)
 - **Success Response (200 OK):**
   ```json
@@ -450,7 +450,7 @@ This endpoint generates a custom barcode label with product information.
 #### **Get Attendance by Staff ID**
 
 - **Method:** `GET`
-- **URL:** `http://localhost:3000/api/attendance/1` (Replace `1` with a real Staff ID)
+- **URL:** `http://localhost:8080/api/attendance/1` (Replace `1` with a real Staff ID)
 - **Authentication:** Required (Bearer Token)
 - **Success Response (200 OK):**
   ```json
@@ -480,7 +480,7 @@ This section provides endpoints for generating business intelligence reports.
 Categorizes sales volume into "low", "medium", and "high" price tiers based on the `unitPrice` at the time of sale.
 
 - **Method:** `GET`
-- **URL:** `http://localhost:3000/api/reporting/sales-by-price-tier`
+- **URL:** `http://localhost:8080/api/reporting/sales-by-price-tier`
 - **Authentication:** Required (Bearer Token)
 - **Query Parameters (Optional):**
   - `startDate` (e.g., `2025-09-01`)
@@ -506,7 +506,7 @@ Categorizes sales volume into "low", "medium", and "high" price tiers based on t
 Identifies the top-selling products within each price tier.
 
 - **Method:** `GET`
-- **URL:** `http://localhost:3000/api/reporting/best-sellers-by-price-tier`
+- **URL:** `http://localhost:8080/api/reporting/best-sellers-by-price-tier`
 - **Authentication:** Required (Bearer Token)
 - **Query Parameters (Optional):**
   - `startDate` (e.g., `2025-09-01`)
@@ -563,7 +563,7 @@ Identifies the top-selling products within each price tier.
 #### **Create New Prescription**
 
 - **Method:** `POST`
-- **URL:** `http://localhost:3000/api/prescription`
+- **URL:** `http://localhost:8080/api/prescription`
 - **Authentication:** Required (Bearer Token)
 - **Request Body:**
   ```json
@@ -608,11 +608,11 @@ Identifies the top-selling products within each price tier.
 #### **Get Prescription by ID**
 
 - **Method:** `GET`
-- **URL:** `http://localhost:3000/api/prescription/:id`
+- **URL:** `http://localhost:8080/api/prescription/:id`
 - **Authentication:** Required (Bearer Token)
 - **URL Parameters:**
   - `id` (required): Prescription ID
-- **Example URL:** `http://localhost:3000/api/prescription/1`
+- **Example URL:** `http://localhost:8080/api/prescription/1`
 - **Success Response (200 OK):**
   ```json
   {
@@ -653,7 +653,7 @@ Identifies the top-selling products within each price tier.
 #### **Register New Staff**
 
 - **Method:** `POST`
-- **URL:** `http://localhost:3000/api/auth/register`
+- **URL:** `http://localhost:8080/api/auth/register`
 - **Authentication:** Not Required
 - **Request Body:**
   ```json
@@ -675,7 +675,7 @@ Identifies the top-selling products within each price tier.
 #### **Staff Logout**
 
 - **Method:** `POST`
-- **URL:** `http://localhost:3000/api/auth/logout`
+- **URL:** `http://localhost:8080/api/auth/logout`
 - **Authentication:** Not Required
 - **Request Body:** No body required
 - **Success Response (200 OK):**
@@ -694,7 +694,7 @@ Identifies the top-selling products within each price tier.
 This endpoint logs in staff and automatically records attendance entry.
 
 - **Method:** `POST`
-- **URL:** `http://localhost:3000/api/attendance/login`
+- **URL:** `http://localhost:8080/api/attendance/login`
 - **Authentication:** Not Required
 - **Request Body:**
   ```json
@@ -717,7 +717,7 @@ This endpoint logs in staff and automatically records attendance entry.
 #### **Add New Product**
 
 - **Method:** `POST`
-- **URL:** `http://localhost:3000/api/product`
+- **URL:** `http://localhost:8080/api/product`
 - **Authentication:** Required (Bearer Token)
 - **Request Body:**
   ```json
@@ -746,7 +746,7 @@ This endpoint logs in staff and automatically records attendance entry.
 #### **Add Product to Inventory**
 
 - **Method:** `POST`
-- **URL:** `http://localhost:3000/api/inventory/product`
+- **URL:** `http://localhost:8080/api/inventory/product`
 - **Authentication:** Required (Bearer Token)
 - **Request Body:**
   ```json
@@ -781,7 +781,7 @@ This endpoint logs in staff and automatically records attendance entry.
 #### **Stock In (Add Stock)**
 
 - **Method:** `POST`
-- **URL:** `http://localhost:3000/api/inventory/stock-in`
+- **URL:** `http://localhost:8080/api/inventory/stock-in`
 - **Authentication:** Required (Bearer Token)
 - **Request Body:**
   ```json
@@ -804,7 +804,7 @@ This endpoint logs in staff and automatically records attendance entry.
 #### **Stock Out (Remove Stock)**
 
 - **Method:** `POST`
-- **URL:** `http://localhost:3000/api/inventory/stock-out`
+- **URL:** `http://localhost:8080/api/inventory/stock-out`
 - **Authentication:** Required (Bearer Token)
 - **Request Body:**
   ```json
@@ -827,7 +827,7 @@ This endpoint logs in staff and automatically records attendance entry.
 #### **Get All Inventory**
 
 - **Method:** `GET`
-- **URL:** `http://localhost:3000/api/inventory`
+- **URL:** `http://localhost:8080/api/inventory`
 - **Authentication:** Required (Bearer Token)
 - **Success Response (200 OK):**
   ```json
@@ -854,11 +854,11 @@ This endpoint logs in staff and automatically records attendance entry.
 #### **Update Product Details**
 
 - **Method:** `PUT`
-- **URL:** `http://localhost:3000/api/inventory/product/:productId`
+- **URL:** `http://localhost:8080/api/inventory/product/:productId`
 - **Authentication:** Required (Bearer Token)
 - **URL Parameters:**
   - `productId` (required): Product ID to update
-- **Example URL:** `http://localhost:3000/api/inventory/product/1`
+- **Example URL:** `http://localhost:8080/api/inventory/product/1`
 - **Request Body:**
   ```json
   {
@@ -888,7 +888,7 @@ This endpoint logs in staff and automatically records attendance entry.
 #### **Process Payment for Invoice**
 
 - **Method:** `POST`
-- **URL:** `http://localhost:3000/api/payment`
+- **URL:** `http://localhost:8080/api/payment`
 - **Authentication:** Not Required
 - **Request Body:**
   ```json
@@ -916,7 +916,7 @@ This endpoint logs in staff and automatically records attendance entry.
 #### **Issue New Gift Card**
 
 - **Method:** `POST`
-- **URL:** `http://localhost:3000/api/gift-card/issue`
+- **URL:** `http://localhost:8080/api/gift-card/issue`
 - **Authentication:** Required (Bearer Token)
 - **Request Body:**
   ```json
@@ -940,7 +940,7 @@ This endpoint logs in staff and automatically records attendance entry.
 #### **Redeem Gift Card**
 
 - **Method:** `POST`
-- **URL:** `http://localhost:3000/api/gift-card/redeem`
+- **URL:** `http://localhost:8080/api/gift-card/redeem`
 - **Authentication:** Required (Bearer Token)
 - **Request Body:**
   ```json
@@ -965,11 +965,11 @@ This endpoint logs in staff and automatically records attendance entry.
 #### **Check Gift Card Balance**
 
 - **Method:** `GET`
-- **URL:** `http://localhost:3000/api/gift-card/:code`
+- **URL:** `http://localhost:8080/api/gift-card/:code`
 - **Authentication:** Required (Bearer Token)
 - **URL Parameters:**
   - `code` (required): Gift card code
-- **Example URL:** `http://localhost:3000/api/gift-card/GC-ABC123DEF456`
+- **Example URL:** `http://localhost:8080/api/gift-card/GC-ABC123DEF456`
 - **Success Response (200 OK):**
   ```json
   {
@@ -994,7 +994,7 @@ This endpoint logs in staff and automatically records attendance entry.
 #### **Get Daily Sales Report**
 
 - **Method:** `GET`
-- **URL:** `http://localhost:3000/api/reporting/daily`
+- **URL:** `http://localhost:8080/api/reporting/daily`
 - **Authentication:** Required (Bearer Token)
 - **Query Parameters (Optional):**
   - `date` (e.g., `2025-09-02`)
@@ -1011,7 +1011,7 @@ This endpoint logs in staff and automatically records attendance entry.
 #### **Get Monthly Sales Report**
 
 - **Method:** `GET`
-- **URL:** `http://localhost:3000/api/reporting/monthly`
+- **URL:** `http://localhost:8080/api/reporting/monthly`
 - **Authentication:** Required (Bearer Token)
 - **Query Parameters (Optional):**
   - `month` (e.g., `2025-09`)
@@ -1040,7 +1040,7 @@ This endpoint logs in staff and automatically records attendance entry.
 #### **Get Staff Sales Report**
 
 - **Method:** `GET`
-- **URL:** `http://localhost:3000/api/reporting/staff-sales`
+- **URL:** `http://localhost:8080/api/reporting/staff-sales`
 - **Authentication:** Required (Bearer Token)
 - **Query Parameters (Optional):**
   - `startDate` (e.g., `2025-09-01`)

@@ -1044,7 +1044,7 @@ GET /api/customer/hotspots
 ### Step 1: Setup Environment
 
 1. Create new Postman environment
-2. Add variable: `baseUrl` = `http://localhost:3000`
+2. Add variable: `baseUrl` = `http://localhost:8080`
 3. Add variable: `token` = (will be set after login)
 
 ### Step 2: Authentication
