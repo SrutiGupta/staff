@@ -1,12 +1,14 @@
 require("dotenv").config();
 const express = require("express");
 const compression = require("compression");
+const cors = require("cors");
 const companyRoutes = require("./portal/company/routes/companyRoutes");
 const retailerRoutes = require("./portal/retailer/routes/retailerRoutes");
 
 const app = express();
 
 // Middleware
+app.use(cors({ origin: "https://optical-omega.vercel.app" }));
 app.use(compression());
 app.use(express.json());
 
