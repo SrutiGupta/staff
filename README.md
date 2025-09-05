@@ -62,13 +62,30 @@ For every protected endpoint, you must include the token in your request headers
 - **URL:** `http://localhost:3000/api/patient`
 - **Authentication:** Required (Bearer Token)
 - **Request Body:**
+
   ```json
   {
     "name": "Test Patient",
     "age": 30,
-    "gender": "Male"
+    "gender": "Male",
+    "phone": "+91-9876543210",
+    "address": "123 Main Street, City, State",
+    "medicalHistory": "No significant medical history"
   }
   ```
+
+  **Required Fields:**
+
+  - `name` (string): Patient's full name
+  - `age` (number): Patient's age
+  - `gender` (string): Patient's gender
+
+  **Optional Fields:**
+
+  - `phone` (string): Patient's phone number
+  - `address` (string): Patient's address
+  - `medicalHistory` (string): Patient's medical history
+
 - **Success Response (201 Created):**
   ```json
   {
@@ -76,9 +93,9 @@ For every protected endpoint, you must include the token in your request headers
     "name": "Test Patient",
     "age": 30,
     "gender": "Male",
-    "phone": null,
-    "address": null,
-    "medicalHistory": null,
+    "phone": "+91-9876543210",
+    "address": "123 Main Street, City, State",
+    "medicalHistory": "No significant medical history",
     "createdAt": "2025-08-30T06:35:54.248Z",
     "updatedAt": "2025-08-30T06:35:54.248Z"
   }

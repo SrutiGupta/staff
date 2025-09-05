@@ -2,7 +2,7 @@ const { PrismaClient } = require("@prisma/client");
 const prisma = new PrismaClient();
 
 exports.createPatient = async (req, res) => {
-  const { name, age, gender, medicalHistory } = req.body;
+  const { name, age, gender, phone, address, medicalHistory } = req.body;
 
   try {
     const patient = await prisma.patient.create({
@@ -10,6 +10,8 @@ exports.createPatient = async (req, res) => {
         name,
         age,
         gender,
+        phone,
+        address,
         medicalHistory,
       },
     });
