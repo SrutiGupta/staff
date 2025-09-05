@@ -31,7 +31,7 @@ app.use("/retailer", retailerRoutes);
 
 // Health check
 app.get("/", (req, res) => {
-  res.send(" Backend Running for Company & Retailer");
+  res.send(" Backend made by Sparkline_World_Technology ");
 });
 
 // Centralized Error Handler
