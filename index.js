@@ -8,7 +8,7 @@ const retailerRoutes = require("./portal/retailer/routes/retailerRoutes");
 const app = express();
 
 // Middleware
-app.use(cors({ origin: "https://optical-omega.vercel.app" }));
+app.use(cors({ origin: "https://optical-wt18.vercel.app/" }));
 app.use(compression());
 app.use(express.json());
 
