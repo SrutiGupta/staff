@@ -13,6 +13,7 @@ const allowedOrigins = [
   "https://optical-omega.vercel.app",
   "https://smart-optical.vercel.app",
   "https://optical3-git-main-tj44s-projects.vercel.app",
+  "https://optical-liart.vercel.app",
 ];
 
 app.use(cors({
