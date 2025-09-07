@@ -185,7 +185,7 @@ exports.generateInvoicePdf = async (req, res) => {
   const { id } = req.params;
 
   try {
-    // Fetch invoice with all related data
+    // Fetch invoice data (same as your original code)
     const invoiceData = await prisma.invoice.findUnique({
       where: { id },
       include: {
@@ -195,9 +195,7 @@ exports.generateInvoicePdf = async (req, res) => {
         items: {
           include: {
             product: {
-              include: {
-                company: true,
-              },
+              include: { company: true },
             },
           },
         },
@@ -209,7 +207,7 @@ exports.generateInvoicePdf = async (req, res) => {
       return res.status(404).json({ error: "Invoice not found" });
     }
 
-    // Map database data to PDF format
+    // --- Map Data ---
     const clientInfo = invoiceData.patient || invoiceData.customer;
     const invoice = {
       invoiceNo: invoiceData.id,
@@ -218,7 +216,6 @@ exports.generateInvoicePdf = async (req, res) => {
         name: clientInfo ? clientInfo.name : "Unknown Client",
         phone: clientInfo ? clientInfo.phone || "N/A" : "N/A",
       },
-      eyePower: [],
       products: invoiceData.items.map((item) => ({
         name: item.product
           ? `${item.product.name}${
@@ -227,7 +224,7 @@ exports.generateInvoicePdf = async (req, res) => {
           : "Product Not Found",
         qty: item.quantity,
         rate: item.unitPrice,
-        discount: ((item.discount / item.unitPrice) * 100).toFixed(1), // Convert to percentage
+        discount: ((item.discount / item.unitPrice) * 100).toFixed(1),
         total: item.totalPrice,
       })),
       subtotal: invoiceData.subtotal,
@@ -237,51 +234,34 @@ exports.generateInvoicePdf = async (req, res) => {
       balance: invoiceData.totalAmount - invoiceData.paidAmount,
     };
 
-    // Add prescription data if available
+    // --- Prescription (Eye Power) ---
     if (invoiceData.prescription && invoiceData.patient) {
-      const prescription = invoiceData.prescription;
-      const rightEye = prescription.rightEye || {};
-      const leftEye = prescription.leftEye || {};
-
+      const pres = invoiceData.prescription;
       invoice.eyePower = [
         {
-          eye: "Right",
-          sphere: rightEye.sph || "0.00",
-          cylinder: rightEye.cyl || "0.00",
-          axis: rightEye.axis || "0",
-          gst: "18",
+          eye: "RE",
+          sphere: pres.rightEye?.sph || "0.00",
+          cylinder: pres.rightEye?.cyl || "0.00",
+          axis: pres.rightEye?.axis || "0",
+          gst: "18%",
         },
         {
-          eye: "Left",
-          sphere: leftEye.sph || "0.00",
-          cylinder: leftEye.cyl || "0.00",
-          axis: leftEye.axis || "0",
-          gst: "18",
+          eye: "LE",
+          sphere: pres.leftEye?.sph || "0.00",
+          cylinder: pres.leftEye?.cyl || "0.00",
+          axis: pres.leftEye?.axis || "0",
+          gst: "12%",
         },
       ];
     } else {
-      // Default empty eye power data if no prescription
       invoice.eyePower = [
-        {
-          eye: "Right",
-          sphere: "0.00",
-          cylinder: "0.00",
-          axis: "0",
-          gst: "18",
-        },
-        {
-          eye: "Left",
-          sphere: "0.00",
-          cylinder: "0.00",
-          axis: "0",
-          gst: "18",
-        },
+        { eye: "RE", sphere: "0.00", cylinder: "0.00", axis: "0", gst: "18%" },
+        { eye: "LE", sphere: "0.00", cylinder: "0.00", axis: "0", gst: "12%" },
       ];
     }
 
-    const doc = new PDFDocument({ margin: 30, size: "A4" });
-
-    // --- STREAM RESPONSE ---
+    // --- Start PDF ---
+    const doc = new PDFDocument({ margin: 40, size: "A4" });
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader(
       "Content-Disposition",
@@ -290,108 +270,115 @@ exports.generateInvoicePdf = async (req, res) => {
     doc.pipe(res);
 
     // --- HEADER ---
-    doc
-      .fontSize(18)
-      .text("Clear Eyes Optical", { align: "center" })
-      .moveDown(0.2);
-    doc
-      .fontSize(10)
-      .text("68 Jessore Road, Diamond Plaza", { align: "center" })
-      .text("Kolkata +91-96765 43210", { align: "center" });
+doc.font("Helvetica-Bold").fontSize(18).text("Clear Eyes Optical", { align: "center" });
+doc.moveDown(0.3);
+doc
+  .font("Helvetica")
+  .fontSize(10)
+  .text("68 Jessore Road, Diamond Plaza", { align: "center" })
+  .text("Kolkata +91-96765 43210", { align: "center" });
 
-    // --- BARCODE ---
-    const barcodePng = await bwipjs.toBuffer({
-      bcid: "code128",
-      text: invoice.invoiceNo,
-      scale: 2,
-      height: 10,
-      includetext: false,
-    });
-    doc.image(barcodePng, 430, 50, { width: 120, height: 40 });
-    doc.fontSize(10).text(invoice.invoiceNo, 460, 95);
+// Barcode
+const barcodePng = await bwipjs.toBuffer({
+  bcid: "code128",
+  text: invoice.invoiceNo,
+  scale: 2,
+  height: 10,
+  includetext: false,
+});
+doc.image(barcodePng, 420, 40, { width: 120, height: 40 });
+doc.fontSize(10).text(invoice.invoiceNo, 460, 85);
 
-    // --- INVOICE INFO ---
-    doc.fontSize(10).text(`Invoice No: ${invoice.invoiceNo}`, 40, 120);
-    doc.text(`Date: ${invoice.date}`, 450, 120);
+// Invoice Info
+doc.font("Helvetica-Bold").fontSize(11).text(`Invoice No:`, 40, 120);
+doc.font("Helvetica").text(invoice.invoiceNo, 120, 120);
+doc.font("Helvetica-Bold").text(`Date:`, 400, 120);
+doc.font("Helvetica").text(invoice.date, 450, 120);
 
-    // --- CUSTOMER INFO ---
-    doc.moveDown(1);
-    doc
-      .fontSize(11)
-      .text(`Customer Name: ${invoice.customer.name}`)
-      .text(`Mobile: ${invoice.customer.phone}`);
+// Customer Info
+doc.moveDown(1);
+doc.font("Helvetica-Bold").text(`Customer Name:`, 40, doc.y);
+doc.font("Helvetica").text(invoice.customer.name, 150, doc.y - 12);
+doc.font("Helvetica-Bold").text(`Mobile:`, 40, doc.y + 10);
+doc.font("Helvetica").text(invoice.customer.phone, 150, doc.y - 12);
 
-    // --- CUSTOMER EYE POWER TABLE ---
-    doc.moveDown(1);
-    doc.fontSize(11).text("Customer Eye Power");
+// --- EYE POWER TABLE ---
+doc.moveDown(2).font("Helvetica-Bold").fontSize(11).text("Customer Eye Power");
 
-    const tableTop = 200;
-    const colX = [40, 120, 200, 280, 360];
+let startY = doc.y + 10;
+const colWidthsEye = [80, 100, 100, 100, 100];
+const colXEye = [40, 120, 220, 320, 420];
+const rowHeight = 25;
 
-    // Header row
-    doc.fontSize(10).text("Eye", colX[0], tableTop);
-    doc.text("Sphere", colX[1], tableTop);
-    doc.text("Cylinder", colX[2], tableTop);
-    doc.text("Axis", colX[3], tableTop);
-    doc.text("GST", colX[4], tableTop);
+// Draw header row
+doc.rect(40, startY, 480, rowHeight).stroke();
+["Eye", "Sphere", "Cylinder", "Axis", "GST"].forEach((h, i) => {
+  doc.text(h, colXEye[i] + 5, startY + 7);
+  if (i < colXEye.length - 1) {
+    doc.moveTo(colXEye[i + 1], startY).lineTo(colXEye[i + 1], startY + rowHeight).stroke();
+  }
+});
 
-    // Rows from eye power data
-    invoice.eyePower.forEach((eye, i) => {
-      const y = tableTop + 20 * (i + 1);
-      doc.text(eye.eye, colX[0], y);
-      doc.text(eye.sphere.toString(), colX[1], y);
-      doc.text(eye.cylinder.toString(), colX[2], y);
-      doc.text(eye.axis.toString(), colX[3], y);
-      doc.text(eye.gst.toString(), colX[4], y);
-    });
+// Draw rows
+invoice.eyePower.forEach((eye, idx) => {
+  let y = startY + rowHeight * (idx + 1);
+  doc.rect(40, y, 480, rowHeight).stroke();
+  const values = [eye.eye, eye.sphere, eye.cylinder, eye.axis, eye.gst];
+  values.forEach((v, i) => {
+    doc.text(v.toString(), colXEye[i] + 5, y + 7);
+    if (i < colXEye.length - 1) {
+      doc.moveTo(colXEye[i + 1], y).lineTo(colXEye[i + 1], y + rowHeight).stroke();
+    }
+  });
+});
 
-    // --- PRODUCT DETAILS TABLE ---
-    doc.moveDown(3);
-    doc.fontSize(11).text("Product Details");
+// --- PRODUCT DETAILS TABLE ---
+doc.moveDown(2).font("Helvetica-Bold").fontSize(11).text("Product Details");
 
-    const prodTableTop = tableTop + 80;
-    const prodCols = [40, 200, 260, 330, 400];
+startY = doc.y + 10;
+const prodCols = [40, 250, 300, 370, 450];
+const prodWidths = [210, 50, 70, 80, 90];
 
-    doc.fontSize(10).text("Product", prodCols[0], prodTableTop);
-    doc.text("Qty", prodCols[1], prodTableTop);
-    doc.text("Rate", prodCols[2], prodTableTop);
-    doc.text("Discount", prodCols[3], prodTableTop);
-    doc.text("Total", prodCols[4], prodTableTop);
+// Header Row
+doc.rect(40, startY, 500, rowHeight).stroke();
+["Product", "Qty", "Rate", "Discount", "Total"].forEach((h, i) => {
+  doc.text(h, prodCols[i] + 5, startY + 7);
+  if (i < prodCols.length - 1) {
+    doc.moveTo(prodCols[i + 1], startY).lineTo(prodCols[i + 1], startY + rowHeight).stroke();
+  }
+});
 
-    invoice.products.forEach((p, i) => {
-      const y = prodTableTop + 20 * (i + 1);
-      doc.text(p.name, prodCols[0], y);
-      doc.text(p.qty.toString(), prodCols[1], y);
-      doc.text(p.rate.toString(), prodCols[2], y);
-      doc.text(`${p.discount}%`, prodCols[3], y);
-      doc.text(p.total.toString(), prodCols[4], y);
-    });
+// Rows
+invoice.products.forEach((p, idx) => {
+  let y = startY + rowHeight * (idx + 1);
+  doc.rect(40, y, 500, rowHeight).stroke();
+  const values = [p.name, p.qty, p.rate, `${p.discount}%`, p.total];
+  values.forEach((v, i) => {
+    doc.text(v.toString(), prodCols[i] + 5, y + 7, { width: prodWidths[i] - 10 });
+    if (i < prodCols.length - 1) {
+      doc.moveTo(prodCols[i + 1], y).lineTo(prodCols[i + 1], y + rowHeight).stroke();
+    }
+  });
+});
 
-    // --- SUMMARY ---
-    doc.moveDown(4);
-    doc
-      .fontSize(10)
-      .text(`Subtotal: ${invoice.subtotal}`, { align: "right" })
-      .text(`GST (Included): ${invoice.gst}`, { align: "right" })
-      .text(`Advance Paid: ${invoice.advancePaid}`, { align: "right" })
-      .fontSize(12)
-      .text(`Balance: ${invoice.balance}`, { align: "right" });
+// --- SUMMARY BOX ---
+let summaryY = startY + rowHeight * (invoice.products.length + 2);
+doc.rect(320, summaryY, 220, 100).stroke();
 
-    // --- FOOTER ---
-    doc.moveDown(2);
-    doc
-      .fontSize(11)
-      .text("Thank You for Shopping with Us!", { align: "center" });
-    doc
-      .fontSize(9)
-      .text("Visit again. Follow us on Instagram @cleareyes_optical", {
-        align: "center",
-      });
+doc.font("Helvetica").fontSize(10).text(`Subtotal: ${invoice.subtotal}`, 330, summaryY + 10);
+doc.text(`GST (Included): ${invoice.gst}`, 330, summaryY + 30);
+doc.text(`Advance Paid: ${invoice.advancePaid}`, 330, summaryY + 50);
+doc.font("Helvetica-Bold").fontSize(12).text(`Balance: ${invoice.balance}`, 330, summaryY + 75);
+
+// --- FOOTER ---
+doc.moveDown(4);
+doc.font("Helvetica-Bold").fontSize(11).text("Thank You for Shopping with Us!", { align: "center" });
+doc.font("Helvetica").fontSize(9).text("Visit again. Follow us on Instagram @cleareyes_optical", { align: "center" });
 
     doc.end();
-  } catch (error) {
-    console.error("Error generating PDF:", error);
-    res.status(500).json({ error: "Failed to generate PDF invoice" });
+  } catch (err) {
+    console.error("Error generating PDF:", err);
+    res.status(500).json({ error: "Failed to generate PDF" });
   }
 };
 
