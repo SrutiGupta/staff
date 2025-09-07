@@ -4,6 +4,7 @@ const compression = require("compression");
 const cors = require("cors");
 const companyRoutes = require("./portal/company/routes/companyRoutes");
 const retailerRoutes = require("./portal/retailer/routes/retailerRoutes");
+const shopAdminRoutes = require("./portal/shopadmin/routes/shopAdminRoutes");
 
 const app = express();
 
@@ -48,6 +49,7 @@ app.use("/api/customer", require("./routes/customer"));
 // New Company & Retailer APIs
 app.use("/company", companyRoutes);
 app.use("/retailer", retailerRoutes);
+app.use("/shop-admin", shopAdminRoutes);
 
 // Health check
 app.get("/", (req, res) => {
