@@ -44,6 +44,7 @@ const createCustomerAndInvoice = async (req, res) => {
         name: customer.name,
         phone: customer.phone,
         address: customer.address,
+        shopId: 1, // Default shop ID - should be dynamic based on staff's shop
       },
     });
 
@@ -168,6 +169,7 @@ const createCustomer = async (req, res) => {
         name,
         phone,
         address,
+        shopId: 1, // Default shop ID - should be dynamic based on staff's shop
       },
     });
 

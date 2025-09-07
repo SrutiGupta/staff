@@ -2,7 +2,15 @@ const { PrismaClient } = require("@prisma/client");
 const prisma = new PrismaClient();
 
 exports.createPatient = async (req, res) => {
-  const { name, age, gender, phone, address, medicalHistory } = req.body;
+  const {
+    name,
+    age,
+    gender,
+    phone,
+    address,
+    medicalHistory,
+    shopId = 1,
+  } = req.body;
 
   try {
     const patient = await prisma.patient.create({
@@ -13,10 +21,12 @@ exports.createPatient = async (req, res) => {
         phone,
         address,
         medicalHistory,
+        shopId,
       },
     });
     res.status(201).json(patient);
   } catch (error) {
+    console.error("Patient creation error:", error);
     res.status(500).json({ error: "Patient creation failed" });
   }
 };
