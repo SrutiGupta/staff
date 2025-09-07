@@ -170,7 +170,6 @@ This endpoint is designed for efficient stock-taking. You can scan a product's b
   ```
 
 ---
-
 ### Invoices (`/api/invoice`)
 
 #### **Create New Invoice**
