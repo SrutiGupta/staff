@@ -269,31 +269,46 @@ exports.generateInvoicePdf = async (req, res) => {
     );
     doc.pipe(res);
 
-    // --- HEADER ---
-doc.font("Helvetica-Bold").fontSize(18).text("Clear Eyes Optical", { align: "center" });
-doc.moveDown(0.3);
-doc
-  .font("Helvetica")
-  .fontSize(10)
-  .text("68 Jessore Road, Diamond Plaza", { align: "center" })
-  .text("Kolkata +91-96765 43210", { align: "center" });
+ // --- HEADER ---
+// Outer header box with grey background
+doc.save();
+doc.rect(40, 30, 520, 120).fillAndStroke("#f2f2f2", "#000"); 
+doc.restore();
 
-// Barcode
+// === TOP ROW: Brand (shifted left) + Barcode ===
+doc.fillColor("#000")
+   .font("Helvetica-Bold")
+   .fontSize(22)
+   // left shift by giving x instead of align:center
+   .text("CLEAR EYES OPTICAL", 60, 50, { characterSpacing: 1.5 });
+
+// Barcode (right side, aligned properly)
 const barcodePng = await bwipjs.toBuffer({
   bcid: "code128",
   text: invoice.invoiceNo,
   scale: 2,
-  height: 10,
+  height: 15,
   includetext: false,
 });
-doc.image(barcodePng, 420, 40, { width: 120, height: 40 });
-doc.fontSize(10).text(invoice.invoiceNo, 460, 85);
+doc.image(barcodePng, 400, 40, { width: 150, height: 50 });
+doc.fontSize(9).fillColor("#000").text(invoice.invoiceNo, 430, 90);
 
-// Invoice Info
-doc.font("Helvetica-Bold").fontSize(11).text(`Invoice No:`, 40, 120);
-doc.font("Helvetica").text(invoice.invoiceNo, 120, 120);
-doc.font("Helvetica-Bold").text(`Date:`, 400, 120);
-doc.font("Helvetica").text(invoice.date, 450, 120);
+// === MIDDLE ROW: Address + Contact ===
+doc.font("Helvetica")
+   .fontSize(10)
+   .fillColor("#333")
+   .text("68 Jessore Road, Diamond Plaza", 0, 100, { align: "center" })
+   .text("Kolkata | +91-96765 43210", { align: "center" })
+   .text("Follow us on Instagram @cleareyes_optical", { align: "center" });
+
+// === BOTTOM ROW: Invoice Info ===
+let infoY = 160;
+doc.font("Helvetica-Bold").fontSize(11).text(`Invoice No:`, 40, infoY);
+doc.font("Helvetica").text(invoice.invoiceNo, 120, infoY);
+
+doc.font("Helvetica-Bold").text(`Date:`, 400, infoY);
+doc.font("Helvetica").text(invoice.date, 450, infoY);
+
 
 // Customer Info
 doc.moveDown(1);
