@@ -36,7 +36,9 @@ exports.getDashboardMetrics = async (shopId) => {
       prisma.patientVisit.count({
         where: {
           visitDate: { gte: startOfToday },
-          shopId,
+          patient: {
+            shopId,
+          },
         },
       }),
 
@@ -191,7 +193,9 @@ exports.getDashboardGrowth = async (shopId, period = "monthly") => {
                 gte: range.start,
                 lt: range.end,
               },
-              shopId,
+              patient: {
+                shopId,
+              },
             },
           }),
         ]);
@@ -817,7 +821,9 @@ exports.getPatientReport = async (shopId, { type, startDate, endDate }) => {
 
       prisma.patientVisit.findMany({
         where: {
-          shopId,
+          patient: {
+            shopId,
+          },
           ...(startDate &&
             endDate && {
               visitDate: {
@@ -885,7 +891,11 @@ exports.getPatientVisitHistory = async (
   { patientId, startDate, endDate }
 ) => {
   try {
-    const whereClause = { shopId };
+    const whereClause = {
+      patient: {
+        shopId,
+      },
+    };
 
     if (patientId) {
       whereClause.patientId = parseInt(patientId);
