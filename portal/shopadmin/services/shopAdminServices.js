@@ -569,15 +569,24 @@ exports.getProductSalesReport = async (
         id: true,
         name: true,
         sku: true,
-        category: true,
-        company: true,
+        eyewearType: true,
+        company: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
       },
     });
 
     const report = productSales.map((sales) => {
       const product = products.find((p) => p.id === sales.productId);
       return {
-        product,
+        product: {
+          ...product,
+          category: product.eyewearType, // Map eyewearType to category for frontend compatibility
+          company: product.company.name, // Extract company name
+        },
         totalQuantitySold: sales._sum.quantity || 0,
         totalRevenue: sales._sum.price || 0,
         totalTransactions: sales._count || 0,
@@ -673,7 +682,7 @@ exports.getInventoryReport = async (shopId, { type, startDate, endDate }) => {
       where: whereClause,
       include: {
         product: {
-          select: { id: true, name: true, sku: true, category: true },
+          select: { id: true, name: true, sku: true, eyewearType: true },
         },
       },
       orderBy: { createdAt: "desc" },
@@ -685,7 +694,10 @@ exports.getInventoryReport = async (shopId, { type, startDate, endDate }) => {
       const key = `${movement.productId}-${movement.type}`;
       if (!summary[key]) {
         summary[key] = {
-          product: movement.product,
+          product: {
+            ...movement.product,
+            category: movement.product.eyewearType, // Map eyewearType to category
+          },
           type: movement.type,
           totalQuantity: 0,
           movements: [],
@@ -702,7 +714,13 @@ exports.getInventoryReport = async (shopId, { type, startDate, endDate }) => {
 
     return {
       summary: Object.values(summary),
-      details: movements,
+      details: movements.map((movement) => ({
+        ...movement,
+        product: {
+          ...movement.product,
+          category: movement.product.eyewearType, // Map eyewearType to category
+        },
+      })),
     };
   } catch (error) {
     console.error("Inventory Report Error:", error);
@@ -723,19 +741,49 @@ exports.getStockStatusReport = async (shopId) => {
             id: true,
             name: true,
             sku: true,
-            category: true,
-            company: true,
+            eyewearType: true,
+            company: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
           },
         },
       },
     });
 
     const categorized = {
-      inStock: inventory.filter((item) => item.quantity > 10),
-      lowStock: inventory.filter(
-        (item) => item.quantity > 0 && item.quantity <= 10
-      ),
-      outOfStock: inventory.filter((item) => item.quantity === 0),
+      inStock: inventory
+        .filter((item) => item.quantity > 10)
+        .map((item) => ({
+          ...item,
+          product: {
+            ...item.product,
+            category: item.product.eyewearType,
+            company: item.product.company.name,
+          },
+        })),
+      lowStock: inventory
+        .filter((item) => item.quantity > 0 && item.quantity <= 10)
+        .map((item) => ({
+          ...item,
+          product: {
+            ...item.product,
+            category: item.product.eyewearType,
+            company: item.product.company.name,
+          },
+        })),
+      outOfStock: inventory
+        .filter((item) => item.quantity === 0)
+        .map((item) => ({
+          ...item,
+          product: {
+            ...item.product,
+            category: item.product.eyewearType,
+            company: item.product.company.name,
+          },
+        })),
     };
 
     return {
@@ -765,14 +813,17 @@ exports.getLowStockAlerts = async (shopId) => {
       },
       include: {
         product: {
-          select: { id: true, name: true, sku: true, category: true },
+          select: { id: true, name: true, sku: true, eyewearType: true },
         },
       },
       orderBy: { quantity: "asc" },
     });
 
     return lowStockItems.map((item) => ({
-      product: item.product,
+      product: {
+        ...item.product,
+        category: item.product.eyewearType, // Map eyewearType to category for frontend compatibility
+      },
       currentStock: item.quantity,
       alertLevel:
         item.quantity === 0
@@ -1204,9 +1255,14 @@ exports.getInventoryStatus = async (shopId) => {
             id: true,
             name: true,
             sku: true,
-            category: true,
-            company: true,
+            eyewearType: true,
             price: true,
+            company: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
           },
         },
       },
@@ -1215,7 +1271,11 @@ exports.getInventoryStatus = async (shopId) => {
 
     return inventory.map((item) => ({
       id: item.id,
-      product: item.product,
+      product: {
+        ...item.product,
+        category: item.product.eyewearType, // Map eyewearType to category for frontend compatibility
+        company: item.product.company.name, // Extract company name
+      },
       quantity: item.quantity,
       value: item.quantity * item.product.price,
       status:
@@ -1241,6 +1301,11 @@ exports.getInventoryStatus = async (shopId) => {
  */
 exports.exportReportPDF = async (shopId, reportType, params) => {
   try {
+    // Validate reportType parameter
+    if (!reportType || typeof reportType !== "string") {
+      reportType = "GENERAL"; // Default fallback
+    }
+
     // This is a simplified implementation
     // You would need to implement specific PDF generation for each report type
     const doc = new PDFDocument();
@@ -1275,8 +1340,13 @@ exports.exportReportPDF = async (shopId, reportType, params) => {
  */
 exports.exportReportExcel = async (shopId, reportType, params) => {
   try {
+    // Validate reportType parameter
+    if (!reportType || typeof reportType !== "string") {
+      reportType = "general"; // Default fallback
+    }
+
     const workbook = new ExcelJS.Workbook();
-    const worksheet = workbook.addWorksheet(reportType);
+    const worksheet = workbook.addWorksheet(reportType.toUpperCase());
 
     // Add headers
     worksheet.columns = [

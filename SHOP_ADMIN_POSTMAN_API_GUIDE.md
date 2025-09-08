@@ -1050,10 +1050,41 @@ pm.test("Stock updated successfully", function () {
 ?reportType=sales&startDate=2025-09-01&endDate=2025-09-30
 ```
 
+**Supported Report Types**: `sales`, `inventory`, `staff`, `patients`, `general` (default: `general`)
+
+**Optional Parameters**:
+
+- `startDate`: Filter data from this date (YYYY-MM-DD format)
+- `endDate`: Filter data until this date (YYYY-MM-DD format)
+- `staffId`: For staff-specific reports
+- `productId`: For product-specific reports
+
 **Response**: PDF file download
 
 - **Content-Type**: `application/pdf`
-- **Content-Disposition**: `attachment; filename=sales-report.pdf`
+- **Content-Disposition**: `attachment; filename={reportType}-report.pdf`
+
+**Error Response (400 Bad Request)**:
+
+```json
+{
+  "message": "Invalid report type. Valid types are: sales, inventory, staff, patients, general"
+}
+```
+
+**Postman Test Script**:
+
+```javascript
+pm.test("Status code is 200", function () {
+  pm.response.to.have.status(200);
+});
+
+pm.test("PDF file downloaded", function () {
+  pm.expect(pm.response.headers.get("Content-Type")).to.include(
+    "application/pdf"
+  );
+});
+```
 
 ---
 
@@ -1069,10 +1100,41 @@ pm.test("Stock updated successfully", function () {
 ?reportType=inventory&startDate=2025-09-01&endDate=2025-09-30
 ```
 
+**Supported Report Types**: `sales`, `inventory`, `staff`, `patients`, `general` (default: `general`)
+
+**Optional Parameters**:
+
+- `startDate`: Filter data from this date (YYYY-MM-DD format)
+- `endDate`: Filter data until this date (YYYY-MM-DD format)
+- `staffId`: For staff-specific reports
+- `productId`: For product-specific reports
+
 **Response**: Excel file download
 
 - **Content-Type**: `application/vnd.openxmlformats-officedocument.spreadsheetml.sheet`
-- **Content-Disposition**: `attachment; filename=inventory-report.xlsx`
+- **Content-Disposition**: `attachment; filename={reportType}-report.xlsx`
+
+**Error Response (400 Bad Request)**:
+
+```json
+{
+  "message": "Invalid report type. Valid types are: sales, inventory, staff, patients, general"
+}
+```
+
+**Postman Test Script**:
+
+```javascript
+pm.test("Status code is 200", function () {
+  pm.response.to.have.status(200);
+});
+
+pm.test("Excel file downloaded", function () {
+  pm.expect(pm.response.headers.get("Content-Type")).to.include(
+    "spreadsheetml"
+  );
+});
+```
 
 ---
 

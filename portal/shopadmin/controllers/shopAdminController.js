@@ -507,11 +507,29 @@ exports.getInventoryStatus = async (req, res) => {
 exports.exportReportPDF = async (req, res) => {
   try {
     const shopId = req.user.shopId;
-    const { reportType, ...params } = req.query;
+    const { reportType = "general", ...params } = req.query;
+
+    // Validate reportType
+    const validReportTypes = [
+      "sales",
+      "inventory",
+      "staff",
+      "patients",
+      "general",
+    ];
+    const normalizedReportType = reportType.toLowerCase();
+
+    if (!validReportTypes.includes(normalizedReportType)) {
+      return res.status(400).json({
+        message: `Invalid report type. Valid types are: ${validReportTypes.join(
+          ", "
+        )}`,
+      });
+    }
 
     const pdfBuffer = await shopAdminService.exportReportPDF(
       shopId,
-      reportType,
+      normalizedReportType,
       params
     );
 
@@ -533,11 +551,29 @@ exports.exportReportPDF = async (req, res) => {
 exports.exportReportExcel = async (req, res) => {
   try {
     const shopId = req.user.shopId;
-    const { reportType, ...params } = req.query;
+    const { reportType = "general", ...params } = req.query;
+
+    // Validate reportType
+    const validReportTypes = [
+      "sales",
+      "inventory",
+      "staff",
+      "patients",
+      "general",
+    ];
+    const normalizedReportType = reportType.toLowerCase();
+
+    if (!validReportTypes.includes(normalizedReportType)) {
+      return res.status(400).json({
+        message: `Invalid report type. Valid types are: ${validReportTypes.join(
+          ", "
+        )}`,
+      });
+    }
 
     const excelBuffer = await shopAdminService.exportReportExcel(
       shopId,
-      reportType,
+      normalizedReportType,
       params
     );
 
