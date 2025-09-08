@@ -380,8 +380,6 @@ model Inventory {
 
 model Invoice {
   id             String        @id @default(cuid())
-
-  // An invoice can be for a Patient OR a Customer, so both are optional.
   patient        Patient?      @relation(fields: [patientId], references: [id])
   patientId      Int?
   customer       Customer?     @relation(fields: [customerId], references: [id])
