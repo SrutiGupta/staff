@@ -56,7 +56,7 @@ app.get("/", (req, res) => {
   res.send(" Backend made by Sparkline_World_Technology ");
 });
 
-// Centralized Error Handler
+
 app.use((err, req, res, next) => {
   console.error(err.stack);
   res.status(500).send("Something broke!");
