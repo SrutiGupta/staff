@@ -997,7 +997,32 @@ GET http://localhost:8080/api/customer/hotspots
 
 ---
 
-## 📝 FIELD DEFINITIONS
+## � CRITICAL ARCHITECTURE ISSUE
+
+### **DUAL INVENTORY SYSTEM PROBLEM**
+
+⚠️ **WARNING**: This system currently has **TWO SEPARATE INVENTORY MODELS** that **DO NOT SYNCHRONIZE**:
+
+1. **Staff Portal** uses `Inventory` table (global, single record per product)
+2. **Shop Admin Portal** uses `ShopInventory` table (shop-specific, per-shop records)
+
+**Current Impact:**
+
+- Staff stock operations only update `Inventory` table
+- Shop Admin stock operations only update `ShopInventory` table
+- **NO SYNC** between these systems leads to data inconsistency
+
+**Solution Required:**
+
+- Migrate to unified `ShopInventory` system
+- Remove legacy `Inventory` model
+- Update all staff controllers to use `ShopInventory` with `shopId`
+
+📋 **See detailed analysis**: `RETAIL_INVENTORY_ARCHITECTURE_ANALYSIS.md`
+
+---
+
+## �📝 FIELD DEFINITIONS
 
 ### Eye Power Fields:
 
