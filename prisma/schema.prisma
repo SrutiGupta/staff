@@ -9,7 +9,7 @@ generator client {
 }
 
 // ================================
-// SHOP ADMIN MODELS (NEW)
+// SHOP ADMIN MODELS
 // ================================
 
 model ShopAdmin {
@@ -22,10 +22,12 @@ model ShopAdmin {
   shop        Shop     @relation(fields: [shopId], references: [id])
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-  
+
   // Audit trails
-  auditLogs   AuditLog[]
-  reports     Report[]
+  auditLogs      AuditLog[]
+  reports        Report[]
+  stockMovements StockMovement[]
+  verifiedReceipts StockReceipt[] @relation("VerifiedByAdmin")
 }
 
 model Shop {
@@ -34,18 +36,19 @@ model Shop {
   address     String
   phone       String?
   email       String?
-  licenseNo   String?  // Shop license number
-  gstNo       String?  // GST registration number
+  licenseNo   String?
+  gstNo       String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-  
+
   // Relationships
-  admins      ShopAdmin[]
-  staff       Staff[]
-  inventory   ShopInventory[]
-  patients    Patient[]
-  customers   Customer[]
-  
+  admins        ShopAdmin[]
+  staff         Staff[]
+  inventory     ShopInventory[]
+  stockReceipts StockReceipt[]
+  patients      Patient[]
+  customers     Customer[]
+
   // Business settings
   lowStockThreshold Int @default(10)
   currency          String @default("INR")
@@ -58,23 +61,23 @@ enum AdminRole {
   SUPERVISOR
 }
 
-// Enhanced Staff model with Shop relationship
 model Staff {
   id          Int          @id @default(autoincrement())
   email       String       @unique
   name        String?
   password    String
-  shopId      Int          @default(1) // Default to shop 1
+  shopId      Int          @default(1)
   shop        Shop         @relation(fields: [shopId], references: [id])
   role        StaffRole    @default(SALES_STAFF)
   isActive    Boolean      @default(true)
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
-  
-  attendances    Attendance[]
-  invoices       Invoice[]
-  stockMovements StockMovement[]
-  patientVisits  PatientVisit[]
+
+  attendances     Attendance[]
+  invoices        Invoice[]
+  stockMovements  StockMovement[]
+  patientVisits   PatientVisit[]
+  stockReceipts   StockReceipt[] @relation("ReceivedByStaff")
 }
 
 enum StaffRole {
@@ -92,10 +95,10 @@ model AuditLog {
   id          Int      @id @default(autoincrement())
   adminId     Int
   admin       ShopAdmin @relation(fields: [adminId], references: [id])
-  action      String   // "VIEW_REPORT", "EXPORT_DATA", "UPDATE_SETTINGS"
-  targetType  String   // "STAFF", "INVENTORY", "SALES", "PATIENT"
-  targetId    String?  // ID of the target entity
-  details     Json?    // Additional details about the action
+  action      String
+  targetType  String
+  targetId    String?
+  details     Json?
   ipAddress   String?
   userAgent   String?
   createdAt   DateTime @default(now())
@@ -108,10 +111,10 @@ model Report {
   reportType  ReportType
   title       String
   description String?
-  filters     Json?    // Report filters/parameters
-  data        Json     // Report data/results
+  filters     Json?
+  data        Json
   generatedAt DateTime @default(now())
-  expiresAt   DateTime? // For cached reports
+  expiresAt   DateTime?
 }
 
 enum ReportType {
@@ -126,57 +129,136 @@ enum ReportType {
 }
 
 // ================================
-// ENHANCED INVENTORY MODELS
+// SECURE INVENTORY WORKFLOW MODELS
 // ================================
 
+
+// ❌ DELETE LEGACY INVENTORY MODEL
+// model Inventory { ... }
+
+// ✅ NEW: Stock Receipt Model (Staff creates, Admin approves)
+model StockReceipt {
+  id                Int               @id @default(autoincrement())
+  shopId            Int
+  shop              Shop              @relation(fields: [shopId], references: [id])
+  productId         Int
+  product           Product           @relation(fields: [productId], references: [id])
+
+  // Receipt Details
+  receivedQuantity  Int               // What staff says they received
+  verifiedQuantity  Int?              // What admin verified (after physical check)
+
+  // Staff Information (Who received)
+  receivedByStaffId Int
+  receivedByStaff   Staff             @relation("ReceivedByStaff", fields: [receivedByStaffId], references: [id])
+  receivedAt        DateTime          @default(now())
+
+  // Admin Information (Who verified)
+  verifiedByAdminId Int?
+  verifiedByAdmin   ShopAdmin?        @relation("VerifiedByAdmin", fields: [verifiedByAdminId], references: [id])
+  verifiedAt        DateTime?
+
+  // Status & Tracking
+  status            ReceiptStatus     @default(PENDING)
+  supplierName      String?           // Where it came from
+  deliveryNote      String?           // Delivery reference
+  batchNumber       String?           // Product batch
+  expiryDate        DateTime?         // For items with expiry
+
+  // Admin Notes
+  adminNotes        String?           // Discrepancy notes
+  discrepancyReason String?           // Why quantities differ
+
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+}
+
+enum ReceiptStatus {
+  PENDING           // Staff created, waiting admin verification
+  APPROVED          // Admin approved, ready for staff to stock-in
+  REJECTED          // Admin rejected, no further action possible
+  COMPLETED         // Staff has stocked-in the product, inventory updated
+  CANCELLED         // Staff cancelled before admin approval
+}
+
+// ✅ ENHANCED: Shop Inventory Model
 model ShopInventory {
-  id              Int      @id @default(autoincrement())
+  id              Int             @id @default(autoincrement())
   shopId          Int
-  shop            Shop     @relation(fields: [shopId], references: [id])
+  shop            Shop            @relation(fields: [shopId], references: [id])
   productId       Int
-  product         Product  @relation(fields: [productId], references: [id])
-  quantity        Int
-  minThreshold    Int      @default(10)
-  maxThreshold    Int      @default(100)
-  costPrice       Float?   // Purchase cost
-  sellingPrice    Float?   // Override product price
-  supplier        String?
-  lastRestockedAt DateTime?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-  
+  product         Product         @relation(fields: [productId], references: [id])
+  quantity        Int             @default(0)
+
+  // Stock Management
+  minThreshold    Int             @default(10)
+  maxThreshold    Int             @default(100)
+  reorderLevel    Int             @default(20)
+
+  // Pricing (Admin controlled)
+  costPrice       Float?          // Purchase cost from retailer
+  sellingPrice    Float?          // Shop-specific pricing override
+
+  // Supplier & Batch Tracking
+  supplier        String?         // Primary supplier
+  lastRestockedAt DateTime?       // Last time stock was added
+  lastSoldAt      DateTime?       // Last sale timestamp
+
+  // Audit Trail
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  // Relationships
   stockMovements  StockMovement[]
-  
+
   @@unique([shopId, productId])
 }
 
+// ✅ ENHANCED: Stock Movement Model (Complete Audit Trail)
 model StockMovement {
-  id            Int           @id @default(autoincrement())
-  shopInventoryId Int
-  shopInventory ShopInventory @relation(fields: [shopInventoryId], references: [id])
-  staffId       Int?
-  staff         Staff?        @relation(fields: [staffId], references: [id])
-  type          MovementType
-  quantity      Int
-  previousQty   Int
-  newQty        Int
-  reason        String?       // "STOCK_IN", "SALE", "DAMAGE", "RETURN", "ADJUSTMENT"
-  invoiceId     String?       // Link to sale invoice if type is STOCK_OUT
-  supplierName  String?       // For STOCK_IN movements
-  batchNo       String?
-  expiryDate    DateTime?
-  notes         String?
-  createdAt     DateTime      @default(now())
+  id                Int           @id @default(autoincrement())
+  shopInventoryId   Int
+  shopInventory     ShopInventory @relation(fields: [shopInventoryId], references: [id])
+
+  // Movement Details
+  type              MovementType
+  quantity          Int
+  previousQty       Int
+  newQty            Int
+
+  // Who & When
+  staffId           Int?
+  staff             Staff?        @relation(fields: [staffId], references: [id])
+  adminId           Int?
+  admin             ShopAdmin?    @relation(fields: [adminId], references: [id])
+
+  // Reference Information
+  reason            String?       // "STOCK_IN", "SALE", "DAMAGE", "RETURN", "ADJUSTMENT"
+  invoiceId         String?       // Link to sale invoice if type is STOCK_OUT
+  stockReceiptId    Int?          // Link to stock receipt if type is STOCK_IN
+
+  // Additional Details
+  supplierName      String?       // For STOCK_IN movements
+  batchNo           String?
+  expiryDate        DateTime?
+  notes             String?
+
+  createdAt         DateTime      @default(now())
 }
 
+// ✅ UPDATE: Enhanced Movement Types
 enum MovementType {
-  STOCK_IN
-  STOCK_OUT
-  ADJUSTMENT
-  DAMAGE
-  RETURN
-  TRANSFER
+  STOCK_IN          // From approved stock receipt
+  STOCK_OUT         // From sales
+  ADJUSTMENT        // Admin manual adjustment
+  DAMAGE            // Damaged goods removal
+  RETURN            // Customer returns
+  TRANSFER_OUT      // Transfer to another shop
+  TRANSFER_IN       // Transfer from another shop
+  LOSS              // Theft/loss write-off
+  RECOUNT           // Physical count adjustment
 }
+
 
 // ================================
 // BUSINESS ANALYTICS MODELS
@@ -205,7 +287,7 @@ model ProductPerformance {
   productId     Int
   product       Product  @relation(fields: [productId], references: [id])
   shopId        Int
-  month         DateTime @db.Date // First day of month
+  month         DateTime @db.Date
   unitsSold     Int      @default(0)
   revenue       Float    @default(0)
   profit        Float    @default(0)
@@ -218,7 +300,7 @@ model ProductPerformance {
 }
 
 // ================================
-// UPDATED EXISTING MODELS
+// EXISTING MODELS
 // ================================
 
 model Attendance {
@@ -237,7 +319,7 @@ model Patient {
   phone          String?
   address        String?
   medicalHistory String?
-  shopId         Int            @default(1) // Default to shop 1
+  shopId         Int            @default(1)
   shop           Shop           @relation(fields: [shopId], references: [id])
   isActive       Boolean        @default(true)
   lastVisit      DateTime?
@@ -251,7 +333,6 @@ model Patient {
   visits         PatientVisit[]
 }
 
-// NEW: Track patient visits for analytics
 model PatientVisit {
   id          Int      @id @default(autoincrement())
   patientId   Int
@@ -275,13 +356,12 @@ enum VisitType {
   OTHER
 }
 
-// NEW: Model for walk-in customers (updated)
 model Customer {
   id        Int       @id @default(autoincrement())
   name      String
   phone     String?
-  address   String    // Crucial for hotspot analysis
-  shopId    Int       @default(1) // Default to shop 1
+  address   String
+  shopId    Int       @default(1)
   shop      Shop      @relation(fields: [shopId], references: [id])
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -321,32 +401,32 @@ model Product {
   id           Int           @id @default(autoincrement())
   name         String
   description  String?
-  price        Float
+  basePrice    Float         // Retailer's base price (not shop selling price)
   barcode      String?       @unique
-  sku          String?       @unique  // Stock Keeping Unit - unique internal identifier
-  
+  sku          String?       @unique
+
   // Eyewear categorization
-  eyewearType  EyewearType   // GLASSES, SUNGLASSES, LENSES
-  frameType    FrameType?    // RECTANGULAR, OVAL, ROUND, etc. (null for lenses)
-  
+  eyewearType  EyewearType
+  frameType    FrameType?
+
   // Company/Brand information
   company      Company       @relation(fields: [companyId], references: [id])
   companyId    Int
-  
-  // Additional product attributes
-  material     String?       // Frame material (metal, plastic, etc.)
-  color        String?       // Frame color
-  size         String?       // Frame size (S, M, L or specific measurements)
-  model        String?       // Model number/name
-  
+
+  // Additional attributes
+  material     String?
+  color        String?
+  size         String?
+  model        String?
+
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
-  
-  // Updated relationships
-  inventory    Inventory[]
-  invoiceItems InvoiceItem[]
-  shopInventory ShopInventory[]
-  performance  ProductPerformance[]
+
+  // Relationships
+  invoiceItems   InvoiceItem[]
+  shopInventory  ShopInventory[]
+  stockReceipts  StockReceipt[]
+  performance    ProductPerformance[]
 }
 
 enum EyewearType {
@@ -367,15 +447,6 @@ enum FrameType {
   RIMLESS
   SEMI_RIMLESS
   WRAP_AROUND
-}
-
-model Inventory {
-  id        Int      @id @default(autoincrement())
-  product   Product  @relation(fields: [productId], references: [id])
-  productId Int      @unique
-  quantity  Int
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
 }
 
 model Invoice {
@@ -432,7 +503,7 @@ model Prescription {
   id        Int      @id @default(autoincrement())
   patient   Patient  @relation(fields: [patientId], references: [id])
   patientId Int
-  rightEye  Json     // {"sph": "-1.50", "cyl": "0.00", ...}
+  rightEye  Json
   leftEye   Json
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

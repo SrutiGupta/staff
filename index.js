@@ -5,6 +5,7 @@ const cors = require("cors");
 const companyRoutes = require("./portal/company/routes/companyRoutes");
 const retailerRoutes = require("./portal/retailer/routes/retailerRoutes");
 const shopAdminRoutes = require("./portal/shopadmin/routes/shopAdminRoutes");
+const shopAdminStockRoutes = require("./portal/shopadmin/routes/shopAdminStockRoutes"); // New line
 
 const app = express();
 
@@ -30,11 +31,13 @@ app.use("/api/prescription", require("./routes/prescription"));
 app.use("/api/product", require("./routes/product"));
 app.use("/api/patient", require("./routes/patient"));
 app.use("/api/customer", require("./routes/customer"));
+app.use("/api/stock-receipts", require("./routes/stockReceipt"));
 
 // New Company & Retailer APIs
 app.use("/company", companyRoutes);
 app.use("/retailer", retailerRoutes);
 app.use("/shop-admin", shopAdminRoutes);
+app.use("/shop-admin/stock", shopAdminStockRoutes); // New line
 
 // Health check
 app.get("/", (req, res) => {
