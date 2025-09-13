@@ -21,8 +21,11 @@ const createCustomerAndInvoice = async (req, res) => {
   try {
     // Step 1: Verify stock for all items before making any database changes
     for (const item of items) {
-      const inventory = await prisma.inventory.findFirst({
-        where: { productId: item.productId },
+      const inventory = await prisma.shopInventory.findFirst({
+        where: {
+          productId: item.productId,
+          shopId: req.user.shopId,
+        },
       });
 
       if (!inventory || inventory.quantity < item.quantity) {
@@ -89,8 +92,11 @@ const createCustomerAndInvoice = async (req, res) => {
 
     // Step 6: Decrement the inventory for each item
     for (const item of items) {
-      await prisma.inventory.updateMany({
-        where: { productId: item.productId },
+      await prisma.shopInventory.updateMany({
+        where: {
+          productId: item.productId,
+          shopId: req.user.shopId,
+        },
         data: {
           quantity: {
             decrement: item.quantity,

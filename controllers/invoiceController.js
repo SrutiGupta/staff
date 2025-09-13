@@ -38,8 +38,11 @@ exports.createInvoice = async (req, res) => {
           .json({ error: `Product with ID ${item.productId} not found.` });
       }
 
-      const inventory = await prisma.inventory.findFirst({
-        where: { productId: item.productId },
+      const inventory = await prisma.shopInventory.findFirst({
+        where: {
+          productId: item.productId,
+          shopId: req.user.shopId, // Use shop-specific inventory
+        },
       });
       if (!inventory || inventory.quantity < item.quantity) {
         return res
@@ -47,7 +50,7 @@ exports.createInvoice = async (req, res) => {
           .json({ error: `Not enough stock for ${product.name}.` });
       }
 
-      const itemSubtotal = product.price * item.quantity;
+      const itemSubtotal = product.basePrice * item.quantity;
       const itemDiscount = item.discount || 0;
       const itemCgst = item.cgst || 0;
       const itemSgst = item.sgst || 0;
@@ -63,7 +66,7 @@ exports.createInvoice = async (req, res) => {
       invoiceItems.push({
         productId: item.productId,
         quantity: item.quantity,
-        unitPrice: product.price,
+        unitPrice: product.basePrice,
         discount: itemDiscount,
         cgst: itemCgst,
         sgst: itemSgst,
@@ -114,10 +117,13 @@ exports.createInvoice = async (req, res) => {
         },
       });
 
-      // Update inventory for each item
+      // Update shop inventory for each item
       for (const item of items) {
-        await prisma.inventory.updateMany({
-          where: { productId: item.productId },
+        await prisma.shopInventory.updateMany({
+          where: {
+            productId: item.productId,
+            shopId: req.user.shopId, // Update shop-specific inventory
+          },
           data: {
             quantity: {
               decrement: item.quantity,
@@ -269,126 +275,159 @@ exports.generateInvoicePdf = async (req, res) => {
     );
     doc.pipe(res);
 
- // --- HEADER ---
-// Outer header box with grey background
-doc.save();
-doc.rect(40, 30, 520, 120).fillAndStroke("#f2f2f2", "#000"); 
-doc.restore();
+    // --- HEADER ---
+    // Outer header box with grey background
+    doc.save();
+    doc.rect(40, 30, 520, 120).fillAndStroke("#f2f2f2", "#000");
+    doc.restore();
 
-// === TOP ROW: Brand (shifted left) + Barcode ===
-doc.fillColor("#000")
-   .font("Helvetica-Bold")
-   .fontSize(22)
-   // left shift by giving x instead of align:center
-   .text("CLEAR EYES OPTICAL", 60, 50, { characterSpacing: 1.5 });
+    // === TOP ROW: Brand (shifted left) + Barcode ===
+    doc
+      .fillColor("#000")
+      .font("Helvetica-Bold")
+      .fontSize(22)
+      // left shift by giving x instead of align:center
+      .text("CLEAR EYES OPTICAL", 60, 50, { characterSpacing: 1.5 });
 
-// Barcode (right side, aligned properly)
-const barcodePng = await bwipjs.toBuffer({
-  bcid: "code128",
-  text: invoice.invoiceNo,
-  scale: 2,
-  height: 15,
-  includetext: false,
-});
-doc.image(barcodePng, 400, 40, { width: 150, height: 50 });
-doc.fontSize(9).fillColor("#000").text(invoice.invoiceNo, 430, 90);
+    // Barcode (right side, aligned properly)
+    const barcodePng = await bwipjs.toBuffer({
+      bcid: "code128",
+      text: invoice.invoiceNo,
+      scale: 2,
+      height: 15,
+      includetext: false,
+    });
+    doc.image(barcodePng, 400, 40, { width: 150, height: 50 });
+    doc.fontSize(9).fillColor("#000").text(invoice.invoiceNo, 430, 90);
 
-// === MIDDLE ROW: Address + Contact ===
-doc.font("Helvetica")
-   .fontSize(10)
-   .fillColor("#333")
-   .text("68 Jessore Road, Diamond Plaza", 0, 100, { align: "center" })
-   .text("Kolkata | +91-96765 43210", { align: "center" })
-   .text("Follow us on Instagram @cleareyes_optical", { align: "center" });
+    // === MIDDLE ROW: Address + Contact ===
+    doc
+      .font("Helvetica")
+      .fontSize(10)
+      .fillColor("#333")
+      .text("68 Jessore Road, Diamond Plaza", 0, 100, { align: "center" })
+      .text("Kolkata | +91-96765 43210", { align: "center" })
+      .text("Follow us on Instagram @cleareyes_optical", { align: "center" });
 
-// === BOTTOM ROW: Invoice Info ===
-let infoY = 160;
-doc.font("Helvetica-Bold").fontSize(11).text(`Invoice No:`, 40, infoY);
-doc.font("Helvetica").text(invoice.invoiceNo, 120, infoY);
+    // === BOTTOM ROW: Invoice Info ===
+    let infoY = 160;
+    doc.font("Helvetica-Bold").fontSize(11).text(`Invoice No:`, 40, infoY);
+    doc.font("Helvetica").text(invoice.invoiceNo, 120, infoY);
 
-doc.font("Helvetica-Bold").text(`Date:`, 400, infoY);
-doc.font("Helvetica").text(invoice.date, 450, infoY);
+    doc.font("Helvetica-Bold").text(`Date:`, 400, infoY);
+    doc.font("Helvetica").text(invoice.date, 450, infoY);
 
+    // Customer Info
+    doc.moveDown(1);
+    doc.font("Helvetica-Bold").text(`Customer Name:`, 40, doc.y);
+    doc.font("Helvetica").text(invoice.customer.name, 150, doc.y - 12);
+    doc.font("Helvetica-Bold").text(`Mobile:`, 40, doc.y + 10);
+    doc.font("Helvetica").text(invoice.customer.phone, 150, doc.y - 12);
 
-// Customer Info
-doc.moveDown(1);
-doc.font("Helvetica-Bold").text(`Customer Name:`, 40, doc.y);
-doc.font("Helvetica").text(invoice.customer.name, 150, doc.y - 12);
-doc.font("Helvetica-Bold").text(`Mobile:`, 40, doc.y + 10);
-doc.font("Helvetica").text(invoice.customer.phone, 150, doc.y - 12);
+    // --- EYE POWER TABLE ---
+    doc
+      .moveDown(2)
+      .font("Helvetica-Bold")
+      .fontSize(11)
+      .text("Customer Eye Power");
 
-// --- EYE POWER TABLE ---
-doc.moveDown(2).font("Helvetica-Bold").fontSize(11).text("Customer Eye Power");
+    let startY = doc.y + 10;
+    const colWidthsEye = [80, 100, 100, 100, 100];
+    const colXEye = [40, 120, 220, 320, 420];
+    const rowHeight = 25;
 
-let startY = doc.y + 10;
-const colWidthsEye = [80, 100, 100, 100, 100];
-const colXEye = [40, 120, 220, 320, 420];
-const rowHeight = 25;
+    // Draw header row
+    doc.rect(40, startY, 480, rowHeight).stroke();
+    ["Eye", "Sphere", "Cylinder", "Axis", "GST"].forEach((h, i) => {
+      doc.text(h, colXEye[i] + 5, startY + 7);
+      if (i < colXEye.length - 1) {
+        doc
+          .moveTo(colXEye[i + 1], startY)
+          .lineTo(colXEye[i + 1], startY + rowHeight)
+          .stroke();
+      }
+    });
 
-// Draw header row
-doc.rect(40, startY, 480, rowHeight).stroke();
-["Eye", "Sphere", "Cylinder", "Axis", "GST"].forEach((h, i) => {
-  doc.text(h, colXEye[i] + 5, startY + 7);
-  if (i < colXEye.length - 1) {
-    doc.moveTo(colXEye[i + 1], startY).lineTo(colXEye[i + 1], startY + rowHeight).stroke();
-  }
-});
+    // Draw rows
+    invoice.eyePower.forEach((eye, idx) => {
+      let y = startY + rowHeight * (idx + 1);
+      doc.rect(40, y, 480, rowHeight).stroke();
+      const values = [eye.eye, eye.sphere, eye.cylinder, eye.axis, eye.gst];
+      values.forEach((v, i) => {
+        doc.text(v.toString(), colXEye[i] + 5, y + 7);
+        if (i < colXEye.length - 1) {
+          doc
+            .moveTo(colXEye[i + 1], y)
+            .lineTo(colXEye[i + 1], y + rowHeight)
+            .stroke();
+        }
+      });
+    });
 
-// Draw rows
-invoice.eyePower.forEach((eye, idx) => {
-  let y = startY + rowHeight * (idx + 1);
-  doc.rect(40, y, 480, rowHeight).stroke();
-  const values = [eye.eye, eye.sphere, eye.cylinder, eye.axis, eye.gst];
-  values.forEach((v, i) => {
-    doc.text(v.toString(), colXEye[i] + 5, y + 7);
-    if (i < colXEye.length - 1) {
-      doc.moveTo(colXEye[i + 1], y).lineTo(colXEye[i + 1], y + rowHeight).stroke();
-    }
-  });
-});
+    // --- PRODUCT DETAILS TABLE ---
+    doc.moveDown(2).font("Helvetica-Bold").fontSize(11).text("Product Details");
 
-// --- PRODUCT DETAILS TABLE ---
-doc.moveDown(2).font("Helvetica-Bold").fontSize(11).text("Product Details");
+    startY = doc.y + 10;
+    const prodCols = [40, 250, 300, 370, 450];
+    const prodWidths = [210, 50, 70, 80, 90];
 
-startY = doc.y + 10;
-const prodCols = [40, 250, 300, 370, 450];
-const prodWidths = [210, 50, 70, 80, 90];
+    // Header Row
+    doc.rect(40, startY, 500, rowHeight).stroke();
+    ["Product", "Qty", "Rate", "Discount", "Total"].forEach((h, i) => {
+      doc.text(h, prodCols[i] + 5, startY + 7);
+      if (i < prodCols.length - 1) {
+        doc
+          .moveTo(prodCols[i + 1], startY)
+          .lineTo(prodCols[i + 1], startY + rowHeight)
+          .stroke();
+      }
+    });
 
-// Header Row
-doc.rect(40, startY, 500, rowHeight).stroke();
-["Product", "Qty", "Rate", "Discount", "Total"].forEach((h, i) => {
-  doc.text(h, prodCols[i] + 5, startY + 7);
-  if (i < prodCols.length - 1) {
-    doc.moveTo(prodCols[i + 1], startY).lineTo(prodCols[i + 1], startY + rowHeight).stroke();
-  }
-});
+    // Rows
+    invoice.products.forEach((p, idx) => {
+      let y = startY + rowHeight * (idx + 1);
+      doc.rect(40, y, 500, rowHeight).stroke();
+      const values = [p.name, p.qty, p.rate, `${p.discount}%`, p.total];
+      values.forEach((v, i) => {
+        doc.text(v.toString(), prodCols[i] + 5, y + 7, {
+          width: prodWidths[i] - 10,
+        });
+        if (i < prodCols.length - 1) {
+          doc
+            .moveTo(prodCols[i + 1], y)
+            .lineTo(prodCols[i + 1], y + rowHeight)
+            .stroke();
+        }
+      });
+    });
 
-// Rows
-invoice.products.forEach((p, idx) => {
-  let y = startY + rowHeight * (idx + 1);
-  doc.rect(40, y, 500, rowHeight).stroke();
-  const values = [p.name, p.qty, p.rate, `${p.discount}%`, p.total];
-  values.forEach((v, i) => {
-    doc.text(v.toString(), prodCols[i] + 5, y + 7, { width: prodWidths[i] - 10 });
-    if (i < prodCols.length - 1) {
-      doc.moveTo(prodCols[i + 1], y).lineTo(prodCols[i + 1], y + rowHeight).stroke();
-    }
-  });
-});
+    // --- SUMMARY BOX ---
+    let summaryY = startY + rowHeight * (invoice.products.length + 2);
+    doc.rect(320, summaryY, 220, 100).stroke();
 
-// --- SUMMARY BOX ---
-let summaryY = startY + rowHeight * (invoice.products.length + 2);
-doc.rect(320, summaryY, 220, 100).stroke();
+    doc
+      .font("Helvetica")
+      .fontSize(10)
+      .text(`Subtotal: ${invoice.subtotal}`, 330, summaryY + 10);
+    doc.text(`GST (Included): ${invoice.gst}`, 330, summaryY + 30);
+    doc.text(`Advance Paid: ${invoice.advancePaid}`, 330, summaryY + 50);
+    doc
+      .font("Helvetica-Bold")
+      .fontSize(12)
+      .text(`Balance: ${invoice.balance}`, 330, summaryY + 75);
 
-doc.font("Helvetica").fontSize(10).text(`Subtotal: ${invoice.subtotal}`, 330, summaryY + 10);
-doc.text(`GST (Included): ${invoice.gst}`, 330, summaryY + 30);
-doc.text(`Advance Paid: ${invoice.advancePaid}`, 330, summaryY + 50);
-doc.font("Helvetica-Bold").fontSize(12).text(`Balance: ${invoice.balance}`, 330, summaryY + 75);
-
-// --- FOOTER ---
-doc.moveDown(4);
-doc.font("Helvetica-Bold").fontSize(11).text("Thank You for Shopping with Us!", { align: "center" });
-doc.font("Helvetica").fontSize(9).text("Visit again. Follow us on Instagram @cleareyes_optical", { align: "center" });
+    // --- FOOTER ---
+    doc.moveDown(4);
+    doc
+      .font("Helvetica-Bold")
+      .fontSize(11)
+      .text("Thank You for Shopping with Us!", { align: "center" });
+    doc
+      .font("Helvetica")
+      .fontSize(9)
+      .text("Visit again. Follow us on Instagram @cleareyes_optical", {
+        align: "center",
+      });
 
     doc.end();
   } catch (err) {

@@ -1,5 +1,4 @@
-
-const { PrismaClient } = require('@prisma/client');
+const { PrismaClient } = require("@prisma/client");
 const prisma = new PrismaClient();
 
 // Define the price tiers. These can be adjusted as needed.
@@ -52,7 +51,10 @@ exports.getBestSellersByPriceTier = async (req, res) => {
       const sale = productSales[productId];
       if (sale.unitPrice < PRICE_TIERS.low.max) {
         bestSellers.low.push(sale);
-      } else if (sale.unitPrice >= PRICE_TIERS.medium.min && sale.unitPrice < PRICE_TIERS.medium.max) {
+      } else if (
+        sale.unitPrice >= PRICE_TIERS.medium.min &&
+        sale.unitPrice < PRICE_TIERS.medium.max
+      ) {
         bestSellers.medium.push(sale);
       } else if (sale.unitPrice >= PRICE_TIERS.high.min) {
         bestSellers.high.push(sale);
@@ -60,21 +62,25 @@ exports.getBestSellersByPriceTier = async (req, res) => {
     }
 
     // Sort and limit the results for each tier
-    bestSellers.low.sort((a, b) => b.totalQuantity - a.totalQuantity).splice(take);
-    bestSellers.medium.sort((a, b) => b.totalQuantity - a.totalQuantity).splice(take);
-    bestSellers.high.sort((a, b) => b.totalQuantity - a.totalQuantity).splice(take);
+    bestSellers.low
+      .sort((a, b) => b.totalQuantity - a.totalQuantity)
+      .splice(take);
+    bestSellers.medium
+      .sort((a, b) => b.totalQuantity - a.totalQuantity)
+      .splice(take);
+    bestSellers.high
+      .sort((a, b) => b.totalQuantity - a.totalQuantity)
+      .splice(take);
 
     res.status(200).json({
       tierDefinitions: PRICE_TIERS,
       bestSellers,
     });
-
   } catch (error) {
-    console.error('Error generating best sellers report:', error);
-    res.status(500).json({ error: 'Failed to generate best sellers report.' });
+    console.error("Error generating best sellers report:", error);
+    res.status(500).json({ error: "Failed to generate best sellers report." });
   }
 };
-
 
 exports.getSalesByPriceTier = async (req, res) => {
   const { startDate, endDate } = req.query;
@@ -113,7 +119,10 @@ exports.getSalesByPriceTier = async (req, res) => {
     for (const item of items) {
       if (item.unitPrice < PRICE_TIERS.low.max) {
         salesByTier.low.count += item.quantity;
-      } else if (item.unitPrice >= PRICE_TIERS.medium.min && item.unitPrice < PRICE_TIERS.medium.max) {
+      } else if (
+        item.unitPrice >= PRICE_TIERS.medium.min &&
+        item.unitPrice < PRICE_TIERS.medium.max
+      ) {
         salesByTier.medium.count += item.quantity;
       } else if (item.unitPrice >= PRICE_TIERS.high.min) {
         salesByTier.high.count += item.quantity;
@@ -121,13 +130,12 @@ exports.getSalesByPriceTier = async (req, res) => {
     }
 
     res.status(200).json({
-        tierDefinitions: PRICE_TIERS,
-        salesByTier
+      tierDefinitions: PRICE_TIERS,
+      salesByTier,
     });
-
   } catch (error) {
-    console.error('Error generating sales by price tier report:', error);
-    res.status(500).json({ error: 'Failed to generate sales report.' });
+    console.error("Error generating sales by price tier report:", error);
+    res.status(500).json({ error: "Failed to generate sales report." });
   }
 };
 
@@ -150,7 +158,10 @@ exports.getDailyReport = async (req, res) => {
       },
     });
 
-    const inventory = await prisma.inventory.findMany({
+    const inventory = await prisma.shopInventory.findMany({
+      where: {
+        shopId: req.user.shopId,
+      },
       include: {
         product: true,
       },
@@ -158,7 +169,7 @@ exports.getDailyReport = async (req, res) => {
 
     res.status(200).json({ attendance, inventory });
   } catch (error) {
-    res.status(500).json({ error: 'Something went wrong' });
+    res.status(500).json({ error: "Something went wrong" });
   }
 };
 
@@ -180,7 +191,10 @@ exports.getMonthlyReport = async (req, res) => {
       },
     });
 
-    const inventory = await prisma.inventory.findMany({
+    const inventory = await prisma.shopInventory.findMany({
+      where: {
+        shopId: req.user.shopId,
+      },
       include: {
         product: true,
       },
@@ -188,7 +202,7 @@ exports.getMonthlyReport = async (req, res) => {
 
     res.status(200).json({ attendance, inventory });
   } catch (error) {
-    res.status(500).json({ error: 'Something went wrong' });
+    res.status(500).json({ error: "Something went wrong" });
   }
 };
 
@@ -205,7 +219,7 @@ exports.getStaffSalesReport = async (req, res) => {
 
   try {
     const salesByStaff = await prisma.invoice.groupBy({
-      by: ['staffId'],
+      by: ["staffId"],
       where,
       _sum: {
         totalAmount: true,
@@ -243,7 +257,7 @@ exports.getStaffSalesReport = async (req, res) => {
 
     res.status(200).json(report);
   } catch (error) {
-    console.error('Error generating staff sales report:', error);
-    res.status(500).json({ error: 'Failed to generate staff sales report.' });
+    console.error("Error generating staff sales report:", error);
+    res.status(500).json({ error: "Failed to generate staff sales report." });
   }
 };

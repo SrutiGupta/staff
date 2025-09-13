@@ -44,6 +44,54 @@ exports.updateStockByBarcode = async (req, res) => {
         throw new Error(`Product with barcode ${barcode} not found.`);
       }
 
+      // SECURITY CHECK: Verify there's an approved stock receipt for this product
+      const approvedReceipt = await tx.stockReceipt.findFirst({
+        where: {
+          shopId: shopIdInt,
+          productId: product.id,
+          status: "APPROVED",
+          verifiedQuantity: {
+            gte: quantityInt, // Must have enough approved quantity
+          },
+        },
+        orderBy: {
+          verifiedAt: "desc",
+        },
+      });
+
+      if (!approvedReceipt) {
+        throw new Error(
+          `No approved stock receipt found for product ${product.name}. Staff cannot perform stock operations without shop admin approval.`
+        );
+      }
+
+      // Check if approved quantity has already been consumed
+      const totalConsumed = await tx.stockMovement.aggregate({
+        where: {
+          shopInventory: {
+            shopId: shopIdInt,
+            productId: product.id,
+          },
+          type: "STOCK_IN",
+          createdAt: {
+            gte: approvedReceipt.verifiedAt,
+          },
+        },
+        _sum: {
+          quantity: true,
+        },
+      });
+
+      const consumedQuantity = totalConsumed._sum.quantity || 0;
+      const remainingApproved =
+        approvedReceipt.verifiedQuantity - consumedQuantity;
+
+      if (remainingApproved < quantityInt) {
+        throw new Error(
+          `Insufficient approved stock. Remaining approved quantity: ${remainingApproved}, Requested: ${quantityInt}`
+        );
+      }
+
       // Get current inventory to calculate previous quantity
       const currentInventory = await tx.shopInventory.findUnique({
         where: {
@@ -92,6 +140,15 @@ exports.updateStockByBarcode = async (req, res) => {
           notes: `Stock in via barcode scan: ${barcode}`,
         },
       });
+
+      // Update stock receipt status if fully consumed
+      const newConsumedQuantity = consumedQuantity + quantityInt;
+      if (newConsumedQuantity >= approvedReceipt.verifiedQuantity) {
+        await tx.stockReceipt.update({
+          where: { id: approvedReceipt.id },
+          data: { status: "COMPLETED" },
+        });
+      }
 
       return {
         success: true,
@@ -301,6 +358,62 @@ exports.stockIn = async (req, res) => {
       }
     }
 
+    // SECURITY CHECK: Verify there's an approved stock receipt for this product
+    const approvedReceipt = await prisma.stockReceipt.findFirst({
+      where: {
+        shopId: req.user.shopId,
+        productId: product.id,
+        status: "APPROVED",
+        verifiedQuantity: {
+          gte: parseInt(quantity), // Must have enough approved quantity
+        },
+      },
+      orderBy: {
+        verifiedAt: "desc",
+      },
+    });
+
+    if (!approvedReceipt) {
+      return res.status(403).json({
+        error: `No approved stock receipt found for product ${product.name}. Staff cannot perform stock operations without shop admin approval.`,
+        suggestion:
+          "Create a stock receipt and wait for shop admin approval before performing stock operations.",
+      });
+    }
+
+    // Check if approved quantity has already been consumed
+    const totalConsumed = await prisma.stockMovement.aggregate({
+      where: {
+        shopInventory: {
+          shopId: req.user.shopId,
+          productId: product.id,
+        },
+        type: "STOCK_IN",
+        createdAt: {
+          gte: approvedReceipt.verifiedAt,
+        },
+      },
+      _sum: {
+        quantity: true,
+      },
+    });
+
+    const consumedQuantity = totalConsumed._sum.quantity || 0;
+    const remainingApproved =
+      approvedReceipt.verifiedQuantity - consumedQuantity;
+
+    if (remainingApproved < parseInt(quantity)) {
+      return res.status(403).json({
+        error: `Insufficient approved stock. Remaining approved quantity: ${remainingApproved}, Requested: ${quantity}`,
+        approvedReceipt: {
+          id: approvedReceipt.id,
+          verifiedQuantity: approvedReceipt.verifiedQuantity,
+          consumedQuantity: consumedQuantity,
+          remainingQuantity: remainingApproved,
+        },
+      });
+    }
+
     // Check if inventory exists for this shop
     const existingInventory = await prisma.shopInventory.findFirst({
       where: {
@@ -310,6 +423,8 @@ exports.stockIn = async (req, res) => {
     });
 
     let inventory;
+    const previousQuantity = existingInventory?.quantity || 0;
+
     if (existingInventory) {
       inventory = await prisma.shopInventory.update({
         where: { id: existingInventory.id },
@@ -326,6 +441,32 @@ exports.stockIn = async (req, res) => {
           shopId: req.user.shopId,
           quantity: parseInt(quantity),
         },
+      });
+    }
+
+    // Create stock movement record for audit trail
+    await prisma.stockMovement.create({
+      data: {
+        shopInventoryId: inventory.id,
+        type: "STOCK_IN",
+        quantity: parseInt(quantity),
+        previousQty: previousQuantity,
+        newQty: inventory.quantity,
+        staffId: req.user?.id,
+        reason: "STOCK_IN",
+        supplierName: product.company.name,
+        notes: `Stock in via ${barcode ? "barcode scan" : "product ID"}: ${
+          barcode || productId
+        }`,
+      },
+    });
+
+    // Update stock receipt status if fully consumed
+    const newConsumedQuantity = consumedQuantity + parseInt(quantity);
+    if (newConsumedQuantity >= approvedReceipt.verifiedQuantity) {
+      await prisma.stockReceipt.update({
+        where: { id: approvedReceipt.id },
+        data: { status: "COMPLETED" },
       });
     }
 
@@ -492,6 +633,22 @@ exports.stockOut = async (req, res) => {
       },
     });
 
+    // Create stock movement record for audit trail
+    await prisma.stockMovement.create({
+      data: {
+        shopInventoryId: currentInventory.id,
+        type: "STOCK_OUT",
+        quantity: parseInt(quantity),
+        previousQty: currentInventory.quantity,
+        newQty: updatedInventory.quantity,
+        staffId: req.user?.id,
+        reason: "STOCK_OUT",
+        notes: `Stock out via ${barcode ? "barcode scan" : "product ID"}: ${
+          barcode || productId
+        }`,
+      },
+    });
+
     // Enhanced response with product details
     const response = {
       ...updatedInventory,
@@ -583,6 +740,20 @@ exports.stockOutByBarcode = async (req, res) => {
           quantity: {
             decrement: quantityInt,
           },
+        },
+      });
+
+      // Create stock movement record for audit trail
+      await tx.stockMovement.create({
+        data: {
+          shopInventoryId: inventory.id,
+          type: "STOCK_OUT",
+          quantity: quantityInt,
+          previousQty: inventory.quantity,
+          newQty: updatedInventory.quantity,
+          staffId: req.user?.id,
+          reason: "STOCK_OUT",
+          notes: `Stock out via barcode scan: ${barcode}`,
         },
       });
 
