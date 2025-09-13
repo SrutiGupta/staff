@@ -2,7 +2,17 @@ const { PrismaClient } = require("@prisma/client");
 const prisma = new PrismaClient();
 
 exports.updateStockByBarcode = async (req, res) => {
-  const { barcode, quantity, price } = req.body;
+  const { barcode, quantity, price, shopId } = req.body;
+
+  if (!shopId) {
+    return res.status(400).json({ error: "shopId is required" });
+  }
+
+  // Convert shopId to integer
+  const shopIdInt = parseInt(shopId, 10);
+  if (isNaN(shopIdInt)) {
+    return res.status(400).json({ error: "shopId must be a valid number" });
+  }
 
   if (!barcode || quantity === undefined) {
     return res
@@ -24,10 +34,9 @@ exports.updateStockByBarcode = async (req, res) => {
     const result = await prisma.$transaction(async (tx) => {
       // Step 1: Find the product by its barcode with company information
       const product = await tx.product.findUnique({
-        where: { barcode: barcode },
+        where: { barcode },
         include: {
           company: true,
-          inventory: true,
         },
       });
 
@@ -35,29 +44,52 @@ exports.updateStockByBarcode = async (req, res) => {
         throw new Error(`Product with barcode ${barcode} not found.`);
       }
 
-      // Step 2 (Optional): Update the product's price if a new price is provided
-      let updatedProduct = product;
-      if (newPrice !== undefined && product.price !== newPrice) {
-        updatedProduct = await tx.product.update({
-          where: { id: product.id },
-          data: { price: newPrice },
-          include: {
-            company: true,
-          },
-        });
-      }
-
-      // Step 3: Upsert the inventory record
-      const inventory = await tx.inventory.upsert({
-        where: { productId: product.id },
-        update: {
-          quantity: {
-            increment: quantityInt,
+      // Get current inventory to calculate previous quantity
+      const currentInventory = await tx.shopInventory.findUnique({
+        where: {
+          shopId_productId: {
+            shopId: shopIdInt,
+            productId: product.id,
           },
         },
+      });
+
+      const previousQuantity = currentInventory?.quantity || 0;
+
+      // Step 2: Upsert the inventory record
+      const inventory = await tx.shopInventory.upsert({
+        where: {
+          shopId_productId: {
+            shopId: shopIdInt,
+            productId: product.id,
+          },
+        },
+        update: {
+          quantity: { increment: quantityInt },
+          ...(newPrice !== undefined && { sellingPrice: newPrice }),
+          lastRestockedAt: new Date(),
+        },
         create: {
+          shopId: shopIdInt,
           productId: product.id,
           quantity: quantityInt,
+          ...(newPrice !== undefined && { sellingPrice: newPrice }),
+          lastRestockedAt: new Date(),
+        },
+      });
+
+      // Create stock movement record for audit trail
+      await tx.stockMovement.create({
+        data: {
+          shopInventoryId: inventory.id,
+          type: "STOCK_IN",
+          quantity: quantityInt,
+          previousQty: previousQuantity,
+          newQty: inventory.quantity,
+          staffId: req.user?.id, // Assuming you have user authentication
+          reason: "STOCK_IN",
+          supplierName: product.company.name,
+          notes: `Stock in via barcode scan: ${barcode}`,
         },
       });
 
@@ -68,50 +100,46 @@ exports.updateStockByBarcode = async (req, res) => {
           id: inventory.id,
           productId: inventory.productId,
           quantity: inventory.quantity,
+          lastRestockedAt: inventory.lastRestockedAt,
           lastUpdated: inventory.updatedAt,
         },
         productDetails: {
-          // Product identification
-          id: updatedProduct.id,
-          sku: updatedProduct.sku, // ← SKU (Stock Keeping Unit)
-          barcode: updatedProduct.barcode,
-          name: updatedProduct.name,
-          description: updatedProduct.description,
-
-          // Product specifications
-          model: updatedProduct.model,
-          size: updatedProduct.size,
-          color: updatedProduct.color,
-          material: updatedProduct.material,
-          price: updatedProduct.price,
-
-          // Eyewear categorization
-          eyewearType: updatedProduct.eyewearType,
-          frameType: updatedProduct.frameType,
-
-          // Company information
+          // FIXED: Use 'product' instead of 'updatedProduct'
+          id: product.id,
+          sku: product.sku,
+          barcode: product.barcode,
+          name: product.name,
+          description: product.description,
+          model: product.model,
+          size: product.size,
+          color: product.color,
+          material: product.material,
+          price: inventory.sellingPrice ?? product.basePrice,
+          eyewearType: product.eyewearType,
+          frameType: product.frameType,
           company: {
-            id: updatedProduct.company.id,
-            name: updatedProduct.company.name,
-            description: updatedProduct.company.description,
+            id: product.company.id,
+            name: product.company.name,
+            description: product.company.description,
           },
         },
         stockInDetails: {
           method: "barcode_scan",
           scannedBarcode: barcode,
-          productName: updatedProduct.name,
-          productId: updatedProduct.id,
-          sku: updatedProduct.sku, // ← SKU in operation details
-          model: updatedProduct.model,
-          size: updatedProduct.size,
-          color: updatedProduct.color,
-          price: updatedProduct.price,
-          eyewearType: updatedProduct.eyewearType,
-          frameType: updatedProduct.frameType,
-          company: updatedProduct.company.name,
+          productName: product.name,
+          productId: product.id,
+          sku: product.sku,
+          model: product.model,
+          size: product.size,
+          color: product.color,
+          basePrice: product.basePrice,
+          sellingPrice: inventory.sellingPrice,
+          eyewearType: product.eyewearType,
+          frameType: product.frameType,
+          company: product.company.name,
           addedQuantity: quantityInt,
           newQuantity: inventory.quantity,
-          previousQuantity: inventory.quantity - quantityInt,
+          previousQuantity: previousQuantity,
           stockOperation: "STOCK_IN",
           timestamp: new Date().toISOString(),
         },
@@ -153,7 +181,7 @@ exports.addProduct = async (req, res) => {
     description,
     barcode,
     sku, // ← Added SKU support
-    price,
+    basePrice,
     eyewearType,
     frameType,
     companyId,
@@ -164,9 +192,9 @@ exports.addProduct = async (req, res) => {
   } = req.body;
 
   // Validate required fields
-  if (!name || price === undefined || !eyewearType || !companyId) {
+  if (!name || basePrice === undefined || !eyewearType || !companyId) {
     return res.status(400).json({
-      error: "Name, price, eyewearType, and companyId are required fields.",
+      error: "Name, basePrice, eyewearType, and companyId are required fields.",
     });
   }
 
@@ -201,7 +229,7 @@ exports.addProduct = async (req, res) => {
         description,
         barcode,
         sku, // ← Include SKU in product creation
-        price: parseFloat(price),
+        basePrice: parseFloat(basePrice),
         eyewearType,
         frameType: eyewearType === "LENSES" ? null : frameType,
         companyId: parseInt(companyId),
@@ -273,14 +301,17 @@ exports.stockIn = async (req, res) => {
       }
     }
 
-    // Check if inventory exists
-    const existingInventory = await prisma.inventory.findFirst({
-      where: { productId: product.id },
+    // Check if inventory exists for this shop
+    const existingInventory = await prisma.shopInventory.findFirst({
+      where: {
+        productId: product.id,
+        shopId: req.user.shopId, // Get shopId from authenticated user
+      },
     });
 
     let inventory;
     if (existingInventory) {
-      inventory = await prisma.inventory.update({
+      inventory = await prisma.shopInventory.update({
         where: { id: existingInventory.id },
         data: {
           quantity: {
@@ -289,9 +320,10 @@ exports.stockIn = async (req, res) => {
         },
       });
     } else {
-      inventory = await prisma.inventory.create({
+      inventory = await prisma.shopInventory.create({
         data: {
           productId: product.id,
+          shopId: req.user.shopId,
           quantity: parseInt(quantity),
         },
       });
@@ -322,7 +354,7 @@ exports.stockIn = async (req, res) => {
         size: product.size,
         color: product.color,
         material: product.material,
-        price: product.price,
+        price: product.basePrice,
 
         // Eyewear categorization
         eyewearType: product.eyewearType,
@@ -345,7 +377,7 @@ exports.stockIn = async (req, res) => {
         model: product.model,
         size: product.size,
         color: product.color,
-        price: product.price,
+        price: product.basePrice,
         eyewearType: product.eyewearType,
         frameType: product.frameType,
         company: product.company.name,
@@ -409,7 +441,7 @@ exports.stockOut = async (req, res) => {
         where: { barcode: barcode },
         include: {
           company: true,
-          inventory: true,
+          shopInventory: true,
         },
       });
 
@@ -423,7 +455,7 @@ exports.stockOut = async (req, res) => {
         where: { id: parseInt(productId) },
         include: {
           company: true,
-          inventory: true,
+          shopInventory: true,
         },
       });
 
@@ -435,7 +467,7 @@ exports.stockOut = async (req, res) => {
     }
 
     // Check current inventory
-    const currentInventory = product.inventory[0];
+    const currentInventory = product.shopInventory[0];
     if (!currentInventory) {
       return res.status(400).json({
         error: `No inventory found for product: ${product.name}`,
@@ -451,7 +483,7 @@ exports.stockOut = async (req, res) => {
     }
 
     // Update inventory
-    const updatedInventory = await prisma.inventory.update({
+    const updatedInventory = await prisma.shopInventory.update({
       where: { id: currentInventory.id },
       data: {
         quantity: {
@@ -511,7 +543,7 @@ exports.stockOutByBarcode = async (req, res) => {
         where: { barcode: barcode },
         include: {
           company: true,
-          inventory: true,
+          shopInventory: true,
         },
       });
 
@@ -520,8 +552,13 @@ exports.stockOutByBarcode = async (req, res) => {
       }
 
       // Step 2: Check if inventory exists and has sufficient stock
-      const inventory = await tx.inventory.findUnique({
-        where: { productId: product.id },
+      const inventory = await tx.shopInventory.findUnique({
+        where: {
+          shopId_productId: {
+            shopId: req.user.shopId, // Get shopId from authenticated user
+            productId: product.id,
+          },
+        },
       });
 
       if (!inventory) {
@@ -535,8 +572,13 @@ exports.stockOutByBarcode = async (req, res) => {
       }
 
       // Step 3: Update the inventory record
-      const updatedInventory = await tx.inventory.update({
-        where: { productId: product.id },
+      const updatedInventory = await tx.shopInventory.update({
+        where: {
+          shopId_productId: {
+            shopId: req.user.shopId,
+            productId: product.id,
+          },
+        },
         data: {
           quantity: {
             decrement: quantityInt,
@@ -590,7 +632,7 @@ exports.getProductByBarcode = async (req, res) => {
       where: { barcode: barcode },
       include: {
         company: true,
-        inventory: true,
+        shopInventory: true,
       },
     });
 
@@ -608,7 +650,7 @@ exports.getProductByBarcode = async (req, res) => {
       sku: product.sku, // ← SKU (Stock Keeping Unit)
       name: product.name,
       description: product.description,
-      price: product.price,
+      price: product.basePrice,
       barcode: product.barcode,
 
       // Eyewear categorization
@@ -630,14 +672,14 @@ exports.getProductByBarcode = async (req, res) => {
 
       // Current inventory
       inventory:
-        product.inventory.length > 0
+        product.shopInventory.length > 0
           ? {
-              quantity: product.inventory[0].quantity,
-              lastUpdated: product.inventory[0].updatedAt,
+              quantity: product.shopInventory[0].quantity,
+              lastUpdated: product.shopInventory[0].updatedAt,
               stockStatus:
-                product.inventory[0].quantity > 10
+                product.shopInventory[0].quantity > 10
                   ? "In Stock"
-                  : product.inventory[0].quantity > 0
+                  : product.shopInventory[0].quantity > 0
                   ? "Low Stock"
                   : "Out of Stock",
             }
@@ -658,7 +700,7 @@ exports.getProductByBarcode = async (req, res) => {
       scanResult: {
         scannedBarcode: barcode,
         productFound: true,
-        quickInfo: `${product.company.name} ${product.eyewearType} - ${product.name} ($${product.price})`,
+        quickInfo: `${product.company.name} ${product.eyewearType} - ${product.name} ($${product.basePrice})`,
       },
     });
   } catch (error) {
@@ -688,7 +730,10 @@ exports.getInventory = async (req, res) => {
       whereCondition.frameType = frameType;
     }
 
-    const inventory = await prisma.inventory.findMany({
+    const inventory = await prisma.shopInventory.findMany({
+      where: {
+        shopId: req.user.shopId, // Filter by user's shop
+      },
       include: {
         product: {
           include: {
@@ -853,7 +898,7 @@ exports.getCompanyProducts = async (req, res) => {
       where: whereCondition,
       include: {
         company: true,
-        inventory: true,
+        shopInventory: true,
       },
     });
 
