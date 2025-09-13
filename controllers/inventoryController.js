@@ -2,17 +2,15 @@ const { PrismaClient } = require("@prisma/client");
 const prisma = new PrismaClient();
 
 exports.updateStockByBarcode = async (req, res) => {
-  const { barcode, quantity, price, shopId } = req.body;
+  const { barcode, quantity, price } = req.body;
 
-  if (!shopId) {
-    return res.status(400).json({ error: "shopId is required" });
+  if (!req.user || !req.user.shopId) {
+    return res
+      .status(401)
+      .json({ error: "Authentication required with valid shop access" });
   }
 
-  // Convert shopId to integer
-  const shopIdInt = parseInt(shopId, 10);
-  if (isNaN(shopIdInt)) {
-    return res.status(400).json({ error: "shopId must be a valid number" });
-  }
+  const shopIdInt = parseInt(req.user.shopId, 10);
 
   if (!barcode || quantity === undefined) {
     return res
@@ -582,7 +580,11 @@ exports.stockOut = async (req, res) => {
         where: { barcode: barcode },
         include: {
           company: true,
-          shopInventory: true,
+          shopInventory: {
+            where: {
+              shopId: req.user.shopId, // Only get inventory for current shop
+            },
+          },
         },
       });
 
@@ -596,7 +598,11 @@ exports.stockOut = async (req, res) => {
         where: { id: parseInt(productId) },
         include: {
           company: true,
-          shopInventory: true,
+          shopInventory: {
+            where: {
+              shopId: req.user.shopId, // Only get inventory for current shop
+            },
+          },
         },
       });
 
@@ -700,7 +706,6 @@ exports.stockOutByBarcode = async (req, res) => {
         where: { barcode: barcode },
         include: {
           company: true,
-          shopInventory: true,
         },
       });
 
@@ -803,7 +808,11 @@ exports.getProductByBarcode = async (req, res) => {
       where: { barcode: barcode },
       include: {
         company: true,
-        shopInventory: true,
+        shopInventory: {
+          where: {
+            shopId: req.user.shopId, // Only get inventory for current shop
+          },
+        },
       },
     });
 
@@ -904,22 +913,17 @@ exports.getInventory = async (req, res) => {
     const inventory = await prisma.shopInventory.findMany({
       where: {
         shopId: req.user.shopId, // Filter by user's shop
+        ...(Object.keys(whereCondition).length > 0 && {
+          product: whereCondition,
+        }),
       },
       include: {
         product: {
           include: {
             company: true,
           },
-          where:
-            Object.keys(whereCondition).length > 0 ? whereCondition : undefined,
         },
       },
-      where:
-        Object.keys(whereCondition).length > 0
-          ? {
-              product: whereCondition,
-            }
-          : undefined,
     });
 
     // Filter out null products (when where condition doesn't match)
