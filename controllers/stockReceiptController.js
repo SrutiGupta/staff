@@ -15,6 +15,11 @@ const createStockReceipt = async (req, res) => {
   const receivedByStaffId = req.user.id; // Correctly using the authenticated user's ID
   const shopIdFromUser = req.user.shopId; // Get shopId from authenticated user
 
+  // Debug logging
+  console.log("Debug - req.user:", req.user);
+  console.log("Debug - receivedByStaffId:", receivedByStaffId);
+  console.log("Debug - shopIdFromUser:", shopIdFromUser);
+
   if (!productId || !receivedQuantity) {
     return res
       .status(400)
