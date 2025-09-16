@@ -21,12 +21,19 @@ exports.createPrescription = async (req, res) => {
         .json({ error: "Left eye data must be an object." });
     }
 
-    // ✅ Check if patient exists before creating prescription
+    // ✅ Check if patient exists and belongs to staff's shop
     const patientExists = await prisma.patient.findUnique({
       where: { id: patientId },
     });
     if (!patientExists) {
       return res.status(404).json({ error: "Patient not found." });
+    }
+
+    // Verify patient belongs to the staff member's shop
+    if (patientExists.shopId !== req.user.shopId) {
+      return res
+        .status(403)
+        .json({ error: "Access denied. Patient belongs to different shop." });
     }
 
     // ✅ Create prescription
@@ -60,6 +67,15 @@ exports.getPrescription = async (req, res) => {
       return res.status(404).json({ error: "Prescription not found." });
     }
 
+    // Verify prescription's patient belongs to the staff member's shop
+    if (prescription.patient.shopId !== req.user.shopId) {
+      return res
+        .status(403)
+        .json({
+          error: "Access denied. Prescription belongs to different shop.",
+        });
+    }
+
     res.status(200).json(prescription);
   } catch (error) {
     console.error("Error fetching prescription:", error);
@@ -74,8 +90,24 @@ exports.getAllPrescriptions = async (req, res) => {
     const skip = (parseInt(page) - 1) * parseInt(limit);
     const take = parseInt(limit);
 
-    const where = {};
+    const where = {
+      patient: {
+        shopId: req.user.shopId, // Filter by user's shop
+      },
+    };
+
     if (patientId) {
+      // Also verify the specific patient belongs to the shop
+      const patient = await prisma.patient.findUnique({
+        where: { id: parseInt(patientId) },
+      });
+
+      if (!patient || patient.shopId !== req.user.shopId) {
+        return res
+          .status(403)
+          .json({ error: "Access denied. Patient belongs to different shop." });
+      }
+
       where.patientId = parseInt(patientId);
     }
 
@@ -137,6 +169,15 @@ exports.generatePrescriptionPdf = async (req, res) => {
       });
     }
 
+    // Verify invoice belongs to the same shop as the staff member
+    if (invoice.staff.shopId !== req.user.shopId) {
+      return res
+        .status(403)
+        .json({
+          error: "Access denied. Prescription belongs to different shop.",
+        });
+    }
+
     // Use the existing invoice PDF generation logic
     const invoiceController = require("./invoiceController");
 
@@ -182,6 +223,15 @@ exports.generatePrescriptionThermal = async (req, res) => {
           prescriptionId +
           " first.",
       });
+    }
+
+    // Verify invoice belongs to the same shop as the staff member
+    if (invoice.staff.shopId !== req.user.shopId) {
+      return res
+        .status(403)
+        .json({
+          error: "Access denied. Prescription belongs to different shop.",
+        });
     }
 
     // Use the existing invoice thermal generation logic
