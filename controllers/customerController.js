@@ -47,7 +47,7 @@ const createCustomerAndInvoice = async (req, res) => {
         name: customer.name,
         phone: customer.phone,
         address: customer.address,
-        shopId: 1, // Default shop ID - should be dynamic based on staff's shop
+        shopId: req.user.shopId, // Use authenticated user's shopId
       },
     });
 
@@ -68,7 +68,7 @@ const createCustomerAndInvoice = async (req, res) => {
     const createdInvoice = await prisma.invoice.create({
       data: {
         customerId: newCustomer.id,
-        staffId: staffId,
+        staffId: req.user.staffId, // Use authenticated user's staffId
         subtotal: subtotal,
         totalAmount: subtotal,
         paidAmount: paidAmount,

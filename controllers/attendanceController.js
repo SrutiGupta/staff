@@ -1,8 +1,7 @@
-
-const { PrismaClient } = require('@prisma/client');
+const { PrismaClient } = require("@prisma/client");
 const prisma = new PrismaClient();
-const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
+const bcrypt = require("bcryptjs");
+const jwt = require("jsonwebtoken");
 
 exports.login = async (req, res) => {
   const { email, password } = req.body;
@@ -10,12 +9,12 @@ exports.login = async (req, res) => {
   try {
     const staff = await prisma.staff.findUnique({ where: { email } });
     if (!staff) {
-      return res.status(401).json({ error: 'Invalid credentials' });
+      return res.status(401).json({ error: "Invalid credentials" });
     }
 
     const isPasswordValid = await bcrypt.compare(password, staff.password);
     if (!isPasswordValid) {
-      return res.status(401).json({ error: 'Invalid credentials' });
+      return res.status(401).json({ error: "Invalid credentials" });
     }
 
     await prisma.attendance.create({
@@ -24,13 +23,13 @@ exports.login = async (req, res) => {
       },
     });
 
-    const token = jwt.sign({ id: staff.id }, process.env.JWT_SECRET, {
-      expiresIn: '1d',
+    const token = jwt.sign({ staffId: staff.id }, process.env.JWT_SECRET, {
+      expiresIn: "1d",
     });
 
     res.status(200).json({ token });
   } catch (error) {
-    res.status(500).json({ error: 'Something went wrong' });
+    res.status(500).json({ error: "Something went wrong" });
   }
 };
 
@@ -44,7 +43,7 @@ exports.logout = async (req, res) => {
         logoutTime: null,
       },
       orderBy: {
-        loginTime: 'desc',
+        loginTime: "desc",
       },
     });
 
@@ -55,9 +54,9 @@ exports.logout = async (req, res) => {
       });
     }
 
-    res.status(200).json({ message: 'Logout successful' });
+    res.status(200).json({ message: "Logout successful" });
   } catch (error) {
-    res.status(500).json({ error: 'Something went wrong' });
+    res.status(500).json({ error: "Something went wrong" });
   }
 };
 
@@ -70,7 +69,7 @@ exports.getAttendance = async (req, res) => {
     });
     res.status(200).json(attendance);
   } catch (error) {
-    res.status(500).json({ error: 'Something went wrong' });
+    res.status(500).json({ error: "Something went wrong" });
   }
 };
 
@@ -88,6 +87,6 @@ exports.getAttendanceByStaff = async (req, res) => {
     });
     res.status(200).json(attendance);
   } catch (error) {
-    res.status(500).json({ error: 'Something went wrong' });
+    res.status(500).json({ error: "Something went wrong" });
   }
 };
