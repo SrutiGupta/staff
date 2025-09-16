@@ -80,6 +80,13 @@ exports.login = async (req, res) => {
       return res.status(400).json({ error: "Invalid credentials" });
     }
 
+    // Create attendance record for login
+    await prisma.attendance.create({
+      data: {
+        staffId: staff.id,
+      },
+    });
+
     const token = jwt.sign({ staffId: staff.id }, process.env.JWT_SECRET, {
       expiresIn: "1h",
     });
