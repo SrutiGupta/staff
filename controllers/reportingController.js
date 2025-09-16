@@ -155,6 +155,9 @@ exports.getDailyReport = async (req, res) => {
           gte: startDate,
           lt: endDate,
         },
+        staff: {
+          shopId: req.user.shopId, // Filter by user's shop
+        },
       },
       include: {
         staff: true,

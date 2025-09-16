@@ -170,6 +170,13 @@ exports.getInvoice = async (req, res) => {
       return res.status(404).json({ error: "Invoice not found." });
     }
 
+    // Verify invoice belongs to the same shop as the staff member
+    if (invoice.staff.shopId !== req.user.shopId) {
+      return res
+        .status(403)
+        .json({ error: "Access denied. Invoice belongs to different shop." });
+    }
+
     res.status(200).json(invoice);
   } catch (error) {
     console.error("Error fetching invoice:", error);

@@ -9,7 +9,12 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 
 exports.register = async (req, res) => {
-  const { email, password, name, role = "SALES_STAFF", shopId = 1 } = req.body;
+  const { email, password, name, role = "SALES_STAFF", shopId } = req.body;
+
+  // Require shopId to be provided explicitly
+  if (!shopId) {
+    return res.status(400).json({ error: "Shop ID is required" });
+  }
 
   try {
     const existingStaff = await prisma.staff.findUnique({
@@ -20,6 +25,15 @@ exports.register = async (req, res) => {
       return res.status(400).json({ error: "Staff member already exists" });
     }
 
+    // Verify shop exists
+    const shop = await prisma.shop.findUnique({
+      where: { id: parseInt(shopId) },
+    });
+
+    if (!shop) {
+      return res.status(400).json({ error: "Invalid shop ID" });
+    }
+
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const staff = await prisma.staff.create({
@@ -28,7 +42,7 @@ exports.register = async (req, res) => {
         password: hashedPassword,
         name,
         role,
-        shopId,
+        shopId: parseInt(shopId),
       },
     });
 
@@ -36,7 +50,12 @@ exports.register = async (req, res) => {
       expiresIn: "1h",
     });
 
-    res.status(201).json({ token, staffId: staff.id, name: staff.name });
+    res.status(201).json({
+      token,
+      staffId: staff.id,
+      name: staff.name,
+      shopId: staff.shopId,
+    });
   } catch (error) {
     res.status(500).json({ error: "Registration failed" });
   }
@@ -48,6 +67,7 @@ exports.login = async (req, res) => {
   try {
     const staff = await prisma.staff.findUnique({
       where: { email },
+      include: { shop: true },
     });
 
     if (!staff) {
@@ -64,7 +84,13 @@ exports.login = async (req, res) => {
       expiresIn: "1h",
     });
 
-    res.json({ token, staffId: staff.id, name: staff.name });
+    res.json({
+      token,
+      staffId: staff.id,
+      name: staff.name,
+      shopId: staff.shopId,
+      shopName: staff.shop.name,
+    });
   } catch (error) {
     res.status(500).json({ error: "Login failed" });
   }

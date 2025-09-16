@@ -1,45 +1,15 @@
 const { PrismaClient } = require("@prisma/client");
 const prisma = new PrismaClient();
-const bcrypt = require("bcryptjs");
-const jwt = require("jsonwebtoken");
 
-exports.login = async (req, res) => {
-  const { email, password } = req.body;
-
-  try {
-    const staff = await prisma.staff.findUnique({ where: { email } });
-    if (!staff) {
-      return res.status(401).json({ error: "Invalid credentials" });
-    }
-
-    const isPasswordValid = await bcrypt.compare(password, staff.password);
-    if (!isPasswordValid) {
-      return res.status(401).json({ error: "Invalid credentials" });
-    }
-
-    await prisma.attendance.create({
-      data: {
-        staffId: staff.id,
-      },
-    });
-
-    const token = jwt.sign({ staffId: staff.id }, process.env.JWT_SECRET, {
-      expiresIn: "1d",
-    });
-
-    res.status(200).json({ token });
-  } catch (error) {
-    res.status(500).json({ error: "Something went wrong" });
-  }
-};
+// Remove duplicate login - use authController.js instead
 
 exports.logout = async (req, res) => {
-  const { staffId } = req.body;
+  const staffId = req.user.id; // Get from authenticated user
 
   try {
     const attendance = await prisma.attendance.findFirst({
       where: {
-        staffId: parseInt(staffId),
+        staffId: staffId,
         logoutTime: null,
       },
       orderBy: {
@@ -62,7 +32,13 @@ exports.logout = async (req, res) => {
 
 exports.getAttendance = async (req, res) => {
   try {
+    // Only show attendance for staff in the same shop
     const attendance = await prisma.attendance.findMany({
+      where: {
+        staff: {
+          shopId: req.user.shopId,
+        },
+      },
       include: {
         staff: true,
       },
@@ -77,6 +53,17 @@ exports.getAttendanceByStaff = async (req, res) => {
   const { staffId } = req.params;
 
   try {
+    // Verify staff belongs to same shop
+    const staff = await prisma.staff.findUnique({
+      where: { id: parseInt(staffId) },
+    });
+
+    if (!staff || staff.shopId !== req.user.shopId) {
+      return res
+        .status(403)
+        .json({ error: "Access denied. Staff belongs to different shop." });
+    }
+
     const attendance = await prisma.attendance.findMany({
       where: {
         staffId: parseInt(staffId),
