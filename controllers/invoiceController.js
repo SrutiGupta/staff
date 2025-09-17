@@ -22,6 +22,37 @@ exports.createInvoice = async (req, res) => {
   }
 
   try {
+    // Validate patient/customer belongs to staff's shop
+    if (patientId) {
+      const patient = await prisma.patient.findUnique({
+        where: { id: parseInt(patientId) },
+      });
+      if (!patient) {
+        return res.status(404).json({ error: "Patient not found." });
+      }
+      if (patient.shopId !== req.user.shopId) {
+        return res
+          .status(403)
+          .json({ error: "Access denied. Patient belongs to different shop." });
+      }
+    }
+
+    if (customerId) {
+      const customer = await prisma.customer.findUnique({
+        where: { id: parseInt(customerId) },
+      });
+      if (!customer) {
+        return res.status(404).json({ error: "Customer not found." });
+      }
+      if (customer.shopId !== req.user.shopId) {
+        return res
+          .status(403)
+          .json({
+            error: "Access denied. Customer belongs to different shop.",
+          });
+      }
+    }
+
     let subtotal = 0;
     let totalDiscount = 0;
     let totalCgst = 0;
@@ -627,7 +658,11 @@ exports.getAllInvoices = async (req, res) => {
     const skip = (parseInt(page) - 1) * parseInt(limit);
     const take = parseInt(limit);
 
-    const where = {};
+    const where = {
+      staff: {
+        shopId: req.user.shopId, // Filter by user's shop
+      },
+    };
 
     if (status) where.status = status;
     if (patientId) where.patientId = parseInt(patientId);
@@ -701,6 +736,22 @@ exports.updateInvoiceStatus = async (req, res) => {
   }
 
   try {
+    const invoice = await prisma.invoice.findUnique({
+      where: { id },
+      include: { staff: true },
+    });
+
+    if (!invoice) {
+      return res.status(404).json({ error: "Invoice not found." });
+    }
+
+    // Verify invoice belongs to the same shop as the staff member
+    if (invoice.staff.shopId !== req.user.shopId) {
+      return res
+        .status(403)
+        .json({ error: "Access denied. Invoice belongs to different shop." });
+    }
+
     const updatedInvoice = await prisma.invoice.update({
       where: { id },
       data: { status },
@@ -742,14 +793,22 @@ exports.addPayment = async (req, res) => {
 
   try {
     const result = await prisma.$transaction(async (prisma) => {
-      // Get current invoice
+      // Get current invoice with staff information for shop validation
       const invoice = await prisma.invoice.findUnique({
         where: { id },
-        include: { transactions: true },
+        include: {
+          transactions: true,
+          staff: true,
+        },
       });
 
       if (!invoice) {
         throw new Error("Invoice not found");
+      }
+
+      // Verify invoice belongs to the same shop as the staff member
+      if (invoice.staff.shopId !== req.user.shopId) {
+        throw new Error("Access denied. Invoice belongs to different shop.");
       }
 
       // Calculate current paid amount
@@ -845,11 +904,21 @@ exports.deleteInvoice = async (req, res) => {
   try {
     const invoice = await prisma.invoice.findUnique({
       where: { id },
-      include: { transactions: true },
+      include: {
+        transactions: true,
+        staff: true,
+      },
     });
 
     if (!invoice) {
       return res.status(404).json({ error: "Invoice not found." });
+    }
+
+    // Verify invoice belongs to the same shop as the staff member
+    if (invoice.staff.shopId !== req.user.shopId) {
+      return res
+        .status(403)
+        .json({ error: "Access denied. Invoice belongs to different shop." });
     }
 
     // Check if invoice has payments
