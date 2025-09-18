@@ -4,6 +4,11 @@ const prisma = new PrismaClient();
 // Remove duplicate login - use authController.js instead
 
 exports.logout = async (req, res) => {
+  // Check if user is authenticated
+  if (!req.user || !req.user.id) {
+    return res.status(401).json({ error: "User not authenticated" });
+  }
+  
   const staffId = req.user.id; // Get from authenticated user
 
   try {
