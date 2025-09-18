@@ -8,7 +8,7 @@ exports.logout = async (req, res) => {
   if (!req.user || !req.user.id) {
     return res.status(401).json({ error: "User not authenticated" });
   }
-  
+
   const staffId = req.user.id; // Get from authenticated user
 
   try {
