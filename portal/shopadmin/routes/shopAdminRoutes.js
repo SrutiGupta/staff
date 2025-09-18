@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const shopAdminController = require("../controllers/shopAdminController");
+const addDoctorController = require("../controllers/addDoctorController");
 const shopAdminAuth = require("../middleware/shopAdminAuth");
 
 // ===== PUBLIC ROUTES (No Authentication Required) =====
@@ -165,6 +166,31 @@ router.get("/staff/:staffId", shopAdminController.getStaffDetails);
  * @query staffId, startDate, endDate (optional filters)
  */
 router.get("/staff/activities", shopAdminController.getStaffActivities);
+
+// ===== DOCTOR MANAGEMENT ROUTES =====
+
+/**
+ * @route POST /api/shopadmin/doctors/add
+ * @desc Add a new doctor (OPTOMETRIST) to the shop
+ * @access Private (Shop Admin)
+ * @body email, password, name
+ */
+router.post("/doctors/add", addDoctorController.addDoctor);
+
+/**
+ * @route GET /api/shopadmin/doctors
+ * @desc Get all doctors (OPTOMETRISTS) in the shop
+ * @access Private (Shop Admin)
+ */
+router.get("/doctors", addDoctorController.getDoctors);
+
+/**
+ * @route PUT /api/shopadmin/doctors/:doctorId/status
+ * @desc Update doctor status (activate/deactivate)
+ * @access Private (Shop Admin)
+ * @body isActive
+ */
+router.put("/doctors/:doctorId/status", addDoctorController.updateDoctorStatus);
 
 // ===== INVENTORY MANAGEMENT ROUTES =====
 
