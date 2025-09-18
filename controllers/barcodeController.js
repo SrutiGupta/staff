@@ -89,7 +89,7 @@ exports.generateBarcodeForProduct = async (req, res) => {
       data: { barcode: newBarcode },
       include: {
         company: true,
-        inventory: true,
+        shopInventory: true,
       },
     });
 

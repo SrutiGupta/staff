@@ -1,12 +1,15 @@
-const express = require('express');
+const express = require("express");
 const router = express.Router();
-const attendanceController = require('../controllers/attendanceController');
-const auth = require('../middleware/auth');
+const attendanceController = require("../controllers/attendanceController");
+const auth = require("../middleware/auth");
 
-// Staff Login
-router.post('/login', attendanceController.login);
+// Remove duplicate login route - use /api/auth/login instead
 
-router.get('/', auth, attendanceController.getAttendance);
-router.get('/:staffId', auth, attendanceController.getAttendanceByStaff);
+// Attendance logout (marks logout time)
+router.post("/logout", auth, attendanceController.logout);
+
+// Get attendance records
+router.get("/", auth, attendanceController.getAttendance);
+router.get("/:staffId", auth, attendanceController.getAttendanceByStaff);
 
 module.exports = router;

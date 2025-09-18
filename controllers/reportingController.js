@@ -21,6 +21,9 @@ exports.getBestSellersByPriceTier = async (req, res) => {
       where: {
         invoice: {
           createdAt: dateFilter,
+          staff: {
+            shopId: req.user.shopId, // Filter by user's shop
+          },
         },
       },
       include: {
@@ -151,6 +154,9 @@ exports.getDailyReport = async (req, res) => {
         loginTime: {
           gte: startDate,
           lt: endDate,
+        },
+        staff: {
+          shopId: req.user.shopId, // Filter by user's shop
         },
       },
       include: {

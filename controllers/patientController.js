@@ -2,15 +2,7 @@ const { PrismaClient } = require("@prisma/client");
 const prisma = new PrismaClient();
 
 exports.createPatient = async (req, res) => {
-  const {
-    name,
-    age,
-    gender,
-    phone,
-    address,
-    medicalHistory,
-    shopId = 1,
-  } = req.body;
+  const { name, age, gender, phone, address, medicalHistory } = req.body;
 
   try {
     const patient = await prisma.patient.create({
@@ -21,7 +13,7 @@ exports.createPatient = async (req, res) => {
         phone,
         address,
         medicalHistory,
-        shopId,
+        shopId: req.user.shopId, // Use authenticated user's shopId
       },
     });
     res.status(201).json(patient);
@@ -38,7 +30,10 @@ exports.getAllPatients = async (req, res) => {
     const skip = (parseInt(page) - 1) * parseInt(limit);
     const take = parseInt(limit);
 
-    const where = {};
+    const where = {
+      shopId: req.user.shopId, // Filter by user's shop
+    };
+
     if (search) {
       where.OR = [
         { name: { contains: search, mode: "insensitive" } },
