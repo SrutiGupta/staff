@@ -2,7 +2,10 @@ const attendanceController = require("./attendanceController");
 
 // call attendance controller to record logout time
 exports.logout = (req, res) => {
-  req.body.staffId = req.user?.staffId;
+  // Now that auth middleware is applied, req.user should be available
+  if (!req.user) {
+    return res.status(401).json({ error: "User not authenticated" });
+  }
   return attendanceController.logout(req, res);
 };
 

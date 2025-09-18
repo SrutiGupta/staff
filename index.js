@@ -10,10 +10,11 @@ const shopAdminStockRoutes = require("./portal/shopadmin/routes/shopAdminStockRo
 
 const app = express();
 
-
-app.use(cors({
-  origin: "*"
-}));
+app.use(
+  cors({
+    origin: "*",
+  })
+);
 
 app.use(compression());
 app.use(express.json());
@@ -41,12 +42,12 @@ app.use("/company", companyRoutes);
 app.use("/retailer", retailerRoutes);
 app.use("/shop-admin", shopAdminRoutes);
 app.use("/shop-admin/stock", shopAdminStockRoutes); // New line
+app.use("/doctor", doctorRoutes);
 
 // Health check
 app.get("/", (req, res) => {
   res.send(" Backend made by Sparkline_World_Technology ");
 });
-
 
 app.use((err, req, res, next) => {
   console.error(err.stack);
