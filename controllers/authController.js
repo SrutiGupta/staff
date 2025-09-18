@@ -1,6 +1,9 @@
-// Simple logout handler (stateless JWT, so just respond OK)
+const attendanceController = require("./attendanceController");
+
+// call attendance controller to record logout time
 exports.logout = (req, res) => {
-  res.status(200).json({ message: "Logged out successfully" });
+  req.body.staffId = req.user?.staffId;
+  return attendanceController.logout(req, res);
 };
 
 const { PrismaClient } = require("@prisma/client");
