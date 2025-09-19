@@ -175,7 +175,7 @@ exports.generateSKUForProduct = async (req, res) => {
       data: { sku: newSKU },
       include: {
         company: true,
-        inventory: true,
+        shopInventory: true,
       },
     });
 
@@ -224,7 +224,7 @@ exports.getProductsWithoutBarcodes = async (req, res) => {
       where: whereCondition,
       include: {
         company: true,
-        inventory: true,
+        shopInventory: true,
       },
       orderBy: [
         { company: { name: "asc" } },
