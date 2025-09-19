@@ -215,7 +215,13 @@ exports.getMonthlyReport = async (req, res) => {
 exports.getStaffSalesReport = async (req, res) => {
   const { startDate, endDate } = req.query;
 
-  const where = {};
+  // 🛡️ SECURITY FIX: Add shopId filtering to prevent cross-shop data access
+  const shopId = req.user.shopId;
+
+  const where = {
+    staff: { shopId }, // ✅ Filter invoices by shop
+  };
+
   if (startDate) {
     where.createdAt = { ...where.createdAt, gte: new Date(startDate) };
   }
@@ -226,7 +232,7 @@ exports.getStaffSalesReport = async (req, res) => {
   try {
     const salesByStaff = await prisma.invoice.groupBy({
       by: ["staffId"],
-      where,
+      where, // ✅ Now includes shop filtering
       _sum: {
         totalAmount: true,
       },
@@ -235,18 +241,20 @@ exports.getStaffSalesReport = async (req, res) => {
       },
     });
 
-    // Get staff details
+    // Get staff details - only from current shop
     const staffIds = salesByStaff.map((sale) => sale.staffId);
     const staffDetails = await prisma.staff.findMany({
       where: {
         id: {
           in: staffIds,
         },
+        shopId, // ✅ Double-check staff belongs to current shop
       },
       select: {
         id: true,
         name: true,
         email: true,
+        role: true, // Added role for better reporting
       },
     });
 

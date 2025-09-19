@@ -132,8 +132,14 @@ const createCustomerAndInvoice = async (req, res) => {
 
 const getAddressHotspots = async (req, res) => {
   try {
+    // 🛡️ SECURITY FIX: Filter customers by shopId
+    const shopId = req.user.shopId;
+
     const addressCounts = await prisma.customer.groupBy({
       by: ["address"],
+      where: {
+        shopId, // ✅ Only show hotspots for current shop
+      },
       _count: {
         address: true,
       },
@@ -175,7 +181,7 @@ const createCustomer = async (req, res) => {
         name,
         phone,
         address,
-        shopId: 1, // Default shop ID - should be dynamic based on staff's shop
+        shopId: req.user.shopId, // 🛡️ SECURITY FIX: Use authenticated user's shopId
       },
     });
 
@@ -193,7 +199,11 @@ const getAllCustomers = async (req, res) => {
     const skip = (parseInt(page) - 1) * parseInt(limit);
     const take = parseInt(limit);
 
-    const where = {};
+    // 🛡️ SECURITY FIX: Filter customers by shopId
+    const where = {
+      shopId: req.user.shopId, // ✅ Only show customers from current shop
+    };
+
     if (search) {
       where.OR = [
         { name: { contains: search, mode: "insensitive" } },
@@ -228,8 +238,11 @@ const getAllCustomers = async (req, res) => {
 const getCustomer = async (req, res) => {
   try {
     const { id } = req.params;
-    const customer = await prisma.customer.findUnique({
-      where: { id: parseInt(id) },
+    const customer = await prisma.customer.findFirst({
+      where: {
+        id: parseInt(id),
+        shopId: req.user.shopId, // 🛡️ SECURITY FIX: Verify customer belongs to current shop
+      },
       include: {
         invoices: {
           include: {

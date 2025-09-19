@@ -26,8 +26,8 @@ exports.addDoctor = async (req, res) => {
     }
 
     // Get shop admin info from authenticated request
-    const shopAdminId = req.shopAdmin.id;
-    const shopId = req.shopAdmin.shopId;
+    const shopAdminId = req.user.shopAdminId;
+    const shopId = req.user.shopId;
 
     // Check if doctor (staff with email) already exists
     const existingStaff = await prisma.staff.findUnique({
@@ -109,7 +109,7 @@ exports.addDoctor = async (req, res) => {
  */
 exports.getDoctors = async (req, res) => {
   try {
-    const shopId = req.shopAdmin.shopId;
+    const shopId = req.user.shopId;
 
     const doctors = await prisma.staff.findMany({
       where: {
@@ -150,8 +150,8 @@ exports.updateDoctorStatus = async (req, res) => {
   try {
     const { doctorId } = req.params;
     const { isActive } = req.body;
-    const shopAdminId = req.shopAdmin.id;
-    const shopId = req.shopAdmin.shopId;
+    const shopAdminId = req.user.shopAdminId;
+    const shopId = req.user.shopId;
 
     if (typeof isActive !== "boolean") {
       return res.status(400).json({
