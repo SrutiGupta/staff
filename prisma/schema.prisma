@@ -48,6 +48,7 @@ model Shop {
   stockReceipts StockReceipt[]
   patients      Patient[]
   customers     Customer[]
+  retailerShops RetailerShop[]
 
   // Business settings
   lowStockThreshold Int @default(10)
@@ -427,6 +428,7 @@ model Product {
   shopInventory  ShopInventory[]
   stockReceipts  StockReceipt[]
   performance    ProductPerformance[]
+  retailerProducts RetailerProduct[]
 }
 
 enum EyewearType {
@@ -508,4 +510,216 @@ model Prescription {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   invoice   Invoice?
+}
+
+// ================================
+// RETAILER PORTAL MODELS
+// ================================
+
+model Retailer {
+  id          Int      @id @default(autoincrement())
+  email       String   @unique
+  name        String
+  password    String
+  companyName String?
+  phone       String?
+  address     String?
+  gstNo       String?
+  licenseNo   String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relationships
+  retailerShops        RetailerShop[]
+  retailerProducts     RetailerProduct[]
+  retailerInventory    RetailerInventory[]
+  shopDistributions    ShopDistribution[]
+  retailerReports      RetailerReport[]
+  retailerTransactions RetailerTransaction[]
+}
+
+model RetailerShop {
+  id          Int      @id @default(autoincrement())
+  retailerId  Int
+  retailer    Retailer @relation(fields: [retailerId], references: [id])
+  shopId      Int
+  shop        Shop     @relation(fields: [shopId], references: [id])
+  
+  // Shop relationship details
+  partnershipType String?  // "FRANCHISE", "DEALER", "DISTRIBUTOR"
+  commissionRate  Float?   // Commission percentage
+  creditLimit     Float?   // Credit limit for this shop
+  paymentTerms    String?  // "NET_30", "COD", etc.
+  
+  isActive    Boolean  @default(true)
+  joinedAt    DateTime @default(now())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relationships
+  shopDistributions ShopDistribution[]
+
+  @@unique([retailerId, shopId])
+}
+
+model RetailerProduct {
+  id                Int      @id @default(autoincrement())
+  retailerId        Int
+  retailer          Retailer @relation(fields: [retailerId], references: [id])
+  productId         Int
+  product           Product  @relation(fields: [productId], references: [id])
+  
+  // Retailer-specific pricing
+  wholesalePrice    Float    // Price retailer sells to shops
+  mrp               Float?   // Maximum retail price
+  minSellingPrice   Float?   // Minimum price shops can sell
+  
+  // Stock management
+  totalStock        Int      @default(0)
+  allocatedStock    Int      @default(0)  // Stock allocated to shops
+  availableStock    Int      @default(0)  // Stock available for allocation
+  reorderLevel      Int      @default(50)
+  
+  isActive          Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // Relationships
+  retailerInventory RetailerInventory[]
+  shopDistributions ShopDistribution[]
+
+  @@unique([retailerId, productId])
+}
+
+model RetailerInventory {
+  id                  Int             @id @default(autoincrement())
+  retailerId          Int
+  retailer            Retailer        @relation(fields: [retailerId], references: [id])
+  retailerProductId   Int
+  retailerProduct     RetailerProduct @relation(fields: [retailerProductId], references: [id])
+  
+  // Inventory tracking
+  currentStock        Int             @default(0)
+  reservedStock       Int             @default(0)  // Stock reserved for orders
+  inTransitStock      Int             @default(0)  // Stock being shipped to shops
+  
+  // Location details
+  warehouseLocation   String?
+  batchNumber         String?
+  expiryDate          DateTime?
+  
+  // Cost tracking
+  averageCostPrice    Float?
+  lastPurchasePrice   Float?
+  lastPurchaseDate    DateTime?
+  supplier            String?
+  
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+
+  @@unique([retailerId, retailerProductId])
+}
+
+model ShopDistribution {
+  id                  Int             @id @default(autoincrement())
+  retailerId          Int
+  retailer            Retailer        @relation(fields: [retailerId], references: [id])
+  retailerShopId      Int
+  retailerShop        RetailerShop    @relation(fields: [retailerShopId], references: [id])
+  retailerProductId   Int
+  retailerProduct     RetailerProduct @relation(fields: [retailerProductId], references: [id])
+  
+  // Distribution details
+  quantity            Int
+  unitPrice           Float           // Price charged to shop
+  totalAmount         Float
+  
+  // Tracking
+  distributionDate    DateTime        @default(now())
+  deliveryStatus      DeliveryStatus  @default(PENDING)
+  deliveryDate        DateTime?
+  trackingNumber      String?
+  
+  // Payment tracking
+  paymentStatus       PaymentStatus   @default(PENDING)
+  paymentDueDate      DateTime?
+  paidDate            DateTime?
+  
+  notes               String?
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+}
+
+enum DeliveryStatus {
+  PENDING
+  SHIPPED
+  IN_TRANSIT
+  DELIVERED
+  RETURNED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  PARTIAL
+  OVERDUE
+  CANCELLED
+}
+
+model RetailerTransaction {
+  id            Int               @id @default(autoincrement())
+  retailerId    Int
+  retailer      Retailer          @relation(fields: [retailerId], references: [id])
+  
+  // Transaction details
+  type          TransactionType
+  amount        Float
+  description   String?
+  referenceNo   String?
+  
+  // Related entities
+  shopId        Int?              // If transaction is shop-specific
+  productId     Int?              // If transaction is product-specific
+  
+  transactionDate DateTime        @default(now())
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+}
+
+enum TransactionType {
+  SALE_TO_SHOP      // Revenue from selling to shops
+  PURCHASE          // Cost of purchasing inventory
+  REFUND            // Refunds to shops
+  COMMISSION        // Commission payments
+  EXPENSE           // Business expenses
+  ADJUSTMENT        // Manual adjustments
+}
+
+model RetailerReport {
+  id          Int        @id @default(autoincrement())
+  retailerId  Int
+  retailer    Retailer   @relation(fields: [retailerId], references: [id])
+  
+  reportType  RetailerReportType
+  title       String
+  description String?
+  filters     Json?      // Report filters used
+  data        Json       // Report data
+  filePath    String?    // If PDF was generated
+  
+  generatedAt DateTime   @default(now())
+  expiresAt   DateTime?
+}
+
+enum RetailerReportType {
+  PROFIT_LOSS
+  TAX_REPORT
+  STOCK_VALUATION
+  SHOP_PERFORMANCE
+  PRODUCT_ANALYSIS
+  SALES_SUMMARY
+  INVENTORY_AGING
+  PAYMENT_STATUS
 }
