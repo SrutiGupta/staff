@@ -1,7 +1,7 @@
 const { PrismaClient } = require("@prisma/client");
 const prisma = new PrismaClient();
 
-// ✅ Helper to check shop ownership (works for staff & doctor)
+// 🛡️ SECURITY FIX: Helper to check shop ownership for doctors
 async function verifyPatientAccess(patientId, req) {
   const patient = await prisma.patient.findUnique({
     where: { id: parseInt(patientId) },
@@ -9,15 +9,57 @@ async function verifyPatientAccess(patientId, req) {
 
   if (!patient) return { error: "Patient not found", status: 404 };
 
-  // If user is staff, check shop
-  if (req.user.role === "staff" && patient.shopId !== req.user.shopId) {
-    return { error: "Access denied. Patient belongs to different shop.", status: 403 };
+  // 🛡️ SECURITY FIX: Both staff and doctors must only access patients from their shop
+  if (patient.shopId !== req.user.shopId) {
+    return {
+      error: "Access denied. Patient belongs to different shop.",
+      status: 403,
+    };
   }
 
-  // If user is doctor, you might add extra restrictions (like hospitalId, clinicId)
-  // For now, doctors can access all patients
   return { patient };
 }
+
+// 🛡️ SECURITY FIX: Get all patients for the doctor's shop only
+exports.getPatients = async (req, res) => {
+  try {
+    const patients = await prisma.patient.findMany({
+      where: {
+        shopId: req.user.shopId, // 🛡️ Only patients from doctor's shop
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        phone: true,
+        address: true,
+        createdAt: true,
+        shop: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+    });
+
+    res.json({
+      success: true,
+      data: patients,
+      count: patients.length,
+    });
+  } catch (error) {
+    console.error("Error fetching patients:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch patients",
+      error: error.message,
+    });
+  }
+};
 
 // ✅ Create a new prescription
 exports.createPrescription = async (req, res) => {
@@ -28,15 +70,20 @@ exports.createPrescription = async (req, res) => {
       return res.status(400).json({ error: "Patient ID is required." });
     }
     if (!rightEye || typeof rightEye !== "object") {
-      return res.status(400).json({ error: "Right eye data must be an object." });
+      return res
+        .status(400)
+        .json({ error: "Right eye data must be an object." });
     }
     if (!leftEye || typeof leftEye !== "object") {
-      return res.status(400).json({ error: "Left eye data must be an object." });
+      return res
+        .status(400)
+        .json({ error: "Left eye data must be an object." });
     }
 
     // Verify patient access
     const access = await verifyPatientAccess(patientId, req);
-    if (access.error) return res.status(access.status).json({ error: access.error });
+    if (access.error)
+      return res.status(access.status).json({ error: access.error });
 
     // ✅ Create prescription (link doctorId or staffId if needed)
     const newPrescription = await prisma.prescription.create({
@@ -44,8 +91,7 @@ exports.createPrescription = async (req, res) => {
         patientId: parseInt(patientId),
         rightEye,
         leftEye,
-        doctorId: req.user.role === "doctor" ? req.user.doctorId : null,
-        staffId: req.user.role === "staff" ? req.user.staffId : null,
+        staffId: req.user.id, // 🛡️ Use authenticated staff ID (OPTOMETRIST role)
       },
     });
 
@@ -72,7 +118,8 @@ exports.getPrescription = async (req, res) => {
 
     // Verify access
     const access = await verifyPatientAccess(prescription.patientId, req);
-    if (access.error) return res.status(access.status).json({ error: access.error });
+    if (access.error)
+      return res.status(access.status).json({ error: access.error });
 
     res.status(200).json(prescription);
   } catch (error) {
@@ -81,7 +128,7 @@ exports.getPrescription = async (req, res) => {
   }
 };
 
-// ✅ Get all prescriptions (with pagination & optional filtering)
+// 🛡️ SECURITY FIX: Get all prescriptions (with proper shop isolation)
 exports.getAllPrescriptions = async (req, res) => {
   try {
     const { page = 1, limit = 10, patientId } = req.query;
@@ -90,14 +137,13 @@ exports.getAllPrescriptions = async (req, res) => {
 
     let where = {};
 
-    if (req.user.role === "staff") {
-      // staff → only prescriptions from their shop
-      where = { patient: { shopId: req.user.shopId } };
-    }
+    // 🛡️ SECURITY FIX: Both staff and doctors must only access prescriptions from their shop
+    where = { patient: { shopId: req.user.shopId } };
 
     if (patientId) {
       const access = await verifyPatientAccess(patientId, req);
-      if (access.error) return res.status(access.status).json({ error: access.error });
+      if (access.error)
+        return res.status(access.status).json({ error: access.error });
 
       where.patientId = parseInt(patientId);
     }
@@ -125,7 +171,7 @@ exports.getAllPrescriptions = async (req, res) => {
   }
 };
 
-// ✅ Generate PDF for prescription's invoice
+// 🛡️ SECURITY FIX: Generate PDF for prescription's invoice with shop isolation
 exports.generatePrescriptionPdf = async (req, res) => {
   try {
     const { id } = req.params;
@@ -149,7 +195,8 @@ exports.generatePrescriptionPdf = async (req, res) => {
       });
     }
 
-    if (req.user.role === "staff" && invoice.staff.shopId !== req.user.shopId) {
+    // 🛡️ SECURITY FIX: Check shop access for both staff and doctors
+    if (invoice.staff.shopId !== req.user.shopId) {
       return res.status(403).json({ error: "Access denied. Different shop." });
     }
 
@@ -162,7 +209,7 @@ exports.generatePrescriptionPdf = async (req, res) => {
   }
 };
 
-// ✅ Generate thermal print for prescription's invoice
+// 🛡️ SECURITY FIX: Generate thermal print for prescription's invoice with shop isolation
 exports.generatePrescriptionThermal = async (req, res) => {
   try {
     const { id } = req.params;
@@ -186,7 +233,8 @@ exports.generatePrescriptionThermal = async (req, res) => {
       });
     }
 
-    if (req.user.role === "staff" && invoice.staff.shopId !== req.user.shopId) {
+    // 🛡️ SECURITY FIX: Check shop access for both staff and doctors
+    if (invoice.staff.shopId !== req.user.shopId) {
       return res.status(403).json({ error: "Access denied. Different shop." });
     }
 
@@ -195,6 +243,8 @@ exports.generatePrescriptionThermal = async (req, res) => {
     return await invoiceController.generateInvoiceThermal(req, res);
   } catch (error) {
     console.error("Error generating prescription thermal:", error);
-    res.status(500).json({ error: "Failed to generate prescription thermal print" });
+    res
+      .status(500)
+      .json({ error: "Failed to generate prescription thermal print" });
   }
 };

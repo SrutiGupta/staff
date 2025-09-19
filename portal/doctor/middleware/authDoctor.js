@@ -21,21 +21,32 @@ module.exports = async function (req, res, next) {
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    // Check doctor in DB
-    const doctor = await prisma.doctor.findUnique({
-      where: { id: decoded.doctorId },
+    // 🛡️ SECURITY FIX: Check staff table with OPTOMETRIST role
+    const doctor = await prisma.staff.findUnique({
+      where: { id: decoded.id },
+      include: { shop: true },
     });
 
     if (!doctor) {
       return res.status(401).json({ msg: "Invalid token - doctor not found" });
     }
 
+    // 🛡️ SECURITY FIX: Verify OPTOMETRIST role
+    if (doctor.role !== "OPTOMETRIST") {
+      return res
+        .status(403)
+        .json({ msg: "Access denied. Not a doctor account." });
+    }
+
+    // 🛡️ SECURITY FIX: Include shop context for isolation
     req.user = {
       id: doctor.id,
-      doctorId: doctor.id,
+      staffId: doctor.id,
       email: doctor.email,
       name: doctor.name,
-      role: "doctor",
+      role: doctor.role,
+      shopId: doctor.shopId,
+      shop: doctor.shop,
     };
 
     next();
@@ -43,4 +54,3 @@ module.exports = async function (req, res, next) {
     res.status(400).json({ msg: "Token is not valid" });
   }
 };
-
