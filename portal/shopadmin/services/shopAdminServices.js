@@ -238,7 +238,7 @@ exports.getRecentActivities = async (shopId) => {
         prisma.attendance.findMany({
           where: { staff: { shopId } },
           take: 5,
-          orderBy: { checkIn: "desc" },
+          orderBy: { loginTime: "desc" },
           include: {
             staff: { select: { name: true } },
           },
@@ -265,7 +265,7 @@ exports.getRecentActivities = async (shopId) => {
       ...recentAttendance.map((attendance) => ({
         type: "attendance",
         message: `${attendance.staff.name} checked in`,
-        timestamp: attendance.checkIn,
+        timestamp: attendance.loginTime,
       })),
       ...recentInventory.map((movement) => ({
         type: "inventory",
@@ -299,7 +299,7 @@ exports.getStaffAttendanceReport = async (
     };
 
     if (startDate && endDate) {
-      whereClause.checkIn = {
+      whereClause.loginTime = {
         gte: new Date(startDate),
         lte: new Date(endDate),
       };
@@ -316,7 +316,7 @@ exports.getStaffAttendanceReport = async (
           select: { id: true, name: true, email: true, role: true },
         },
       },
-      orderBy: { checkIn: "desc" },
+      orderBy: { loginTime: "desc" },
     });
 
     // Group by staff and calculate metrics
@@ -334,17 +334,17 @@ exports.getStaffAttendanceReport = async (
         };
       }
 
-      const hoursWorked = record.checkOut
-        ? (new Date(record.checkOut) - new Date(record.checkIn)) /
+      const hoursWorked = record.logoutTime
+        ? (new Date(record.logoutTime) - new Date(record.loginTime)) /
           (1000 * 60 * 60)
         : 0;
 
       staffMetrics[staffKey].totalDays++;
       staffMetrics[staffKey].totalHours += hoursWorked;
       staffMetrics[staffKey].records.push({
-        date: record.checkIn,
-        checkIn: record.checkIn,
-        checkOut: record.checkOut,
+        date: record.loginTime,
+        loginTime: record.loginTime,
+        logoutTime: record.logoutTime,
         hoursWorked: parseFloat(hoursWorked.toFixed(2)),
       });
     });
@@ -988,7 +988,7 @@ exports.getAllStaff = async (shopId) => {
       include: {
         attendance: {
           take: 1,
-          orderBy: { checkIn: "desc" },
+          orderBy: { loginTime: "desc" },
         },
         invoices: {
           select: { id: true, totalAmount: true },
@@ -1025,7 +1025,7 @@ exports.getStaffDetails = async (shopId, staffId) => {
       where: { id: staffId, shopId },
       include: {
         attendance: {
-          orderBy: { checkIn: "desc" },
+          orderBy: { loginTime: "desc" },
           take: 10,
         },
         invoices: {
@@ -1102,7 +1102,7 @@ exports.getStaffActivities = async (
           ...(staffId && { staffId: parseInt(staffId) }),
           ...(startDate &&
             endDate && {
-              checkIn: {
+              loginTime: {
                 gte: new Date(startDate),
                 lte: new Date(endDate),
               },
@@ -1111,7 +1111,7 @@ exports.getStaffActivities = async (
         include: {
           staff: { select: { name: true } },
         },
-        orderBy: { checkIn: "desc" },
+        orderBy: { loginTime: "desc" },
       }),
     ]);
 
@@ -1132,8 +1132,8 @@ exports.getStaffActivities = async (
       ...attendance.map((record) => ({
         type: "attendance",
         staff: record.staff.name,
-        description: `${record.checkOut ? "Checked out" : "Checked in"}`,
-        timestamp: record.checkOut || record.checkIn,
+        description: `${record.logoutTime ? "Checked out" : "Checked in"}`,
+        timestamp: record.logoutTime || record.loginTime,
       })),
     ];
 
