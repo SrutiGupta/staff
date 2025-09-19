@@ -267,14 +267,14 @@ exports.generateBarcodeLabel = async (req, res) => {
 
     // Ensure price is properly formatted if provided manually
     if (price && !productId) {
-      // If price is a number, format it with $ and 2 decimal places
+      // If price is a number, format it with ₹ and 2 decimal places
       if (typeof price === "number") {
-        productDetails.price = `$${price.toFixed(2)}`;
-      } else if (typeof price === "string" && !price.startsWith("$")) {
-        // If price is a string number without $, add $ and format
+        productDetails.price = `₹${price.toFixed(2)}`;
+      } else if (typeof price === "string" && !price.startsWith("₹")) {
+        // If price is a string number without ₹, add ₹ and format
         const numPrice = parseFloat(price);
         if (!isNaN(numPrice)) {
-          productDetails.price = `$${numPrice.toFixed(2)}`;
+          productDetails.price = `₹${numPrice.toFixed(2)}`;
         }
       }
     }
@@ -300,7 +300,7 @@ exports.generateBarcodeLabel = async (req, res) => {
       productDetails = {
         name: product.name || "Unknown Product",
         description: product.description || "",
-        price: `$${(product.basePrice || 0).toFixed(2)}`,
+        price: `₹${(product.basePrice || 0).toFixed(2)}`,
         data: product.barcode,
       };
     }
