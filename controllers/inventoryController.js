@@ -1,16 +1,151 @@
 const { PrismaClient } = require("@prisma/client");
 const prisma = new PrismaClient();
 
-exports.updateStockByBarcode = async (req, res) => {
-  const { barcode, quantity, price } = req.body;
-
+// Helper function to safely parse shop ID
+const parseShopId = (req) => {
   if (!req.user || !req.user.shopId) {
-    return res
-      .status(401)
-      .json({ error: "Authentication required with valid shop access" });
+    throw new Error("Authentication required with valid shop access");
+  }
+  const shopId = parseInt(req.user.shopId, 10);
+  if (isNaN(shopId)) {
+    throw new Error("Invalid shop ID");
+  }
+  return shopId;
+};
+
+// Helper function to get low stock threshold
+const getLowStockThreshold = async (shopId) => {
+  try {
+    // Try to get threshold from shop settings first
+    const shop = await prisma.shop.findUnique({
+      where: { id: shopId },
+      select: { lowStockThreshold: true },
+    });
+
+    return (
+      shop?.lowStockThreshold || parseInt(process.env.LOW_STOCK_THRESHOLD) || 5
+    );
+  } catch (error) {
+    console.warn(
+      "Failed to get shop settings, using default threshold:",
+      error
+    );
+    return parseInt(process.env.LOW_STOCK_THRESHOLD) || 5;
+  }
+};
+
+// Helper function to calculate inventory status
+const getInventoryStatus = async (quantity, shopId) => {
+  const lowStockThreshold = await getLowStockThreshold(shopId);
+  const mediumStockThreshold = lowStockThreshold * 2; // 2x low stock threshold
+  const highStockThreshold = lowStockThreshold * 4; // 4x low stock threshold
+
+  return {
+    currentStock: quantity,
+    stockLevel:
+      quantity > highStockThreshold
+        ? "HIGH"
+        : quantity > mediumStockThreshold
+        ? "MEDIUM"
+        : quantity > 0
+        ? "LOW"
+        : "OUT_OF_STOCK",
+    statusMessage:
+      quantity > mediumStockThreshold
+        ? "In Stock"
+        : quantity > 0
+        ? "Low Stock"
+        : "Out of Stock",
+  };
+};
+
+// Helper function to validate shop ownership and access
+const validateShopAccess = async (req, requiredShopId = null) => {
+  const shopId = parseShopId(req);
+
+  // If a specific shop ID is required, verify it matches the user's shop
+  if (requiredShopId && shopId !== requiredShopId) {
+    throw new Error(
+      "Access denied: You don't have permission to access this shop's resources"
+    );
   }
 
-  const shopIdInt = parseInt(req.user.shopId, 10);
+  // Verify the shop exists and is active
+  const shop = await prisma.shop.findUnique({
+    where: { id: shopId },
+    select: { id: true, name: true },
+  });
+
+  if (!shop) {
+    throw new Error("Shop not found or access denied");
+  }
+
+  return shopId;
+};
+
+// Helper function to validate approved receipt and check consumption
+const validateApprovedReceipt = async (
+  shopId,
+  productId,
+  requestedQuantity,
+  product
+) => {
+  // Find approved stock receipt
+  const approvedReceipt = await prisma.stockReceipt.findFirst({
+    where: {
+      shopId: shopId,
+      productId: productId,
+      status: "APPROVED",
+      verifiedQuantity: {
+        gte: requestedQuantity,
+      },
+    },
+    orderBy: {
+      verifiedAt: "desc",
+    },
+  });
+
+  if (!approvedReceipt) {
+    throw new Error(
+      `No approved stock receipt found for product ${product.name}. Staff cannot perform stock operations without shop admin approval.`
+    );
+  }
+
+  // Check if approved quantity has already been consumed
+  const totalConsumed = await prisma.stockMovement.aggregate({
+    where: {
+      shopInventory: {
+        shopId: shopId,
+        productId: productId,
+      },
+      type: "STOCK_IN",
+      createdAt: {
+        gte: approvedReceipt.verifiedAt,
+      },
+    },
+    _sum: {
+      quantity: true,
+    },
+  });
+
+  const consumedQuantity = totalConsumed._sum.quantity || 0;
+  const remainingApproved = approvedReceipt.verifiedQuantity - consumedQuantity;
+
+  if (remainingApproved < requestedQuantity) {
+    throw new Error(
+      `Insufficient approved stock. Remaining approved quantity: ${remainingApproved}, Requested: ${requestedQuantity}`
+    );
+  }
+
+  return {
+    approvedReceipt,
+    consumedQuantity,
+    remainingApproved,
+  };
+};
+
+exports.updateStockByBarcode = async (req, res) => {
+  const { barcode, quantity, price } = req.body;
 
   if (!barcode || quantity === undefined) {
     return res
@@ -29,6 +164,7 @@ exports.updateStockByBarcode = async (req, res) => {
   }
 
   try {
+    const shopIdInt = await validateShopAccess(req);
     const result = await prisma.$transaction(async (tx) => {
       // Step 1: Find the product by its barcode with company information
       const product = await tx.product.findUnique({
@@ -43,52 +179,13 @@ exports.updateStockByBarcode = async (req, res) => {
       }
 
       // SECURITY CHECK: Verify there's an approved stock receipt for this product
-      const approvedReceipt = await tx.stockReceipt.findFirst({
-        where: {
-          shopId: shopIdInt,
-          productId: product.id,
-          status: "APPROVED",
-          verifiedQuantity: {
-            gte: quantityInt, // Must have enough approved quantity
-          },
-        },
-        orderBy: {
-          verifiedAt: "desc",
-        },
-      });
-
-      if (!approvedReceipt) {
-        throw new Error(
-          `No approved stock receipt found for product ${product.name}. Staff cannot perform stock operations without shop admin approval.`
+      const { approvedReceipt, consumedQuantity } =
+        await validateApprovedReceipt(
+          shopIdInt,
+          product.id,
+          quantityInt,
+          product
         );
-      }
-
-      // Check if approved quantity has already been consumed
-      const totalConsumed = await tx.stockMovement.aggregate({
-        where: {
-          shopInventory: {
-            shopId: shopIdInt,
-            productId: product.id,
-          },
-          type: "STOCK_IN",
-          createdAt: {
-            gte: approvedReceipt.verifiedAt,
-          },
-        },
-        _sum: {
-          quantity: true,
-        },
-      });
-
-      const consumedQuantity = totalConsumed._sum.quantity || 0;
-      const remainingApproved =
-        approvedReceipt.verifiedQuantity - consumedQuantity;
-
-      if (remainingApproved < quantityInt) {
-        throw new Error(
-          `Insufficient approved stock. Remaining approved quantity: ${remainingApproved}, Requested: ${quantityInt}`
-        );
-      }
 
       // Get current inventory to calculate previous quantity
       const currentInventory = await tx.shopInventory.findUnique({
@@ -198,31 +295,31 @@ exports.updateStockByBarcode = async (req, res) => {
           stockOperation: "STOCK_IN",
           timestamp: new Date().toISOString(),
         },
-        inventoryStatus: {
-          currentStock: inventory.quantity,
-          stockLevel:
-            inventory.quantity > 20
-              ? "HIGH"
-              : inventory.quantity > 10
-              ? "MEDIUM"
-              : inventory.quantity > 0
-              ? "LOW"
-              : "OUT_OF_STOCK",
-          statusMessage:
-            inventory.quantity > 10
-              ? "In Stock"
-              : inventory.quantity > 0
-              ? "Low Stock"
-              : "Out of Stock",
-        },
+        inventoryStatus: await getInventoryStatus(
+          inventory.quantity,
+          shopIdInt
+        ),
       };
     });
 
     res.status(200).json(result);
   } catch (error) {
     console.error("Failed to update stock by barcode:", error);
+    if (
+      error.message.includes("Authentication required") ||
+      error.message.includes("Access denied") ||
+      error.message.includes("Shop not found")
+    ) {
+      return res.status(401).json({ error: error.message });
+    }
     if (error.message.includes("not found")) {
       return res.status(404).json({ error: error.message });
+    }
+    if (
+      error.message.includes("No approved stock receipt") ||
+      error.message.includes("Insufficient approved stock")
+    ) {
+      return res.status(403).json({ error: error.message });
     }
     res
       .status(500)
@@ -302,7 +399,14 @@ exports.addProduct = async (req, res) => {
   } catch (error) {
     console.error(error);
     if (error.code === "P2002") {
-      return res.status(400).json({ error: "Barcode already exists." });
+      // Handle unique constraint violations
+      if (error.meta?.target?.includes("barcode")) {
+        return res.status(409).json({ error: "Barcode already exists." });
+      }
+      if (error.meta?.target?.includes("sku")) {
+        return res.status(409).json({ error: "SKU already exists." });
+      }
+      return res.status(409).json({ error: "Duplicate entry found." });
     }
     res.status(500).json({ error: "Something went wrong" });
   }
@@ -327,6 +431,7 @@ exports.stockIn = async (req, res) => {
   }
 
   try {
+    const shopIdInt = await validateShopAccess(req);
     let product;
 
     // Find product by barcode or productId
@@ -357,58 +462,21 @@ exports.stockIn = async (req, res) => {
     }
 
     // SECURITY CHECK: Verify there's an approved stock receipt for this product
-    const approvedReceipt = await prisma.stockReceipt.findFirst({
-      where: {
-        shopId: req.user.shopId,
-        productId: product.id,
-        status: "APPROVED",
-        verifiedQuantity: {
-          gte: parseInt(quantity), // Must have enough approved quantity
-        },
-      },
-      orderBy: {
-        verifiedAt: "desc",
-      },
-    });
-
-    if (!approvedReceipt) {
+    let approvedReceipt, consumedQuantity;
+    try {
+      const receiptValidation = await validateApprovedReceipt(
+        shopIdInt,
+        product.id,
+        parseInt(quantity),
+        product
+      );
+      approvedReceipt = receiptValidation.approvedReceipt;
+      consumedQuantity = receiptValidation.consumedQuantity;
+    } catch (error) {
       return res.status(403).json({
-        error: `No approved stock receipt found for product ${product.name}. Staff cannot perform stock operations without shop admin approval.`,
+        error: error.message,
         suggestion:
           "Create a stock receipt and wait for shop admin approval before performing stock operations.",
-      });
-    }
-
-    // Check if approved quantity has already been consumed
-    const totalConsumed = await prisma.stockMovement.aggregate({
-      where: {
-        shopInventory: {
-          shopId: req.user.shopId,
-          productId: product.id,
-        },
-        type: "STOCK_IN",
-        createdAt: {
-          gte: approvedReceipt.verifiedAt,
-        },
-      },
-      _sum: {
-        quantity: true,
-      },
-    });
-
-    const consumedQuantity = totalConsumed._sum.quantity || 0;
-    const remainingApproved =
-      approvedReceipt.verifiedQuantity - consumedQuantity;
-
-    if (remainingApproved < parseInt(quantity)) {
-      return res.status(403).json({
-        error: `Insufficient approved stock. Remaining approved quantity: ${remainingApproved}, Requested: ${quantity}`,
-        approvedReceipt: {
-          id: approvedReceipt.id,
-          verifiedQuantity: approvedReceipt.verifiedQuantity,
-          consumedQuantity: consumedQuantity,
-          remainingQuantity: remainingApproved,
-        },
       });
     }
 
@@ -416,7 +484,7 @@ exports.stockIn = async (req, res) => {
     const existingInventory = await prisma.shopInventory.findFirst({
       where: {
         productId: product.id,
-        shopId: req.user.shopId, // Get shopId from authenticated user
+        shopId: shopIdInt, // Get shopId from authenticated user
       },
     });
 
@@ -436,7 +504,7 @@ exports.stockIn = async (req, res) => {
       inventory = await prisma.shopInventory.create({
         data: {
           productId: product.id,
-          shopId: req.user.shopId,
+          shopId: shopIdInt,
           quantity: parseInt(quantity),
         },
       });
@@ -526,29 +594,23 @@ exports.stockIn = async (req, res) => {
         stockOperation: "STOCK_IN",
         timestamp: new Date().toISOString(),
       },
-      inventoryStatus: {
-        currentStock: inventory.quantity,
-        stockLevel:
-          inventory.quantity > 20
-            ? "HIGH"
-            : inventory.quantity > 10
-            ? "MEDIUM"
-            : inventory.quantity > 0
-            ? "LOW"
-            : "OUT_OF_STOCK",
-        statusMessage:
-          inventory.quantity > 10
-            ? "In Stock"
-            : inventory.quantity > 0
-            ? "Low Stock"
-            : "Out of Stock",
-      },
+      inventoryStatus: await getInventoryStatus(inventory.quantity, shopIdInt),
     };
 
     const statusCode = existingInventory ? 200 : 201;
     res.status(statusCode).json(response);
   } catch (error) {
     console.error(error);
+    if (
+      error.message.includes("Authentication required") ||
+      error.message.includes("Access denied") ||
+      error.message.includes("Shop not found")
+    ) {
+      return res.status(401).json({ error: error.message });
+    }
+    if (error.message.includes("not found")) {
+      return res.status(404).json({ error: error.message });
+    }
     res.status(500).json({ error: "Something went wrong" });
   }
 };
@@ -572,6 +634,7 @@ exports.stockOut = async (req, res) => {
   }
 
   try {
+    const shopIdInt = await validateShopAccess(req);
     let product;
 
     // Find product by barcode or productId
@@ -582,7 +645,7 @@ exports.stockOut = async (req, res) => {
           company: true,
           shopInventory: {
             where: {
-              shopId: req.user.shopId, // Only get inventory for current shop
+              shopId: shopIdInt, // Only get inventory for current shop
             },
           },
         },
@@ -600,7 +663,7 @@ exports.stockOut = async (req, res) => {
           company: true,
           shopInventory: {
             where: {
-              shopId: req.user.shopId, // Only get inventory for current shop
+              shopId: shopIdInt, // Only get inventory for current shop
             },
           },
         },
@@ -656,6 +719,7 @@ exports.stockOut = async (req, res) => {
     });
 
     // Enhanced response with product details
+    const lowStockThreshold = await getLowStockThreshold(shopIdInt);
     const response = {
       ...updatedInventory,
       product: product,
@@ -670,13 +734,25 @@ exports.stockOut = async (req, res) => {
         previousQuantity: currentInventory.quantity,
         newQuantity: updatedInventory.quantity,
         lowStockWarning:
-          updatedInventory.quantity <= 5 ? "Low stock alert!" : null,
+          updatedInventory.quantity <= lowStockThreshold
+            ? "Low stock alert!"
+            : null,
       },
     };
 
     res.status(200).json(response);
   } catch (error) {
     console.error(error);
+    if (
+      error.message.includes("Authentication required") ||
+      error.message.includes("Access denied") ||
+      error.message.includes("Shop not found")
+    ) {
+      return res.status(401).json({ error: error.message });
+    }
+    if (error.message.includes("not found")) {
+      return res.status(404).json({ error: error.message });
+    }
     res.status(500).json({ error: "Something went wrong" });
   }
 };
@@ -700,6 +776,7 @@ exports.stockOutByBarcode = async (req, res) => {
   }
 
   try {
+    const shopIdInt = await validateShopAccess(req);
     const result = await prisma.$transaction(async (tx) => {
       // Step 1: Find the product by its barcode with company information
       const product = await tx.product.findUnique({
@@ -717,7 +794,7 @@ exports.stockOutByBarcode = async (req, res) => {
       const inventory = await tx.shopInventory.findUnique({
         where: {
           shopId_productId: {
-            shopId: req.user.shopId, // Get shopId from authenticated user
+            shopId: shopIdInt, // Get shopId from authenticated user
             productId: product.id,
           },
         },
@@ -737,7 +814,7 @@ exports.stockOutByBarcode = async (req, res) => {
       const updatedInventory = await tx.shopInventory.update({
         where: {
           shopId_productId: {
-            shopId: req.user.shopId,
+            shopId: shopIdInt,
             productId: product.id,
           },
         },
@@ -774,7 +851,9 @@ exports.stockOutByBarcode = async (req, res) => {
           removedQuantity: quantityInt,
           newQuantity: updatedInventory.quantity,
           lowStockWarning:
-            updatedInventory.quantity <= 5 ? "Low stock alert!" : null,
+            updatedInventory.quantity <= (await getLowStockThreshold(shopIdInt))
+              ? "Low stock alert!"
+              : null,
         },
       };
     });
@@ -783,7 +862,16 @@ exports.stockOutByBarcode = async (req, res) => {
   } catch (error) {
     console.error("Failed to stock-out by barcode:", error);
     if (
-      error.message.includes("not found") ||
+      error.message.includes("Authentication required") ||
+      error.message.includes("Access denied") ||
+      error.message.includes("Shop not found")
+    ) {
+      return res.status(401).json({ error: error.message });
+    }
+    if (error.message.includes("not found")) {
+      return res.status(404).json({ error: error.message });
+    }
+    if (
       error.message.includes("Insufficient stock") ||
       error.message.includes("No inventory")
     ) {
@@ -804,13 +892,14 @@ exports.getProductByBarcode = async (req, res) => {
   }
 
   try {
+    const shopIdInt = await validateShopAccess(req);
     const product = await prisma.product.findUnique({
       where: { barcode: barcode },
       include: {
         company: true,
         shopInventory: {
           where: {
-            shopId: req.user.shopId, // Only get inventory for current shop
+            shopId: shopIdInt, // Only get inventory for current shop
           },
         },
       },
@@ -885,6 +974,13 @@ exports.getProductByBarcode = async (req, res) => {
     });
   } catch (error) {
     console.error("Error fetching product by barcode:", error);
+    if (
+      error.message.includes("Authentication required") ||
+      error.message.includes("Access denied") ||
+      error.message.includes("Shop not found")
+    ) {
+      return res.status(401).json({ error: error.message });
+    }
     res
       .status(500)
       .json({ error: "Something went wrong while fetching product details." });
@@ -893,6 +989,7 @@ exports.getProductByBarcode = async (req, res) => {
 
 exports.getInventory = async (req, res) => {
   try {
+    const shopIdInt = await validateShopAccess(req);
     const { eyewearType, companyId, frameType } = req.query;
 
     // Build filter object
@@ -912,7 +1009,7 @@ exports.getInventory = async (req, res) => {
 
     const inventory = await prisma.shopInventory.findMany({
       where: {
-        shopId: req.user.shopId, // Filter by user's shop
+        shopId: shopIdInt, // Filter by user's shop
         ...(Object.keys(whereCondition).length > 0 && {
           product: whereCondition,
         }),
@@ -961,6 +1058,13 @@ exports.getInventory = async (req, res) => {
     });
   } catch (error) {
     console.error(error);
+    if (
+      error.message.includes("Authentication required") ||
+      error.message.includes("Access denied") ||
+      error.message.includes("Shop not found")
+    ) {
+      return res.status(401).json({ error: error.message });
+    }
     res.status(500).json({ error: "Something went wrong" });
   }
 };
@@ -971,7 +1075,7 @@ exports.updateProduct = async (req, res) => {
     name,
     description,
     barcode,
-    price,
+    basePrice,
     eyewearType,
     frameType,
     companyId,
@@ -987,7 +1091,7 @@ exports.updateProduct = async (req, res) => {
     if (name) updateData.name = name;
     if (description !== undefined) updateData.description = description;
     if (barcode) updateData.barcode = barcode;
-    if (price !== undefined) updateData.price = parseFloat(price);
+    if (basePrice !== undefined) updateData.basePrice = parseFloat(basePrice);
     if (eyewearType) updateData.eyewearType = eyewearType;
     if (frameType !== undefined) updateData.frameType = frameType;
     if (companyId) updateData.companyId = parseInt(companyId);
@@ -1007,7 +1111,17 @@ exports.updateProduct = async (req, res) => {
   } catch (error) {
     console.error(error);
     if (error.code === "P2002") {
-      return res.status(400).json({ error: "Barcode already exists." });
+      // Handle unique constraint violations
+      if (error.meta?.target?.includes("barcode")) {
+        return res.status(409).json({ error: "Barcode already exists." });
+      }
+      if (error.meta?.target?.includes("sku")) {
+        return res.status(409).json({ error: "SKU already exists." });
+      }
+      return res.status(409).json({ error: "Duplicate entry found." });
+    }
+    if (error.code === "P2025") {
+      return res.status(404).json({ error: "Product not found." });
     }
     res.status(500).json({ error: "Something went wrong" });
   }
