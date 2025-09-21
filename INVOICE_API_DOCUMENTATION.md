@@ -1,99 +1,135 @@
-# Invoice API Documentation
+# Invoice API Documentation - Postman Collection Guide
 
-## Base URL
+## 📋 Collection Overview
+
+**Collection Name:** Invoice Management API  
+**Base URL:** `{{baseUrl}}/api/invoice`  
+**Environment Variables Required:**
+
+- `baseUrl`: `http://localhost:8080`
+- `authToken`: Your JWT authentication token
+
+## 🔐 Authentication Setup
+
+### Step 1: Get Authentication Token
+
+Create a folder called "**Authentication**" in your Postman collection.
+
+**Request Name:** `Get Auth Token`  
+**Method:** `POST`  
+**URL:** `{{baseUrl}}/api/auth/login`
+
+**Headers:**
 
 ```
-http://localhost:8080/api/invoice
+Content-Type: application/json
 ```
 
-## Authentication
+**Body (raw JSON):**
 
-All endpoints require authentication. Include the JWT token in the Authorization header:
-
-```
-Authorization: Bearer <your_jwt_token>
-```
-
-## Quick Testing Guide
-
-### Get Your JWT Token
-
-First, login to get your authentication token:
-
-**PowerShell:**
-
-```powershell
-$response = Invoke-RestMethod -Uri "http://localhost:8080/api/auth/login" -Method Post -ContentType "application/json" -Body '{"email": "your@email.com", "password": "yourpassword"}'
-$token = $response.token
+```json
+{
+  "email": "your@email.com",
+  "password": "yourpassword"
+}
 ```
 
-**cURL:**
+**Test Script (Add to Tests tab):**
 
-```bash
-curl -X POST "http://localhost:8080/api/auth/login" \
-  -H "Content-Type: application/json" \
-  -d '{"email": "your@email.com", "password": "yourpassword"}'
+```javascript
+if (pm.response.code === 200) {
+  const response = pm.response.json();
+  pm.environment.set("authToken", response.token);
+  pm.test("Token saved to environment", function () {
+    pm.expect(pm.environment.get("authToken")).to.not.be.undefined;
+  });
+}
 ```
 
-### Quick Endpoint Test URLs
+### Step 2: Set Collection Authorization
 
-| Endpoint         | Method | URL                                           |
-| ---------------- | ------ | --------------------------------------------- |
-| Get All Invoices | GET    | `http://localhost:8080/api/invoice/`          |
-| Create Invoice   | POST   | `http://localhost:8080/api/invoice/`          |
-| Get Invoice      | GET    | `http://localhost:8080/api/invoice/1`         |
-| Update Status    | PATCH  | `http://localhost:8080/api/invoice/1/status`  |
-| Add Payment      | POST   | `http://localhost:8080/api/invoice/1/payment` |
-| Delete Invoice   | DELETE | `http://localhost:8080/api/invoice/1`         |
-| PDF Invoice      | GET    | `http://localhost:8080/api/invoice/1/pdf`     |
-| Thermal Receipt  | GET    | `http://localhost:8080/api/invoice/1/thermal` |
+1. Go to your collection settings
+2. Select "Authorization" tab
+3. Choose "Bearer Token"
+4. Token: `{{authToken}}`
 
-## Endpoints
+## 📁 Collection Structure
 
-### 1. Get All Invoices
-
-**Endpoint:** `GET /api/invoice/`
-
-**Full URL:** `http://localhost:8080/api/invoice/`
-
-Retrieves all invoices for the authenticated user's shop with optional filtering and pagination.
-
-**Query Parameters:**
-
-- `page` (optional, default: 1) - Page number
-- `limit` (optional, default: 10) - Number of items per page
-- `status` (optional) - Filter by invoice status: UNPAID, PAID, PARTIALLY_PAID, CANCELLED, REFUNDED
-- `patientId` (optional) - Filter by patient ID
-- `customerId` (optional) - Filter by customer ID
-- `staffId` (optional) - Filter by staff ID
-- `prescriptionId` (optional) - Filter by prescription ID
-- `startDate` (optional) - Filter invoices created after this date (YYYY-MM-DD)
-- `endDate` (optional) - Filter invoices created before this date (YYYY-MM-DD)
-
-**Testing Examples:**
-
-**Basic Request:**
-
-```bash
-curl -X GET "http://localhost:8080/api/invoice/" \
-  -H "Authorization: Bearer YOUR_JWT_TOKEN"
+```
+Invoice Management API/
+├── 🔐 Authentication/
+│   └── Get Auth Token
+├── 📄 Invoice Operations/
+│   ├── Get All Invoices
+│   ├── Create New Invoice
+│   ├── Get Single Invoice
+│   ├── Update Invoice Status
+│   ├── Add Payment
+│   └── Delete Invoice
+├── 📄 Invoice Documents/
+│   ├── Generate Invoice PDF
+│   └── Generate Thermal Receipt
+└── 🧪 Test Scenarios/
+    ├── Complete Invoice Workflow
+    ├── Gift Card Payment Flow
+    └── Cancel Invoice Flow
 ```
 
-**With Filters:**
+## 🌐 Environment Variables
 
-```bash
-curl -X GET "http://localhost:8080/api/invoice/?page=1&limit=5&status=UNPAID&startDate=2024-01-01" \
-  -H "Authorization: Bearer YOUR_JWT_TOKEN"
+Create a new environment with these variables:
+
+| Variable    | Initial Value           | Current Value               |
+| ----------- | ----------------------- | --------------------------- |
+| `baseUrl`   | `http://localhost:8080` | `http://localhost:8080`     |
+| `authToken` | (leave empty)           | (will be set automatically) |
+| `invoiceId` | `1`                     | `1`                         |
+| `patientId` | `1`                     | `1`                         |
+| `productId` | `1`                     | `1`                         |
+
+## 📊 Quick Reference Table
+
+| Request Name             | Method | Endpoint                             | Purpose                  |
+| ------------------------ | ------ | ------------------------------------ | ------------------------ |
+| Get All Invoices         | GET    | `/api/invoice/`                      | List all invoices        |
+| Create New Invoice       | POST   | `/api/invoice/`                      | Create new invoice       |
+| Get Single Invoice       | GET    | `/api/invoice/{{invoiceId}}`         | Get specific invoice     |
+| Update Invoice Status    | PATCH  | `/api/invoice/{{invoiceId}}/status`  | Change invoice status    |
+| Add Payment              | POST   | `/api/invoice/{{invoiceId}}/payment` | Add payment to invoice   |
+| Delete Invoice           | DELETE | `/api/invoice/{{invoiceId}}`         | Delete/cancel invoice    |
+| Generate Invoice PDF     | GET    | `/api/invoice/{{invoiceId}}/pdf`     | Download PDF invoice     |
+| Generate Thermal Receipt | GET    | `/api/invoice/{{invoiceId}}/thermal` | Get thermal print format |
+
+---
+
+## 📄 Invoice Operations
+
+### 1️⃣ Get All Invoices
+
+**Request Name:** `Get All Invoices`  
+**Method:** `GET`  
+**URL:** `{{baseUrl}}/api/invoice/`
+
+**Params (Query Parameters):**
+
+| Key          | Value           | Description                            |
+| ------------ | --------------- | -------------------------------------- |
+| `page`       | `1`             | Page number (optional, default: 1)     |
+| `limit`      | `10`            | Items per page (optional, default: 10) |
+| `status`     | `UNPAID`        | Filter by status (optional)            |
+| `patientId`  | `{{patientId}}` | Filter by patient ID (optional)        |
+| `customerId` | `1`             | Filter by customer ID (optional)       |
+| `staffId`    | `1`             | Filter by staff ID (optional)          |
+| `startDate`  | `2024-01-01`    | Start date filter (optional)           |
+| `endDate`    | `2024-12-31`    | End date filter (optional)             |
+
+**Headers:**
+
+```
+Authorization: Bearer {{authToken}}
 ```
 
-**PowerShell Example:**
-
-```powershell
-$headers = @{ "Authorization" = "Bearer YOUR_JWT_TOKEN" }
-Invoke-RestMethod -Uri "http://localhost:8080/api/invoice/?page=1&limit=5" -Headers $headers -Method Get
-```
-
-**Response:**
+**Success Response (200):**
 
 ```json
 {
@@ -157,84 +193,77 @@ Invoke-RestMethod -Uri "http://localhost:8080/api/invoice/?page=1&limit=5" -Head
 }
 ```
 
+**Test Script (Add to Tests tab):**
+
+```javascript
+pm.test("Status code is 200", function () {
+  pm.response.to.have.status(200);
+});
+
+pm.test("Response has invoices array", function () {
+  const jsonData = pm.response.json();
+  pm.expect(jsonData).to.have.property("invoices");
+  pm.expect(jsonData.invoices).to.be.an("array");
+});
+
+pm.test("Response has pagination", function () {
+  const jsonData = pm.response.json();
+  pm.expect(jsonData).to.have.property("pagination");
+});
+```
+
 ---
 
-### 2. Create Invoice
+### 2️⃣ Create New Invoice
 
-**Endpoint:** `POST /api/invoice/`
+**Request Name:** `Create New Invoice`  
+**Method:** `POST`  
+**URL:** `{{baseUrl}}/api/invoice/`
 
-**Full URL:** `http://localhost:8080/api/invoice/`
+**Headers:**
 
-Creates a new invoice for a patient or customer.
+```
+Content-Type: application/json
+Authorization: Bearer {{authToken}}
+```
 
-**Request Body:**
+**Body (raw JSON):**
 
 ```json
 {
-  "patientId": 1, // Either patientId OR customerId (not both)
-  "customerId": null, // Either patientId OR customerId (not both)
-  "prescriptionId": 1, // Optional
-  "totalIgst": 0, // Optional, defaults to 0
+  "patientId": {{patientId}},
+  "prescriptionId": 1,
+  "totalIgst": 0,
   "items": [
     {
-      "productId": 1,
+      "productId": {{productId}},
       "quantity": 2,
-      "discount": 50.0, // Optional
-      "cgst": 45.0, // Optional
-      "sgst": 45.0 // Optional
+      "discount": 50.0,
+      "cgst": 45.0,
+      "sgst": 45.0
     }
   ]
 }
 ```
 
-**Testing Examples:**
+**Alternative Body for Customer Invoice:**
 
-**cURL Example:**
-
-```bash
-curl -X POST "http://localhost:8080/api/invoice/" \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
-  -d '{
-    "patientId": 1,
-    "prescriptionId": 1,
-    "items": [
-      {
-        "productId": 1,
-        "quantity": 2,
-        "discount": 50.00,
-        "cgst": 45.00,
-        "sgst": 45.00
-      }
-    ]
-  }'
-```
-
-**PowerShell Example:**
-
-```powershell
-$headers = @{
-    "Content-Type" = "application/json"
-    "Authorization" = "Bearer YOUR_JWT_TOKEN"
+```json
+{
+  "customerId": 1,
+  "items": [
+    {
+      "productId": {{productId}},
+      "quantity": 1,
+      "discount": 25.0,
+      "cgst": 22.5,
+      "sgst": 22.5
+    }
+  ]
 }
-$body = @{
-    patientId = 1
-    prescriptionId = 1
-    items = @(
-        @{
-            productId = 1
-            quantity = 2
-            discount = 50.00
-            cgst = 45.00
-            sgst = 45.00
-        }
-    )
-} | ConvertTo-Json -Depth 3
-
-Invoke-RestMethod -Uri "http://localhost:8080/api/invoice/" -Method Post -Headers $headers -Body $body
 ```
 
-**Response:**
+**Success Response (201):**
 
 ```json
 {
@@ -277,37 +306,50 @@ Invoke-RestMethod -Uri "http://localhost:8080/api/invoice/" -Method Post -Header
 }
 ```
 
+**Test Script (Add to Tests tab):**
+
+```javascript
+pm.test("Status code is 201", function () {
+  pm.response.to.have.status(201);
+});
+
+pm.test("Invoice created successfully", function () {
+  const jsonData = pm.response.json();
+  pm.expect(jsonData).to.have.property("id");
+  pm.expect(jsonData).to.have.property("status", "UNPAID");
+
+  // Save invoice ID for other requests
+  pm.environment.set("invoiceId", jsonData.id);
+});
+
+pm.test("Invoice has items", function () {
+  const jsonData = pm.response.json();
+  pm.expect(jsonData).to.have.property("items");
+  pm.expect(jsonData.items).to.be.an("array");
+  pm.expect(jsonData.items.length).to.be.greaterThan(0);
+});
+```
+
 ---
 
-### 3. Get Single Invoice
+### 3️⃣ Get Single Invoice
 
-**Endpoint:** `GET /api/invoice/:id`
+**Request Name:** `Get Single Invoice`  
+**Method:** `GET`  
+**URL:** `{{baseUrl}}/api/invoice/{{invoiceId}}`
 
-**Full URL:** `http://localhost:8080/api/invoice/1` (where 1 is the invoice ID)
+**Headers:**
 
-Retrieves a specific invoice by ID.
-
-**Path Parameters:**
-
-- `id` - Invoice ID (integer)
-
-**Testing Examples:**
-
-**cURL Example:**
-
-```bash
-curl -X GET "http://localhost:8080/api/invoice/1" \
-  -H "Authorization: Bearer YOUR_JWT_TOKEN"
+```
+Authorization: Bearer {{authToken}}
 ```
 
-**PowerShell Example:**
+**Path Variables:**
+| Key | Value | Description |
+|-------------|------------------|----------------|
+| `invoiceId` | `{{invoiceId}}` | Invoice ID |
 
-```powershell
-$headers = @{ "Authorization" = "Bearer YOUR_JWT_TOKEN" }
-Invoke-RestMethod -Uri "http://localhost:8080/api/invoice/1" -Headers $headers -Method Get
-```
-
-**Response:**
+**Success Response (200):**
 
 ```json
 {
@@ -381,51 +423,60 @@ Invoke-RestMethod -Uri "http://localhost:8080/api/invoice/1" -Headers $headers -
 }
 ```
 
+**Test Script (Add to Tests tab):**
+
+```javascript
+pm.test("Status code is 200", function () {
+  pm.response.to.have.status(200);
+});
+
+pm.test("Invoice details are complete", function () {
+  const jsonData = pm.response.json();
+  pm.expect(jsonData).to.have.property("id");
+  pm.expect(jsonData).to.have.property("totalAmount");
+  pm.expect(jsonData).to.have.property("status");
+  pm.expect(jsonData).to.have.property("items");
+  pm.expect(jsonData).to.have.property("transactions");
+});
+```
+
 ---
 
-### 4. Update Invoice Status
+### 4️⃣ Update Invoice Status
 
-**Endpoint:** `PATCH /api/invoice/:id/status`
+**Request Name:** `Update Invoice Status`  
+**Method:** `PATCH`  
+**URL:** `{{baseUrl}}/api/invoice/{{invoiceId}}/status`
 
-**Full URL:** `http://localhost:8080/api/invoice/1/status` (where 1 is the invoice ID)
+**Headers:**
 
-Updates the status of an invoice. If status is CANCELLED or REFUNDED, inventory will be automatically restored.
+```
+Content-Type: application/json
+Authorization: Bearer {{authToken}}
+```
 
-**Path Parameters:**
+**Path Variables:**
+| Key | Value | Description |
+|-------------|------------------|----------------|
+| `invoiceId` | `{{invoiceId}}` | Invoice ID |
 
-- `id` - Invoice ID (integer)
-
-**Request Body:**
+**Body (raw JSON):**
 
 ```json
 {
-  "status": "CANCELLED" // UNPAID, PAID, PARTIALLY_PAID, CANCELLED, REFUNDED
+  "status": "CANCELLED"
 }
 ```
 
-**Testing Examples:**
+**Available Status Values:**
 
-**cURL Example:**
+- `UNPAID`
+- `PAID`
+- `PARTIALLY_PAID`
+- `CANCELLED`
+- `REFUNDED`
 
-```bash
-curl -X PATCH "http://localhost:8080/api/invoice/1/status" \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
-  -d '{"status": "CANCELLED"}'
-```
-
-**PowerShell Example:**
-
-```powershell
-$headers = @{
-    "Content-Type" = "application/json"
-    "Authorization" = "Bearer YOUR_JWT_TOKEN"
-}
-$body = @{ status = "CANCELLED" } | ConvertTo-Json
-Invoke-RestMethod -Uri "http://localhost:8080/api/invoice/1/status" -Method Patch -Headers $headers -Body $body
-```
-
-**Response:**
+**Success Response (200):**
 
 ```json
 {
@@ -434,75 +485,77 @@ Invoke-RestMethod -Uri "http://localhost:8080/api/invoice/1/status" -Method Patc
   "patientId": 1,
   "status": "CANCELLED",
   "updatedAt": "2024-01-15T12:00:00.000Z"
-  // ... other invoice fields
 }
+```
+
+**Test Script (Add to Tests tab):**
+
+```javascript
+pm.test("Status code is 200", function () {
+  pm.response.to.have.status(200);
+});
+
+pm.test("Status updated successfully", function () {
+  const jsonData = pm.response.json();
+  const requestBody = JSON.parse(pm.request.body.raw);
+  pm.expect(jsonData.status).to.equal(requestBody.status);
+});
 ```
 
 ---
 
-### 5. Add Payment
+### 5️⃣ Add Payment
 
-**Endpoint:** `POST /api/invoice/:id/payment`
+**Request Name:** `Add Payment`  
+**Method:** `POST`  
+**URL:** `{{baseUrl}}/api/invoice/{{invoiceId}}/payment`
 
-**Full URL:** `http://localhost:8080/api/invoice/1/payment` (where 1 is the invoice ID)
+**Headers:**
 
-Adds a payment to an invoice. Automatically updates invoice status based on payment amount.
+```
+Content-Type: application/json
+Authorization: Bearer {{authToken}}
+```
 
-**Path Parameters:**
+**Path Variables:**
+| Key | Value | Description |
+|-------------|------------------|----------------|
+| `invoiceId` | `{{invoiceId}}` | Invoice ID |
 
-- `id` - Invoice ID (integer)
-
-**Request Body:**
+**Body (raw JSON) - Cash Payment:**
 
 ```json
 {
   "amount": 500.0,
-  "paymentMethod": "CASH", // CASH, CARD, UPI, GIFT_CARD, BANK_TRANSFER
-  "giftCardId": 1 // Required only if paymentMethod is GIFT_CARD
+  "paymentMethod": "CASH"
 }
 ```
 
-**Testing Examples:**
+**Body (raw JSON) - Gift Card Payment:**
 
-**Cash Payment - cURL:**
-
-```bash
-curl -X POST "http://localhost:8080/api/invoice/1/payment" \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
-  -d '{"amount": 500.00, "paymentMethod": "CASH"}'
-```
-
-**Gift Card Payment - cURL:**
-
-```bash
-curl -X POST "http://localhost:8080/api/invoice/1/payment" \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
-  -d '{"amount": 200.00, "paymentMethod": "GIFT_CARD", "giftCardId": 1}'
-```
-
-**PowerShell Example:**
-
-```powershell
-$headers = @{
-    "Content-Type" = "application/json"
-    "Authorization" = "Bearer YOUR_JWT_TOKEN"
+```json
+{
+  "amount": 200.0,
+  "paymentMethod": "GIFT_CARD",
+  "giftCardId": 1
 }
-$body = @{
-    amount = 500.00
-    paymentMethod = "CASH"
-} | ConvertTo-Json
-Invoke-RestMethod -Uri "http://localhost:8080/api/invoice/1/payment" -Method Post -Headers $headers -Body $body
 ```
 
-**Response:**
+**Available Payment Methods:**
+
+- `CASH`
+- `CARD`
+- `UPI`
+- `GIFT_CARD` (requires giftCardId)
+- `BANK_TRANSFER`
+
+**Success Response (200):**
 
 ```json
 {
   "invoice": {
     "id": 1,
-    "status": "PARTIALLY_PAID", // Auto-updated based on total payments
+    "status": "PARTIALLY_PAID",
     "totalAmount": 1080.0,
     "transactions": [
       {
@@ -513,7 +566,6 @@ Invoke-RestMethod -Uri "http://localhost:8080/api/invoice/1/payment" -Method Pos
         "createdAt": "2024-01-15T11:00:00.000Z"
       }
     ]
-    // ... other invoice fields
   },
   "transaction": {
     "id": 1,
@@ -526,37 +578,46 @@ Invoke-RestMethod -Uri "http://localhost:8080/api/invoice/1/payment" -Method Pos
 }
 ```
 
+**Test Script (Add to Tests tab):**
+
+```javascript
+pm.test("Status code is 200", function () {
+  pm.response.to.have.status(200);
+});
+
+pm.test("Payment added successfully", function () {
+  const jsonData = pm.response.json();
+  pm.expect(jsonData).to.have.property("transaction");
+  pm.expect(jsonData).to.have.property("invoice");
+
+  const requestBody = JSON.parse(pm.request.body.raw);
+  pm.expect(jsonData.transaction.amount).to.equal(requestBody.amount);
+  pm.expect(jsonData.transaction.paymentMethod).to.equal(
+    requestBody.paymentMethod
+  );
+});
+```
+
 ---
 
-### 6. Delete Invoice
+### 6️⃣ Delete Invoice
 
-**Endpoint:** `DELETE /api/invoice/:id`
+**Request Name:** `Delete Invoice`  
+**Method:** `DELETE`  
+**URL:** `{{baseUrl}}/api/invoice/{{invoiceId}}`
 
-**Full URL:** `http://localhost:8080/api/invoice/1` (where 1 is the invoice ID)
+**Headers:**
 
-Soft deletes an invoice by setting status to CANCELLED. Only UNPAID invoices can be deleted.
-
-**Path Parameters:**
-
-- `id` - Invoice ID (integer)
-
-**Testing Examples:**
-
-**cURL Example:**
-
-```bash
-curl -X DELETE "http://localhost:8080/api/invoice/1" \
-  -H "Authorization: Bearer YOUR_JWT_TOKEN"
+```
+Authorization: Bearer {{authToken}}
 ```
 
-**PowerShell Example:**
+**Path Variables:**
+| Key | Value | Description |
+|-------------|------------------|----------------|
+| `invoiceId` | `{{invoiceId}}` | Invoice ID |
 
-```powershell
-$headers = @{ "Authorization" = "Bearer YOUR_JWT_TOKEN" }
-Invoke-RestMethod -Uri "http://localhost:8080/api/invoice/1" -Method Delete -Headers $headers
-```
-
-**Response:**
+**Success Response (200):**
 
 ```json
 {
@@ -564,102 +625,86 @@ Invoke-RestMethod -Uri "http://localhost:8080/api/invoice/1" -Method Delete -Hea
   "invoice": {
     "id": 1,
     "status": "CANCELLED"
-    // ... other invoice fields
   }
 }
 ```
 
----
+**Test Script (Add to Tests tab):**
 
-### 7. Generate Invoice PDF
+```javascript
+pm.test("Status code is 200", function () {
+  pm.response.to.have.status(200);
+});
 
-**Endpoint:** `GET /api/invoice/:id/pdf`
-
-**Full URL:** `http://localhost:8080/api/invoice/1/pdf` (where 1 is the invoice ID)
-
-Generates and returns a PDF invoice.
-
-**Path Parameters:**
-
-- `id` - Invoice ID (integer)
-
-**Response:**
-
-- Content-Type: `application/pdf`
-- Returns PDF file stream
-
-**Testing Examples:**
-
-**cURL Example (Save to file):**
-
-```bash
-curl -X GET "http://localhost:8080/api/invoice/1/pdf" \
-  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
-  -o "invoice-1.pdf"
-```
-
-**PowerShell Example (Save to file):**
-
-```powershell
-$headers = @{ "Authorization" = "Bearer YOUR_JWT_TOKEN" }
-Invoke-WebRequest -Uri "http://localhost:8080/api/invoice/1/pdf" -Headers $headers -OutFile "invoice-1.pdf"
-```
-
-**Browser Test:**
-
-```
-Open in browser: http://localhost:8080/api/invoice/1/pdf
-(Note: Include Authorization header via browser dev tools or extension)
-```
-
-**Example Request:**
-
-```
-GET /api/invoice/1/pdf
+pm.test("Invoice deleted successfully", function () {
+  const jsonData = pm.response.json();
+  pm.expect(jsonData).to.have.property("message");
+  pm.expect(jsonData.invoice.status).to.equal("CANCELLED");
+});
 ```
 
 ---
 
-### 8. Generate Thermal Receipt
+## 📄 Invoice Documents
 
-**Endpoint:** `GET /api/invoice/:id/thermal`
+### 7️⃣ Generate Invoice PDF
 
-**Full URL:** `http://localhost:8080/api/invoice/1/thermal` (where 1 is the invoice ID)
+**Request Name:** `Generate Invoice PDF`  
+**Method:** `GET`  
+**URL:** `{{baseUrl}}/api/invoice/{{invoiceId}}/pdf`
 
-Generates a plain text receipt optimized for thermal printing.
+**Headers:**
 
-**Path Parameters:**
-
-- `id` - Invoice ID (integer)
-
-**Response:**
-
-- Content-Type: `text/plain`
-- Returns formatted plain text receipt
-
-**Testing Examples:**
-
-**cURL Example:**
-
-```bash
-curl -X GET "http://localhost:8080/api/invoice/1/thermal" \
-  -H "Authorization: Bearer YOUR_JWT_TOKEN"
+```
+Authorization: Bearer {{authToken}}
 ```
 
-**PowerShell Example:**
+**Path Variables:**
+| Key | Value | Description |
+|-------------|------------------|----------------|
+| `invoiceId` | `{{invoiceId}}` | Invoice ID |
 
-```powershell
-$headers = @{ "Authorization" = "Bearer YOUR_JWT_TOKEN" }
-Invoke-RestMethod -Uri "http://localhost:8080/api/invoice/1/thermal" -Headers $headers -Method Get
+**Response Type:** `application/pdf`
+
+**Test Script (Add to Tests tab):**
+
+```javascript
+pm.test("Status code is 200", function () {
+  pm.response.to.have.status(200);
+});
+
+pm.test("Response is PDF", function () {
+  pm.expect(pm.response.headers.get("Content-Type")).to.include(
+    "application/pdf"
+  );
+});
 ```
 
-**Save to file for printing:**
+**Note:** To save the PDF file in Postman:
 
-```bash
-curl -X GET "http://localhost:8080/api/invoice/1/thermal" \
-  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
-  -o "thermal-receipt-1.txt"
+1. Click "Send and Download"
+2. Save as `invoice-{{invoiceId}}.pdf`
+
+---
+
+### 8️⃣ Generate Thermal Receipt
+
+**Request Name:** `Generate Thermal Receipt`  
+**Method:** `GET`  
+**URL:** `{{baseUrl}}/api/invoice/{{invoiceId}}/thermal`
+
+**Headers:**
+
 ```
+Authorization: Bearer {{authToken}}
+```
+
+**Path Variables:**
+| Key | Value | Description |
+|-------------|------------------|----------------|
+| `invoiceId` | `{{invoiceId}}` | Invoice ID |
+
+**Response Type:** `text/plain`
 
 **Example Response:**
 
@@ -705,19 +750,278 @@ Grand Total:                      1080.00
 ------------------------------------------------
 ```
 
-## Error Responses
+**Test Script (Add to Tests tab):**
 
-All endpoints return consistent error responses:
+```javascript
+pm.test("Status code is 200", function () {
+  pm.response.to.have.status(200);
+});
 
-### 400 Bad Request
+pm.test("Response is plain text", function () {
+  pm.expect(pm.response.headers.get("Content-Type")).to.include("text/plain");
+});
+
+pm.test("Receipt contains invoice details", function () {
+  const responseText = pm.response.text();
+  pm.expect(responseText).to.include("Tax Invoice");
+  pm.expect(responseText).to.include("Grand Total:");
+});
+```
+
+---
+
+## 🧪 Test Scenarios
+
+### Scenario 1: Complete Invoice Workflow
+
+**Folder Name:** `Complete Invoice Workflow`
+
+This scenario demonstrates the complete lifecycle of an invoice from creation to payment.
+
+#### Step 1: Create New Invoice for Workflow
+
+**Request Name:** `1. Create Invoice for Workflow`  
+**Method:** `POST`  
+**URL:** `{{baseUrl}}/api/invoice/`
+
+**Body:**
 
 ```json
 {
-  "error": "Validation error message"
+  "patientId": {{patientId}},
+  "prescriptionId": 1,
+  "items": [
+    {
+      "productId": {{productId}},
+      "quantity": 2,
+      "discount": 50.0,
+      "cgst": 45.0,
+      "sgst": 45.0
+    }
+  ]
 }
 ```
 
-### 401 Unauthorized
+**Test Script:**
+
+```javascript
+if (pm.response.code === 200 || pm.response.code === 201) {
+  const jsonData = pm.response.json();
+  pm.environment.set("workflowInvoiceId", jsonData.id);
+  pm.environment.set("invoiceTotalAmount", jsonData.totalAmount);
+}
+```
+
+#### Step 2: Add Partial Payment
+
+**Request Name:** `2. Add Partial Payment`  
+**Method:** `POST`  
+**URL:** `{{baseUrl}}/api/invoice/{{workflowInvoiceId}}/payment`
+
+**Body:**
+
+```json
+{
+  "amount": 500.0,
+  "paymentMethod": "CASH"
+}
+```
+
+#### Step 3: Check Invoice Status
+
+**Request Name:** `3. Check Invoice Status`  
+**Method:** `GET`  
+**URL:** `{{baseUrl}}/api/invoice/{{workflowInvoiceId}}`
+
+#### Step 4: Complete Payment
+
+**Request Name:** `4. Complete Payment`  
+**Method:** `POST`  
+**URL:** `{{baseUrl}}/api/invoice/{{workflowInvoiceId}}/payment`
+
+**Body:**
+
+```json
+{
+  "amount": {{invoiceTotalAmount}},
+  "paymentMethod": "CARD"
+}
+```
+
+**Pre-request Script:**
+
+```javascript
+// Calculate remaining amount
+const totalAmount = parseFloat(pm.environment.get("invoiceTotalAmount"));
+const remainingAmount = totalAmount - 500; // Subtract previous payment
+pm.environment.set("remainingAmount", remainingAmount);
+
+// Update the request body
+const requestBody = JSON.parse(pm.request.body.raw);
+requestBody.amount = remainingAmount;
+pm.request.body.raw = JSON.stringify(requestBody);
+```
+
+#### Step 5: Generate Invoice PDF
+
+**Request Name:** `5. Generate Final Invoice PDF`  
+**Method:** `GET`  
+**URL:** `{{baseUrl}}/api/invoice/{{workflowInvoiceId}}/pdf`
+
+---
+
+### Scenario 2: Gift Card Payment Flow
+
+**Folder Name:** `Gift Card Payment Flow`
+
+#### Step 1: Create Invoice for Gift Card
+
+**Request Name:** `1. Create Invoice for Gift Card Payment`  
+**Method:** `POST`  
+**URL:** `{{baseUrl}}/api/invoice/`
+
+**Body:**
+
+```json
+{
+  "customerId": 1,
+  "items": [
+    {
+      "productId": {{productId}},
+      "quantity": 1,
+      "discount": 25.0,
+      "cgst": 22.5,
+      "sgst": 22.5
+    }
+  ]
+}
+```
+
+#### Step 2: Pay with Gift Card
+
+**Request Name:** `2. Pay with Gift Card`  
+**Method:** `POST`  
+**URL:** `{{baseUrl}}/api/invoice/{{workflowInvoiceId}}/payment`
+
+**Body:**
+
+```json
+{
+  "amount": 200.0,
+  "paymentMethod": "GIFT_CARD",
+  "giftCardId": 1
+}
+```
+
+#### Step 3: Pay Remaining with Cash
+
+**Request Name:** `3. Pay Remaining with Cash`  
+**Method:** `POST`  
+**URL:** `{{baseUrl}}/api/invoice/{{workflowInvoiceId}}/payment`
+
+**Body:**
+
+```json
+{
+  "amount": 300.0,
+  "paymentMethod": "CASH"
+}
+```
+
+---
+
+### Scenario 3: Cancel Invoice Flow
+
+**Folder Name:** `Cancel Invoice Flow`
+
+#### Step 1: Create Invoice to Cancel
+
+**Request Name:** `1. Create Invoice to Cancel`  
+**Method:** `POST`  
+**URL:** `{{baseUrl}}/api/invoice/`
+
+**Body:**
+
+```json
+{
+  "patientId": {{patientId}},
+  "items": [
+    {
+      "productId": {{productId}},
+      "quantity": 1,
+      "discount": 0,
+      "cgst": 45.0,
+      "sgst": 45.0
+    }
+  ]
+}
+```
+
+#### Step 2: Cancel Invoice
+
+**Request Name:** `2. Cancel Invoice (Restores Inventory)`  
+**Method:** `PATCH`  
+**URL:** `{{baseUrl}}/api/invoice/{{workflowInvoiceId}}/status`
+
+**Body:**
+
+```json
+{
+  "status": "CANCELLED"
+}
+```
+
+#### Step 3: Verify Cancellation
+
+**Request Name:** `3. Verify Invoice is Cancelled`  
+**Method:** `GET`  
+**URL:** `{{baseUrl}}/api/invoice/{{workflowInvoiceId}}`
+
+**Test Script:**
+
+```javascript
+pm.test("Invoice is cancelled", function () {
+  const jsonData = pm.response.json();
+  pm.expect(jsonData.status).to.equal("CANCELLED");
+});
+```
+
+---
+
+## 🚨 Error Responses Reference
+
+### Common Error Status Codes
+
+| Status Code | Error Type            | Description                              |
+| ----------- | --------------------- | ---------------------------------------- |
+| `400`       | Bad Request           | Invalid request data or validation error |
+| `401`       | Unauthorized          | Missing or invalid authentication token  |
+| `403`       | Forbidden             | Access denied (wrong shop/permissions)   |
+| `404`       | Not Found             | Invoice not found                        |
+| `409`       | Conflict              | Business logic conflict                  |
+| `500`       | Internal Server Error | Unexpected server error                  |
+
+### Error Response Format
+
+All error responses follow this consistent format:
+
+```json
+{
+  "error": "Error message describing what went wrong"
+}
+```
+
+### Common Error Examples
+
+**400 Bad Request:**
+
+```json
+{
+  "error": "Patient ID or Customer ID is required"
+}
+```
+
+**401 Unauthorized:**
 
 ```json
 {
@@ -725,7 +1029,7 @@ All endpoints return consistent error responses:
 }
 ```
 
-### 403 Forbidden
+**403 Forbidden:**
 
 ```json
 {
@@ -733,7 +1037,7 @@ All endpoints return consistent error responses:
 }
 ```
 
-### 404 Not Found
+**404 Not Found:**
 
 ```json
 {
@@ -741,120 +1045,46 @@ All endpoints return consistent error responses:
 }
 ```
 
-### 500 Internal Server Error
+**409 Conflict:**
 
 ```json
 {
-  "error": "Failed to process request."
+  "error": "Invoice must be UNPAID to be deleted"
 }
 ```
 
-## Common Testing Scenarios
+---
 
-### Scenario 1: Complete Invoice Workflow
+## 📝 Notes and Best Practices
 
-**Step 1: Create Invoice**
+### 🔧 **Postman Collection Setup Tips**
 
-```bash
-curl -X POST "http://localhost:8080/api/invoice/" \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
-  -d '{
-    "patientId": 1,
-    "items": [{"productId": 1, "quantity": 2, "discount": 50, "cgst": 45, "sgst": 45}]
-  }'
-```
+1. **Import Collection:** Copy each request into Postman as separate requests
+2. **Environment Setup:** Create environment with all variables listed above
+3. **Test Scripts:** Add the provided test scripts to verify responses
+4. **Folder Organization:** Organize requests into folders as shown in structure
+5. **Authentication:** Set up collection-level authorization to avoid repeating tokens
 
-**Step 2: Add Partial Payment**
+### 💡 **API Usage Guidelines**
 
-```bash
-curl -X POST "http://localhost:8080/api/invoice/1/payment" \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
-  -d '{"amount": 500.00, "paymentMethod": "CASH"}'
-```
+1. **Authentication:** All endpoints require valid JWT token
+2. **Shop Isolation:** Users can only access invoices from their own shop
+3. **Automatic Calculations:** Subtotals, taxes, and totals are calculated automatically
+4. **Inventory Management:** Creating invoices decrements inventory; cancelling/refunding restores it
+5. **Payment Tracking:** Payments are tracked separately and used to calculate paid amounts
+6. **Status Updates:** Invoice status updates automatically based on payment amounts
+7. **Gift Card Support:** Gift card payments automatically deduct from gift card balance
 
-**Step 3: Check Invoice Status**
+### ⚙️ **Environment Variables**
 
-```bash
-curl -X GET "http://localhost:8080/api/invoice/1" \
-  -H "Authorization: Bearer YOUR_JWT_TOKEN"
-```
-
-**Step 4: Generate PDF**
-
-```bash
-curl -X GET "http://localhost:8080/api/invoice/1/pdf" \
-  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
-  -o "invoice-1.pdf"
-```
-
-### Scenario 2: Gift Card Payment
-
-```bash
-curl -X POST "http://localhost:8080/api/invoice/1/payment" \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
-  -d '{"amount": 200.00, "paymentMethod": "GIFT_CARD", "giftCardId": 1}'
-```
-
-### Scenario 3: Cancel Invoice (Restores Inventory)
-
-```bash
-curl -X PATCH "http://localhost:8080/api/invoice/1/status" \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
-  -d '{"status": "CANCELLED"}'
-```
-
-### Scenario 4: PowerShell Complete Workflow
-
-```powershell
-# Set up headers
-$headers = @{
-    "Content-Type" = "application/json"
-    "Authorization" = "Bearer YOUR_JWT_TOKEN"
-}
-
-# Create invoice
-$invoiceData = @{
-    patientId = 1
-    items = @(@{
-        productId = 1
-        quantity = 2
-        discount = 50.00
-        cgst = 45.00
-        sgst = 45.00
-    })
-} | ConvertTo-Json -Depth 3
-
-$invoice = Invoke-RestMethod -Uri "http://localhost:8080/api/invoice/" -Method Post -Headers $headers -Body $invoiceData
-
-# Add payment
-$paymentData = @{
-    amount = 500.00
-    paymentMethod = "CASH"
-} | ConvertTo-Json
-
-$payment = Invoke-RestMethod -Uri "http://localhost:8080/api/invoice/$($invoice.id)/payment" -Method Post -Headers $headers -Body $paymentData
-
-# Get updated invoice
-$updatedInvoice = Invoke-RestMethod -Uri "http://localhost:8080/api/invoice/$($invoice.id)" -Headers $headers -Method Get
-
-Write-Output "Invoice Status: $($updatedInvoice.status)"
-```
-
-## Notes
-
-1. **Authentication**: All endpoints require valid JWT token in Authorization header
-2. **Shop Isolation**: Users can only access invoices from their own shop
-3. **Automatic Calculations**: Subtotals, taxes, and totals are calculated automatically
-4. **Inventory Management**: Creating invoices decrements inventory; cancelling/refunding restores it
-5. **Payment Tracking**: Payments are tracked separately and used to calculate paid amounts
-6. **Status Updates**: Invoice status updates automatically based on payment amounts
-7. **Gift Card Support**: Gift card payments automatically deduct from gift card balance
-8. **Thermal Printing**: Product names are automatically truncated to fit printer width
-
-## Environment Variables
+Set these in your Postman environment:
 
 - `THERMAL_PRINTER_WIDTH`: Width of thermal printer (default: 48 characters)
+
+### 🎯 **Testing Strategy**
+
+1. **Start with Authentication:** Always get a fresh token first
+2. **Test Individual Endpoints:** Verify each endpoint works independently
+3. **Run Complete Workflows:** Test realistic user scenarios
+4. **Error Testing:** Intentionally trigger errors to test error handling
+5. **Boundary Testing:** Test edge cases like zero amounts, missing fields
