@@ -33,24 +33,26 @@ This document outlines the enforced security workflow between stock receipts and
 ```javascript
 POST /api/stock-receipts
 {
-  "productId": 15,
-  "receivedQuantity": 100,
-  "supplierName": "ABC Optical",
-  "deliveryNote": "INV-2024-001",
-  "batchNumber": "BATCH-001"
+  "productId": 15,                    // Required: Product ID (integer)
+  "receivedQuantity": 100,            // Required: Quantity received (integer)
+  "supplierName": "ABC Optical",      // Optional: Supplier name
+  "deliveryNote": "INV-2024-001",     // Optional: Delivery note reference
+  "batchNumber": "BATCH-001",         // Optional: Batch number
+  "expiryDate": "2025-12-31"          // Optional: Expiry date (ISO format)
 }
+// Note: shopId is automatically taken from authenticated user (req.user.shopId)
 // Status: PENDING (awaiting admin approval)
 ```
 
 ### **Phase 2: Admin Approval (Shop Admin Portal)**
 
 ```javascript
-PUT /shop-admin/stock/receipts/:id/approve
+PUT /shop-admin/stock/receipts/:id/verify
 {
-  "decision": "APPROVED",
-  "verifiedQuantity": 95, // Admin verified actual quantity
-  "adminNotes": "5 items damaged in transit",
-  "discrepancyReason": "DAMAGED_ITEMS"
+  "decision": "APPROVED",              // Required: "APPROVED" or "REJECTED"
+  "verifiedQuantity": 95,              // Required for APPROVED: Actual verified quantity
+  "adminNotes": "5 items damaged in transit",  // Optional: Admin notes
+  "discrepancyReason": "DAMAGED_ITEMS" // Optional: Reason for discrepancy
 }
 // Status: APPROVED → Staff can now stock-in up to 95 units
 ```
@@ -60,13 +62,16 @@ PUT /shop-admin/stock/receipts/:id/approve
 ```javascript
 POST /api/inventory/stock-by-barcode
 {
-  "barcode": "1234567890",
-  "quantity": 50,
-  "shopId": 1
+  "barcode": "1234567890",            // Required: Product barcode
+  "quantity": 50,                     // Required: Quantity to add
+  "price": 150.50                     // Optional: Update selling price
 }
-// ✅ Checks approved receipt with remaining quantity (95-50=45 left)
-// Creates audit trail in StockMovement
-// If fully consumed (95 units), marks receipt as COMPLETED
+// ✅ Validates shop access via validateShopAccess()
+// ✅ Checks approved receipt with validateApprovedReceipt()
+// ✅ Verifies remaining quantity (95-50=45 left)
+// ✅ Creates audit trail in StockMovement table
+// ✅ Updates receipt status to COMPLETED when fully consumed
+// ✅ Returns comprehensive response with inventory status
 ```
 
 ---
@@ -170,7 +175,7 @@ GET    /api/inventory/                     - View shop inventory
 
 ```
 GET    /shop-admin/stock/receipts          - List pending receipts
-PUT    /shop-admin/stock/receipts/:id/approve - Approve/reject receipts
+PUT    /shop-admin/stock/receipts/:id/verify - Approve/reject receipts
 ```
 
 ---
@@ -181,26 +186,60 @@ PUT    /shop-admin/stock/receipts/:id/approve - Approve/reject receipts
 
 ```json
 {
-  "error": "No approved stock receipt found for product [Name]. Staff cannot perform stock operations without shop admin approval.",
+  "error": "No approved stock receipt found for product [Product Name]. Staff cannot perform stock operations without shop admin approval.",
   "suggestion": "Create a stock receipt and wait for shop admin approval before performing stock operations."
 }
 ```
 
-### **2. Insufficient Approved Quantity:**
+### **2. Missing Required Fields (Stock Receipt Creation):**
 
 ```json
 {
-  "error": "Insufficient approved stock. Remaining approved quantity: 25, Requested: 50",
-  "approvedReceipt": {
-    "id": 123,
-    "verifiedQuantity": 100,
-    "consumedQuantity": 75,
-    "remainingQuantity": 25
-  }
+  "error": "Missing required fields: productId, receivedQuantity"
 }
 ```
 
-### **3. Stock-Out Quantity Exceeds Inventory:**
+### **3. Product Not Found:**
+
+```json
+{
+  "error": "Product not found"
+}
+```
+
+### **4. Invalid Admin Decision:**
+
+```json
+{
+  "message": "Decision must be either APPROVED or REJECTED."
+}
+```
+
+### **5. Missing Verified Quantity:**
+
+```json
+{
+  "message": "Verified quantity is required for approval."
+}
+```
+
+### **6. Receipt Already Processed:**
+
+```json
+{
+  "message": "Receipt is already processed with status: APPROVED"
+}
+```
+
+### **7. Insufficient Approved Quantity:**
+
+```json
+{
+  "error": "Insufficient approved stock. Remaining approved quantity: 25, Requested: 50"
+}
+```
+
+### **8. Stock-Out Quantity Exceeds Inventory:**
 
 ```json
 {
@@ -218,15 +257,17 @@ PUT    /shop-admin/stock/receipts/:id/approve - Approve/reject receipts
 ```bash
 curl -X POST /api/stock-receipts \
   -H "Authorization: Bearer <staff_token>" \
-  -d '{"productId": 1, "receivedQuantity": 100}'
+  -H "Content-Type: application/json" \
+  -d '{"productId": 1, "receivedQuantity": 100, "supplierName": "ABC Optical"}'
 ```
 
 ### **2. Approve Receipt (Admin)**
 
 ```bash
-curl -X PUT /shop-admin/stock/receipts/1/approve \
+curl -X PUT /shop-admin/stock/receipts/1/verify \
   -H "Authorization: Bearer <admin_token>" \
-  -d '{"decision": "APPROVED", "verifiedQuantity": 95}'
+  -H "Content-Type: application/json" \
+  -d '{"decision": "APPROVED", "verifiedQuantity": 95, "adminNotes": "5 items damaged in transit"}'
 ```
 
 ### **3. Stock-In with Approval (Staff)**
@@ -234,6 +275,7 @@ curl -X PUT /shop-admin/stock/receipts/1/approve \
 ```bash
 curl -X POST /api/inventory/stock-by-barcode \
   -H "Authorization: Bearer <staff_token>" \
+  -H "Content-Type: application/json" \
   -d '{"barcode": "123", "quantity": 50}'
 ```
 
@@ -242,6 +284,7 @@ curl -X POST /api/inventory/stock-by-barcode \
 ```bash
 curl -X POST /api/inventory/stock-out-by-barcode \
   -H "Authorization: Bearer <staff_token>" \
+  -H "Content-Type: application/json" \
   -d '{"barcode": "123", "quantity": 5}'
 ```
 
