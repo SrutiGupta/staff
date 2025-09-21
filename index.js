@@ -30,12 +30,11 @@ app.use("/api/barcode", require("./routes/barcode"));
 app.use("/api/invoice", require("./routes/invoice"));
 app.use("/api/payment", require("./routes/payment"));
 app.use("/api/prescription", require("./routes/prescription"));
-app.use("/api/product", require("./routes/product"));
+// app.use("/api/product", require("./routes/product")); // Commented out - use /api/inventory/product instead
 app.use("/api/patient", require("./routes/patient"));
 app.use("/api/customer", require("./routes/customer"));
 app.use("/api/stock-receipts", require("./routes/stockReceipt"));
 app.use("/api/doctor", doctorRoutes);
-
 
 // New Company & Retailer APIs
 app.use("/company", companyRoutes);

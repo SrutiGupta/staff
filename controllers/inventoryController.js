@@ -987,6 +987,265 @@ exports.getProductByBarcode = async (req, res) => {
   }
 };
 
+exports.getProductById = async (req, res) => {
+  const { productId } = req.params;
+
+  if (!productId) {
+    return res.status(400).json({ error: "Product ID is required." });
+  }
+
+  try {
+    const shopIdInt = await validateShopAccess(req);
+    const product = await prisma.product.findUnique({
+      where: { id: parseInt(productId) },
+      include: {
+        company: true,
+        shopInventory: {
+          where: {
+            shopId: shopIdInt, // Only get inventory for current shop
+          },
+        },
+      },
+    });
+
+    if (!product) {
+      return res.status(404).json({
+        error: `Product with ID ${productId} not found.`,
+        suggestion:
+          "Check if the product ID is correct or if the product exists in the system.",
+      });
+    }
+
+    // Format the response with all relevant details
+    const productDetails = {
+      id: product.id,
+      sku: product.sku,
+      name: product.name,
+      description: product.description,
+      basePrice: product.basePrice,
+      barcode: product.barcode,
+
+      // Eyewear categorization
+      eyewearType: product.eyewearType,
+      frameType: product.frameType,
+
+      // Company information
+      company: {
+        id: product.company.id,
+        name: product.company.name,
+        description: product.company.description,
+      },
+
+      // Product attributes
+      material: product.material,
+      color: product.color,
+      size: product.size,
+      model: product.model,
+
+      // Current inventory for this shop
+      inventory:
+        product.shopInventory.length > 0
+          ? {
+              quantity: product.shopInventory[0].quantity,
+              sellingPrice: product.shopInventory[0].sellingPrice,
+              lastRestockedAt: product.shopInventory[0].lastRestockedAt,
+              lastUpdated: product.shopInventory[0].updatedAt,
+              stockStatus: await getInventoryStatus(
+                product.shopInventory[0].quantity,
+                shopIdInt
+              ),
+            }
+          : {
+              quantity: 0,
+              stockStatus: {
+                currentStock: 0,
+                stockLevel: "OUT_OF_STOCK",
+                statusMessage: "No Inventory Record",
+              },
+            },
+
+      // Timestamps
+      createdAt: product.createdAt,
+      updatedAt: product.updatedAt,
+    };
+
+    res.status(200).json({
+      success: true,
+      message: "Product found successfully",
+      product: productDetails,
+    });
+  } catch (error) {
+    console.error("Error fetching product by ID:", error);
+    if (
+      error.message.includes("Authentication required") ||
+      error.message.includes("Access denied") ||
+      error.message.includes("Shop not found")
+    ) {
+      return res.status(401).json({ error: error.message });
+    }
+    res
+      .status(500)
+      .json({ error: "Something went wrong while fetching product details." });
+  }
+};
+
+exports.getAllProducts = async (req, res) => {
+  try {
+    const shopIdInt = await validateShopAccess(req);
+    const {
+      eyewearType,
+      companyId,
+      frameType,
+      page = 1,
+      limit = 50,
+    } = req.query;
+
+    // Build filter object
+    const whereCondition = {};
+
+    if (eyewearType) {
+      whereCondition.eyewearType = eyewearType;
+    }
+
+    if (companyId) {
+      whereCondition.companyId = parseInt(companyId);
+    }
+
+    if (frameType) {
+      whereCondition.frameType = frameType;
+    }
+
+    // Calculate pagination
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+
+    const [products, totalCount] = await Promise.all([
+      prisma.product.findMany({
+        where: whereCondition,
+        include: {
+          company: true,
+          shopInventory: {
+            where: {
+              shopId: shopIdInt, // Only get inventory for current shop
+            },
+            select: {
+              quantity: true,
+              sellingPrice: true,
+              lastRestockedAt: true,
+              updatedAt: true,
+            },
+          },
+        },
+        skip,
+        take: parseInt(limit),
+        orderBy: {
+          createdAt: "desc",
+        },
+      }),
+      prisma.product.count({
+        where: whereCondition,
+      }),
+    ]);
+
+    // Format products with inventory status
+    const formattedProducts = await Promise.all(
+      products.map(async (product) => {
+        const inventory = product.shopInventory[0];
+        return {
+          id: product.id,
+          sku: product.sku,
+          name: product.name,
+          description: product.description,
+          basePrice: product.basePrice,
+          barcode: product.barcode,
+          eyewearType: product.eyewearType,
+          frameType: product.frameType,
+          material: product.material,
+          color: product.color,
+          size: product.size,
+          model: product.model,
+          company: {
+            id: product.company.id,
+            name: product.company.name,
+            description: product.company.description,
+          },
+          inventory: inventory
+            ? {
+                quantity: inventory.quantity,
+                sellingPrice: inventory.sellingPrice,
+                lastRestockedAt: inventory.lastRestockedAt,
+                lastUpdated: inventory.updatedAt,
+                stockStatus: await getInventoryStatus(
+                  inventory.quantity,
+                  shopIdInt
+                ),
+              }
+            : {
+                quantity: 0,
+                stockStatus: {
+                  currentStock: 0,
+                  stockLevel: "OUT_OF_STOCK",
+                  statusMessage: "No Inventory Record",
+                },
+              },
+          createdAt: product.createdAt,
+          updatedAt: product.updatedAt,
+        };
+      })
+    );
+
+    // Group by company and eyewear type
+    const groupedProducts = formattedProducts.reduce((acc, product) => {
+      const companyName = product.company.name;
+      const eyewearType = product.eyewearType;
+
+      if (!acc[companyName]) {
+        acc[companyName] = {};
+      }
+
+      if (!acc[companyName][eyewearType]) {
+        acc[companyName][eyewearType] = [];
+      }
+
+      acc[companyName][eyewearType].push(product);
+
+      return acc;
+    }, {});
+
+    res.status(200).json({
+      success: true,
+      products: formattedProducts,
+      grouped: groupedProducts,
+      pagination: {
+        currentPage: parseInt(page),
+        totalPages: Math.ceil(totalCount / parseInt(limit)),
+        totalProducts: totalCount,
+        hasNextPage: skip + parseInt(limit) < totalCount,
+        hasPrevPage: parseInt(page) > 1,
+      },
+      summary: {
+        totalProducts: formattedProducts.length,
+        companiesCount: Object.keys(groupedProducts).length,
+        byEyewearType: formattedProducts.reduce((acc, p) => {
+          acc[p.eyewearType] = (acc[p.eyewearType] || 0) + 1;
+          return acc;
+        }, {}),
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching all products:", error);
+    if (
+      error.message.includes("Authentication required") ||
+      error.message.includes("Access denied") ||
+      error.message.includes("Shop not found")
+    ) {
+      return res.status(401).json({ error: error.message });
+    }
+    res
+      .status(500)
+      .json({ error: "Something went wrong while fetching products." });
+  }
+};
+
 exports.getInventory = async (req, res) => {
   try {
     const shopIdInt = await validateShopAccess(req);

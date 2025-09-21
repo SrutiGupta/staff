@@ -22,6 +22,12 @@ router.get(
   inventoryController.getProductByBarcode
 );
 
+// Get product by ID
+router.get("/product/:productId", auth, inventoryController.getProductById);
+
+// Get all products
+router.get("/products", auth, inventoryController.getAllProducts);
+
 // Product management
 router.post("/product", auth, inventoryController.addProduct);
 router.put("/product/:productId", auth, inventoryController.updateProduct);

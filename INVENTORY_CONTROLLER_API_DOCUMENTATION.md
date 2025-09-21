@@ -190,68 +190,9 @@ All endpoints require authentication:
 - **404:** Product with barcode not found
 - **500:** Internal server error
 
-### 2. Product Information
+### 2. Product Management
 
-#### 2.1 Get Product by Barcode
-
-**Endpoint:** `GET /product/barcode/:barcode`
-
-**Description:** Retrieves detailed product information using barcode scanning.
-
-**URL Parameters:**
-
-- `barcode` (string): Product barcode
-
-**Success Response (200):**
-
-```json
-{
-  "success": true,
-  "message": "Product found successfully",
-  "product": {
-    "id": 45,
-    "sku": "SKU-001",
-    "name": "Ray-Ban Aviator Classic",
-    "description": "Classic aviator sunglasses with premium quality",
-    "price": 140.0,
-    "barcode": "RAY0015678901",
-    "eyewearType": "SUNGLASSES",
-    "frameType": "AVIATOR",
-    "company": {
-      "id": 1,
-      "name": "Ray-Ban",
-      "description": "Premium eyewear brand"
-    },
-    "material": "Metal",
-    "color": "Gold/Green",
-    "size": "58mm",
-    "model": "RB3025",
-    "inventory": {
-      "quantity": 20,
-      "lastUpdated": "2025-09-21T10:35:00.000Z",
-      "stockStatus": "In Stock"
-    },
-    "createdAt": "2025-09-20T08:00:00.000Z",
-    "updatedAt": "2025-09-21T10:00:00.000Z"
-  },
-  "scanResult": {
-    "scannedBarcode": "RAY0015678901",
-    "productFound": true,
-    "quickInfo": "Ray-Ban SUNGLASSES - Ray-Ban Aviator Classic ($140)"
-  }
-}
-```
-
-**Error Responses:**
-
-- **400:** Barcode is required
-- **401:** Authentication required, shop access denied
-- **404:** Product with barcode not found
-- **500:** Internal server error
-
-### 3. Product Management
-
-#### 3.1 Add Product
+#### 2.1 Create Product
 
 **Endpoint:** `POST /product`
 
@@ -309,7 +250,220 @@ All endpoints require authentication:
 - **409:** Barcode already exists, SKU already exists, duplicate entry found
 - **500:** Internal server error
 
-#### 3.2 Update Product
+#### 2.2 Get Product by ID
+
+**Endpoint:** `GET /product/:productId`
+
+**Description:** Retrieves detailed product information by product ID.
+
+**URL Parameters:**
+
+- `productId` (integer): Product ID to retrieve
+
+**Success Response (200):**
+
+```json
+{
+  "success": true,
+  "message": "Product found successfully",
+  "product": {
+    "id": 45,
+    "sku": "SKU-001",
+    "name": "Ray-Ban Aviator Classic",
+    "description": "Classic aviator sunglasses",
+    "basePrice": 140.0,
+    "barcode": "RAY0015678901",
+    "eyewearType": "SUNGLASSES",
+    "frameType": "AVIATOR",
+    "company": {
+      "id": 1,
+      "name": "Ray-Ban",
+      "description": "Premium eyewear brand"
+    },
+    "material": "Metal",
+    "color": "Gold/Green",
+    "size": "58mm",
+    "model": "RB3025",
+    "inventory": {
+      "quantity": 25,
+      "sellingPrice": 150.5,
+      "lastRestockedAt": "2025-09-21T10:30:00.000Z",
+      "lastUpdated": "2025-09-21T10:30:00.000Z",
+      "stockStatus": {
+        "currentStock": 25,
+        "stockLevel": "MEDIUM",
+        "statusMessage": "In Stock"
+      }
+    },
+    "createdAt": "2025-09-20T08:00:00.000Z",
+    "updatedAt": "2025-09-21T10:00:00.000Z"
+  }
+}
+```
+
+**Error Responses:**
+
+- **400:** Product ID is required
+- **401:** Authentication required, shop access denied
+- **404:** Product with ID not found
+- **500:** Internal server error
+
+#### 2.3 Get Product by Barcode
+
+**Endpoint:** `GET /product/barcode/:barcode`
+
+**Description:** Retrieves detailed product information using barcode scanning.
+
+**URL Parameters:**
+
+- `barcode` (string): Product barcode
+
+**Success Response (200):**
+
+```json
+{
+  "success": true,
+  "message": "Product found successfully",
+  "product": {
+    "id": 45,
+    "sku": "SKU-001",
+    "name": "Ray-Ban Aviator Classic",
+    "description": "Classic aviator sunglasses with premium quality",
+    "price": 140.0,
+    "barcode": "RAY0015678901",
+    "eyewearType": "SUNGLASSES",
+    "frameType": "AVIATOR",
+    "company": {
+      "id": 1,
+      "name": "Ray-Ban",
+      "description": "Premium eyewear brand"
+    },
+    "material": "Metal",
+    "color": "Gold/Green",
+    "size": "58mm",
+    "model": "RB3025",
+    "inventory": {
+      "quantity": 20,
+      "lastUpdated": "2025-09-21T10:35:00.000Z",
+      "stockStatus": "In Stock"
+    },
+    "createdAt": "2025-09-20T08:00:00.000Z",
+    "updatedAt": "2025-09-21T10:00:00.000Z"
+  },
+  "scanResult": {
+    "scannedBarcode": "RAY0015678901",
+    "productFound": true,
+    "quickInfo": "Ray-Ban SUNGLASSES - Ray-Ban Aviator Classic ($140)"
+  }
+}
+```
+
+**Error Responses:**
+
+- **400:** Barcode is required
+- **401:** Authentication required, shop access denied
+- **404:** Product with barcode not found
+- **500:** Internal server error
+
+#### 2.4 Get All Products
+
+**Endpoint:** `GET /products`
+
+**Description:** Retrieves all products with optional filtering, pagination, and grouping.
+
+**Query Parameters:**
+
+- `eyewearType` (string, optional): Filter by GLASSES, SUNGLASSES, or LENSES
+- `companyId` (integer, optional): Filter by company ID
+- `frameType` (string, optional): Filter by frame type
+- `page` (integer, optional): Page number for pagination (default: 1)
+- `limit` (integer, optional): Number of products per page (default: 50)
+
+**Example Request:**
+
+```
+GET /products?eyewearType=SUNGLASSES&companyId=1&page=1&limit=20
+```
+
+**Success Response (200):**
+
+```json
+{
+  "success": true,
+  "products": [
+    {
+      "id": 45,
+      "sku": "SKU-001",
+      "name": "Ray-Ban Aviator Classic",
+      "description": "Classic aviator sunglasses",
+      "basePrice": 140.0,
+      "barcode": "RAY0015678901",
+      "eyewearType": "SUNGLASSES",
+      "frameType": "AVIATOR",
+      "material": "Metal",
+      "color": "Gold/Green",
+      "size": "58mm",
+      "model": "RB3025",
+      "company": {
+        "id": 1,
+        "name": "Ray-Ban",
+        "description": "Premium eyewear brand"
+      },
+      "inventory": {
+        "quantity": 25,
+        "sellingPrice": 150.5,
+        "lastRestockedAt": "2025-09-21T10:30:00.000Z",
+        "lastUpdated": "2025-09-21T10:30:00.000Z",
+        "stockStatus": {
+          "currentStock": 25,
+          "stockLevel": "MEDIUM",
+          "statusMessage": "In Stock"
+        }
+      },
+      "createdAt": "2025-09-20T08:00:00.000Z",
+      "updatedAt": "2025-09-21T10:00:00.000Z"
+    }
+  ],
+  "grouped": {
+    "Ray-Ban": {
+      "SUNGLASSES": [
+        // Array of sunglasses products from Ray-Ban
+      ],
+      "GLASSES": [
+        // Array of glasses products from Ray-Ban
+      ]
+    },
+    "Oakley": {
+      "SUNGLASSES": [
+        // Array of sunglasses products from Oakley
+      ]
+    }
+  },
+  "pagination": {
+    "currentPage": 1,
+    "totalPages": 3,
+    "totalProducts": 145,
+    "hasNextPage": true,
+    "hasPrevPage": false
+  },
+  "summary": {
+    "totalProducts": 20,
+    "companiesCount": 3,
+    "byEyewearType": {
+      "SUNGLASSES": 15,
+      "GLASSES": 5,
+      "LENSES": 0
+    }
+  }
+}
+```
+
+**Error Responses:**
+
+- **401:** Authentication required, shop access denied
+- **500:** Internal server error
+
+#### 2.5 Update Product
 
 **Endpoint:** `PUT /product/:productId`
 
@@ -370,9 +524,9 @@ All endpoints require authentication:
 - **409:** Barcode already exists, SKU already exists, duplicate entry found
 - **500:** Internal server error
 
-### 4. Traditional Stock Operations
+### 3. Traditional Stock Operations
 
-#### 4.1 Stock In (by Product ID)
+#### 3.1 Stock In (by Product ID)
 
 **Endpoint:** `POST /stock-in`
 
@@ -455,7 +609,7 @@ All endpoints require authentication:
 - **404:** Product not found
 - **500:** Internal server error
 
-#### 4.2 Stock Out (by Product ID)
+#### 3.2 Stock Out (by Product ID)
 
 **Endpoint:** `POST /stock-out`
 
@@ -526,9 +680,9 @@ All endpoints require authentication:
 - **404:** Product not found
 - **500:** Internal server error
 
-### 5. Inventory Viewing
+### 4. Inventory Viewing
 
-#### 5.1 Get Inventory
+#### 4.1 Get Inventory
 
 **Endpoint:** `GET /`
 
@@ -606,9 +760,9 @@ All endpoints require authentication:
 - **401:** Authentication required, shop access denied
 - **500:** Internal server error
 
-### 6. Company Management
+### 5. Company Management
 
-#### 6.1 Add Company
+#### 5.1 Add Company
 
 **Endpoint:** `POST /company`
 
@@ -640,7 +794,7 @@ All endpoints require authentication:
 - **400:** Company name is required, company name already exists
 - **500:** Internal server error
 
-#### 6.2 Get Companies
+#### 5.2 Get Companies
 
 **Endpoint:** `GET /companies`
 
@@ -677,7 +831,7 @@ All endpoints require authentication:
 
 - **500:** Internal server error
 
-#### 6.3 Get Company Products
+#### 5.3 Get Company Products
 
 **Endpoint:** `GET /company/:companyId/products`
 
