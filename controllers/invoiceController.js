@@ -45,11 +45,9 @@ exports.createInvoice = async (req, res) => {
         return res.status(404).json({ error: "Customer not found." });
       }
       if (customer.shopId !== req.user.shopId) {
-        return res
-          .status(403)
-          .json({
-            error: "Access denied. Customer belongs to different shop.",
-          });
+        return res.status(403).json({
+          error: "Access denied. Customer belongs to different shop.",
+        });
       }
     }
 
@@ -178,7 +176,7 @@ exports.getInvoice = async (req, res) => {
 
   try {
     const invoice = await prisma.invoice.findUnique({
-      where: { id },
+      where: { id: parseInt(id) },
       include: {
         patient: true,
         customer: true,
@@ -231,7 +229,7 @@ exports.generateInvoicePdf = async (req, res) => {
   try {
     // Fetch invoice data (same as your original code)
     const invoiceData = await prisma.invoice.findUnique({
-      where: { id },
+      where: { id: parseInt(id) },
       include: {
         patient: true,
         customer: true,
@@ -244,12 +242,19 @@ exports.generateInvoicePdf = async (req, res) => {
           },
         },
         prescription: true,
+        transactions: true,
       },
     });
 
     if (!invoiceData) {
       return res.status(404).json({ error: "Invoice not found" });
     }
+
+    // Calculate paid amount from transactions
+    const paidAmount = invoiceData.transactions.reduce(
+      (sum, transaction) => sum + transaction.amount,
+      0
+    );
 
     // --- Map Data ---
     const clientInfo = invoiceData.patient || invoiceData.customer;
@@ -274,8 +279,8 @@ exports.generateInvoicePdf = async (req, res) => {
       subtotal: invoiceData.subtotal,
       gst:
         invoiceData.totalCgst + invoiceData.totalSgst + invoiceData.totalIgst,
-      advancePaid: invoiceData.paidAmount,
-      balance: invoiceData.totalAmount - invoiceData.paidAmount,
+      advancePaid: paidAmount,
+      balance: invoiceData.totalAmount - paidAmount,
     };
 
     // --- Prescription (Eye Power) ---
@@ -481,7 +486,7 @@ exports.generateInvoiceThermal = async (req, res) => {
 
   try {
     const invoice = await prisma.invoice.findUnique({
-      where: { id },
+      where: { id: parseInt(id) },
       include: {
         patient: true,
         customer: true,
@@ -595,7 +600,14 @@ exports.generateInvoiceThermal = async (req, res) => {
           ? ` (${item.product.company.name})`
           : "";
 
-      receipt.push(`${productName}${companyName}`);
+      // Truncate product name to prevent overflow
+      const fullProductName = `${productName}${companyName}`;
+      const truncatedProductName =
+        fullProductName.length > printerWidth
+          ? fullProductName.slice(0, printerWidth - 3) + "..."
+          : fullProductName;
+
+      receipt.push(truncatedProductName);
       receipt.push(
         line(
           `  @ ${item.unitPrice.toFixed(2)}`,
@@ -737,8 +749,15 @@ exports.updateInvoiceStatus = async (req, res) => {
 
   try {
     const invoice = await prisma.invoice.findUnique({
-      where: { id },
-      include: { staff: true },
+      where: { id: parseInt(id) },
+      include: {
+        staff: true,
+        items: {
+          include: {
+            product: true,
+          },
+        },
+      },
     });
 
     if (!invoice) {
@@ -752,20 +771,46 @@ exports.updateInvoiceStatus = async (req, res) => {
         .json({ error: "Access denied. Invoice belongs to different shop." });
     }
 
-    const updatedInvoice = await prisma.invoice.update({
-      where: { id },
-      data: { status },
-      include: {
-        patient: true,
-        customer: true,
-        staff: true,
-        items: {
-          include: {
-            product: true,
+    // Use transaction to update invoice status and handle inventory restoration
+    const updatedInvoice = await prisma.$transaction(async (prisma) => {
+      // If invoice is being cancelled or refunded, restore inventory
+      if (
+        (status === "CANCELLED" || status === "REFUNDED") &&
+        invoice.status !== "CANCELLED" &&
+        invoice.status !== "REFUNDED"
+      ) {
+        // Restore inventory for each item
+        for (const item of invoice.items) {
+          await prisma.shopInventory.updateMany({
+            where: {
+              productId: item.productId,
+              shopId: req.user.shopId,
+            },
+            data: {
+              quantity: {
+                increment: item.quantity,
+              },
+            },
+          });
+        }
+      }
+
+      // Update the invoice status
+      return await prisma.invoice.update({
+        where: { id: parseInt(id) },
+        data: { status },
+        include: {
+          patient: true,
+          customer: true,
+          staff: true,
+          items: {
+            include: {
+              product: true,
+            },
           },
+          transactions: true,
         },
-        transactions: true,
-      },
+      });
     });
 
     res.status(200).json(updatedInvoice);
@@ -795,7 +840,7 @@ exports.addPayment = async (req, res) => {
     const result = await prisma.$transaction(async (prisma) => {
       // Get current invoice with staff information for shop validation
       const invoice = await prisma.invoice.findUnique({
-        where: { id },
+        where: { id: parseInt(id) },
         include: {
           transactions: true,
           staff: true,
@@ -851,14 +896,14 @@ exports.addPayment = async (req, res) => {
       // Create transaction
       const transaction = await prisma.transaction.create({
         data: {
-          invoiceId: id,
+          invoiceId: parseInt(id),
           amount: parseFloat(amount),
           paymentMethod,
           giftCardId: giftCardId ? parseInt(giftCardId) : null,
         },
       });
 
-      // Update invoice paid amount and status
+      // Calculate new paid amount and determine status
       const newPaidAmount = currentPaidAmount + parseFloat(amount);
       let newStatus = "PARTIALLY_PAID";
 
@@ -868,10 +913,10 @@ exports.addPayment = async (req, res) => {
         newStatus = "UNPAID";
       }
 
+      // Update only the invoice status (not paidAmount since it's calculated from transactions)
       const updatedInvoice = await prisma.invoice.update({
-        where: { id },
+        where: { id: parseInt(id) },
         data: {
-          paidAmount: newPaidAmount,
           status: newStatus,
         },
         include: {
