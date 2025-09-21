@@ -26,7 +26,7 @@ Most endpoints are protected and require a JSON Web Token (JWT) to be sent in th
 4.  **Request Body:**
     ```json
     {
-      "email": "staff@example.com",
+      "email": "staff1@example.com",
       "password": "password"
     }
     ```
