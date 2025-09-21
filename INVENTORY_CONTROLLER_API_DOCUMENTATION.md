@@ -986,7 +986,7 @@ The stock receipt system ensures that all inventory additions are properly autho
 
 ### 7.2 Get Stock Receipts
 
-**Endpoint:** `GET /api/stock-receipts`
+**Endpoint:** `GET http://localhost:8080/shop-admin/stock/receipts`
 
 **Description:** Retrieves all stock receipts for the staff's shop with optional status filtering.
 
