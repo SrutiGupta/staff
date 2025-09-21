@@ -14,11 +14,47 @@ All endpoints require authentication. Include the JWT token in the Authorization
 Authorization: Bearer <your_jwt_token>
 ```
 
+## Quick Testing Guide
+
+### Get Your JWT Token
+
+First, login to get your authentication token:
+
+**PowerShell:**
+
+```powershell
+$response = Invoke-RestMethod -Uri "http://localhost:8080/api/auth/login" -Method Post -ContentType "application/json" -Body '{"email": "your@email.com", "password": "yourpassword"}'
+$token = $response.token
+```
+
+**cURL:**
+
+```bash
+curl -X POST "http://localhost:8080/api/auth/login" \
+  -H "Content-Type: application/json" \
+  -d '{"email": "your@email.com", "password": "yourpassword"}'
+```
+
+### Quick Endpoint Test URLs
+
+| Endpoint         | Method | URL                                           |
+| ---------------- | ------ | --------------------------------------------- |
+| Get All Invoices | GET    | `http://localhost:8080/api/invoice/`          |
+| Create Invoice   | POST   | `http://localhost:8080/api/invoice/`          |
+| Get Invoice      | GET    | `http://localhost:8080/api/invoice/1`         |
+| Update Status    | PATCH  | `http://localhost:8080/api/invoice/1/status`  |
+| Add Payment      | POST   | `http://localhost:8080/api/invoice/1/payment` |
+| Delete Invoice   | DELETE | `http://localhost:8080/api/invoice/1`         |
+| PDF Invoice      | GET    | `http://localhost:8080/api/invoice/1/pdf`     |
+| Thermal Receipt  | GET    | `http://localhost:8080/api/invoice/1/thermal` |
+
 ## Endpoints
 
 ### 1. Get All Invoices
 
-**GET** `/`
+**Endpoint:** `GET /api/invoice/`
+
+**Full URL:** `http://localhost:8080/api/invoice/`
 
 Retrieves all invoices for the authenticated user's shop with optional filtering and pagination.
 
@@ -34,10 +70,27 @@ Retrieves all invoices for the authenticated user's shop with optional filtering
 - `startDate` (optional) - Filter invoices created after this date (YYYY-MM-DD)
 - `endDate` (optional) - Filter invoices created before this date (YYYY-MM-DD)
 
-**Example Request:**
+**Testing Examples:**
 
+**Basic Request:**
+
+```bash
+curl -X GET "http://localhost:8080/api/invoice/" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN"
 ```
-GET /api/invoice?page=1&limit=5&status=UNPAID&startDate=2024-01-01
+
+**With Filters:**
+
+```bash
+curl -X GET "http://localhost:8080/api/invoice/?page=1&limit=5&status=UNPAID&startDate=2024-01-01" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN"
+```
+
+**PowerShell Example:**
+
+```powershell
+$headers = @{ "Authorization" = "Bearer YOUR_JWT_TOKEN" }
+Invoke-RestMethod -Uri "http://localhost:8080/api/invoice/?page=1&limit=5" -Headers $headers -Method Get
 ```
 
 **Response:**
@@ -108,7 +161,9 @@ GET /api/invoice?page=1&limit=5&status=UNPAID&startDate=2024-01-01
 
 ### 2. Create Invoice
 
-**POST** `/`
+**Endpoint:** `POST /api/invoice/`
+
+**Full URL:** `http://localhost:8080/api/invoice/`
 
 Creates a new invoice for a patient or customer.
 
@@ -130,6 +185,53 @@ Creates a new invoice for a patient or customer.
     }
   ]
 }
+```
+
+**Testing Examples:**
+
+**cURL Example:**
+
+```bash
+curl -X POST "http://localhost:8080/api/invoice/" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -d '{
+    "patientId": 1,
+    "prescriptionId": 1,
+    "items": [
+      {
+        "productId": 1,
+        "quantity": 2,
+        "discount": 50.00,
+        "cgst": 45.00,
+        "sgst": 45.00
+      }
+    ]
+  }'
+```
+
+**PowerShell Example:**
+
+```powershell
+$headers = @{
+    "Content-Type" = "application/json"
+    "Authorization" = "Bearer YOUR_JWT_TOKEN"
+}
+$body = @{
+    patientId = 1
+    prescriptionId = 1
+    items = @(
+        @{
+            productId = 1
+            quantity = 2
+            discount = 50.00
+            cgst = 45.00
+            sgst = 45.00
+        }
+    )
+} | ConvertTo-Json -Depth 3
+
+Invoke-RestMethod -Uri "http://localhost:8080/api/invoice/" -Method Post -Headers $headers -Body $body
 ```
 
 **Response:**
@@ -179,7 +281,9 @@ Creates a new invoice for a patient or customer.
 
 ### 3. Get Single Invoice
 
-**GET** `/:id`
+**Endpoint:** `GET /api/invoice/:id`
+
+**Full URL:** `http://localhost:8080/api/invoice/1` (where 1 is the invoice ID)
 
 Retrieves a specific invoice by ID.
 
@@ -187,10 +291,20 @@ Retrieves a specific invoice by ID.
 
 - `id` - Invoice ID (integer)
 
-**Example Request:**
+**Testing Examples:**
 
+**cURL Example:**
+
+```bash
+curl -X GET "http://localhost:8080/api/invoice/1" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN"
 ```
-GET /api/invoice/1
+
+**PowerShell Example:**
+
+```powershell
+$headers = @{ "Authorization" = "Bearer YOUR_JWT_TOKEN" }
+Invoke-RestMethod -Uri "http://localhost:8080/api/invoice/1" -Headers $headers -Method Get
 ```
 
 **Response:**
@@ -271,7 +385,9 @@ GET /api/invoice/1
 
 ### 4. Update Invoice Status
 
-**PATCH** `/:id/status`
+**Endpoint:** `PATCH /api/invoice/:id/status`
+
+**Full URL:** `http://localhost:8080/api/invoice/1/status` (where 1 is the invoice ID)
 
 Updates the status of an invoice. If status is CANCELLED or REFUNDED, inventory will be automatically restored.
 
@@ -285,6 +401,28 @@ Updates the status of an invoice. If status is CANCELLED or REFUNDED, inventory 
 {
   "status": "CANCELLED" // UNPAID, PAID, PARTIALLY_PAID, CANCELLED, REFUNDED
 }
+```
+
+**Testing Examples:**
+
+**cURL Example:**
+
+```bash
+curl -X PATCH "http://localhost:8080/api/invoice/1/status" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -d '{"status": "CANCELLED"}'
+```
+
+**PowerShell Example:**
+
+```powershell
+$headers = @{
+    "Content-Type" = "application/json"
+    "Authorization" = "Bearer YOUR_JWT_TOKEN"
+}
+$body = @{ status = "CANCELLED" } | ConvertTo-Json
+Invoke-RestMethod -Uri "http://localhost:8080/api/invoice/1/status" -Method Patch -Headers $headers -Body $body
 ```
 
 **Response:**
@@ -304,7 +442,9 @@ Updates the status of an invoice. If status is CANCELLED or REFUNDED, inventory 
 
 ### 5. Add Payment
 
-**POST** `/:id/payment`
+**Endpoint:** `POST /api/invoice/:id/payment`
+
+**Full URL:** `http://localhost:8080/api/invoice/1/payment` (where 1 is the invoice ID)
 
 Adds a payment to an invoice. Automatically updates invoice status based on payment amount.
 
@@ -320,6 +460,40 @@ Adds a payment to an invoice. Automatically updates invoice status based on paym
   "paymentMethod": "CASH", // CASH, CARD, UPI, GIFT_CARD, BANK_TRANSFER
   "giftCardId": 1 // Required only if paymentMethod is GIFT_CARD
 }
+```
+
+**Testing Examples:**
+
+**Cash Payment - cURL:**
+
+```bash
+curl -X POST "http://localhost:8080/api/invoice/1/payment" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -d '{"amount": 500.00, "paymentMethod": "CASH"}'
+```
+
+**Gift Card Payment - cURL:**
+
+```bash
+curl -X POST "http://localhost:8080/api/invoice/1/payment" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -d '{"amount": 200.00, "paymentMethod": "GIFT_CARD", "giftCardId": 1}'
+```
+
+**PowerShell Example:**
+
+```powershell
+$headers = @{
+    "Content-Type" = "application/json"
+    "Authorization" = "Bearer YOUR_JWT_TOKEN"
+}
+$body = @{
+    amount = 500.00
+    paymentMethod = "CASH"
+} | ConvertTo-Json
+Invoke-RestMethod -Uri "http://localhost:8080/api/invoice/1/payment" -Method Post -Headers $headers -Body $body
 ```
 
 **Response:**
@@ -356,13 +530,31 @@ Adds a payment to an invoice. Automatically updates invoice status based on paym
 
 ### 6. Delete Invoice
 
-**DELETE** `/:id`
+**Endpoint:** `DELETE /api/invoice/:id`
+
+**Full URL:** `http://localhost:8080/api/invoice/1` (where 1 is the invoice ID)
 
 Soft deletes an invoice by setting status to CANCELLED. Only UNPAID invoices can be deleted.
 
 **Path Parameters:**
 
 - `id` - Invoice ID (integer)
+
+**Testing Examples:**
+
+**cURL Example:**
+
+```bash
+curl -X DELETE "http://localhost:8080/api/invoice/1" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN"
+```
+
+**PowerShell Example:**
+
+```powershell
+$headers = @{ "Authorization" = "Bearer YOUR_JWT_TOKEN" }
+Invoke-RestMethod -Uri "http://localhost:8080/api/invoice/1" -Method Delete -Headers $headers
+```
 
 **Response:**
 
@@ -381,7 +573,9 @@ Soft deletes an invoice by setting status to CANCELLED. Only UNPAID invoices can
 
 ### 7. Generate Invoice PDF
 
-**GET** `/:id/pdf`
+**Endpoint:** `GET /api/invoice/:id/pdf`
+
+**Full URL:** `http://localhost:8080/api/invoice/1/pdf` (where 1 is the invoice ID)
 
 Generates and returns a PDF invoice.
 
@@ -394,6 +588,30 @@ Generates and returns a PDF invoice.
 - Content-Type: `application/pdf`
 - Returns PDF file stream
 
+**Testing Examples:**
+
+**cURL Example (Save to file):**
+
+```bash
+curl -X GET "http://localhost:8080/api/invoice/1/pdf" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -o "invoice-1.pdf"
+```
+
+**PowerShell Example (Save to file):**
+
+```powershell
+$headers = @{ "Authorization" = "Bearer YOUR_JWT_TOKEN" }
+Invoke-WebRequest -Uri "http://localhost:8080/api/invoice/1/pdf" -Headers $headers -OutFile "invoice-1.pdf"
+```
+
+**Browser Test:**
+
+```
+Open in browser: http://localhost:8080/api/invoice/1/pdf
+(Note: Include Authorization header via browser dev tools or extension)
+```
+
 **Example Request:**
 
 ```
@@ -404,7 +622,9 @@ GET /api/invoice/1/pdf
 
 ### 8. Generate Thermal Receipt
 
-**GET** `/:id/thermal`
+**Endpoint:** `GET /api/invoice/:id/thermal`
+
+**Full URL:** `http://localhost:8080/api/invoice/1/thermal` (where 1 is the invoice ID)
 
 Generates a plain text receipt optimized for thermal printing.
 
@@ -417,10 +637,28 @@ Generates a plain text receipt optimized for thermal printing.
 - Content-Type: `text/plain`
 - Returns formatted plain text receipt
 
-**Example Request:**
+**Testing Examples:**
 
+**cURL Example:**
+
+```bash
+curl -X GET "http://localhost:8080/api/invoice/1/thermal" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN"
 ```
-GET /api/invoice/1/thermal
+
+**PowerShell Example:**
+
+```powershell
+$headers = @{ "Authorization" = "Bearer YOUR_JWT_TOKEN" }
+Invoke-RestMethod -Uri "http://localhost:8080/api/invoice/1/thermal" -Headers $headers -Method Get
+```
+
+**Save to file for printing:**
+
+```bash
+curl -X GET "http://localhost:8080/api/invoice/1/thermal" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -o "thermal-receipt-1.txt"
 ```
 
 **Example Response:**
@@ -509,6 +747,101 @@ All endpoints return consistent error responses:
 {
   "error": "Failed to process request."
 }
+```
+
+## Common Testing Scenarios
+
+### Scenario 1: Complete Invoice Workflow
+
+**Step 1: Create Invoice**
+
+```bash
+curl -X POST "http://localhost:8080/api/invoice/" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -d '{
+    "patientId": 1,
+    "items": [{"productId": 1, "quantity": 2, "discount": 50, "cgst": 45, "sgst": 45}]
+  }'
+```
+
+**Step 2: Add Partial Payment**
+
+```bash
+curl -X POST "http://localhost:8080/api/invoice/1/payment" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -d '{"amount": 500.00, "paymentMethod": "CASH"}'
+```
+
+**Step 3: Check Invoice Status**
+
+```bash
+curl -X GET "http://localhost:8080/api/invoice/1" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN"
+```
+
+**Step 4: Generate PDF**
+
+```bash
+curl -X GET "http://localhost:8080/api/invoice/1/pdf" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -o "invoice-1.pdf"
+```
+
+### Scenario 2: Gift Card Payment
+
+```bash
+curl -X POST "http://localhost:8080/api/invoice/1/payment" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -d '{"amount": 200.00, "paymentMethod": "GIFT_CARD", "giftCardId": 1}'
+```
+
+### Scenario 3: Cancel Invoice (Restores Inventory)
+
+```bash
+curl -X PATCH "http://localhost:8080/api/invoice/1/status" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -d '{"status": "CANCELLED"}'
+```
+
+### Scenario 4: PowerShell Complete Workflow
+
+```powershell
+# Set up headers
+$headers = @{
+    "Content-Type" = "application/json"
+    "Authorization" = "Bearer YOUR_JWT_TOKEN"
+}
+
+# Create invoice
+$invoiceData = @{
+    patientId = 1
+    items = @(@{
+        productId = 1
+        quantity = 2
+        discount = 50.00
+        cgst = 45.00
+        sgst = 45.00
+    })
+} | ConvertTo-Json -Depth 3
+
+$invoice = Invoke-RestMethod -Uri "http://localhost:8080/api/invoice/" -Method Post -Headers $headers -Body $invoiceData
+
+# Add payment
+$paymentData = @{
+    amount = 500.00
+    paymentMethod = "CASH"
+} | ConvertTo-Json
+
+$payment = Invoke-RestMethod -Uri "http://localhost:8080/api/invoice/$($invoice.id)/payment" -Method Post -Headers $headers -Body $paymentData
+
+# Get updated invoice
+$updatedInvoice = Invoke-RestMethod -Uri "http://localhost:8080/api/invoice/$($invoice.id)" -Headers $headers -Method Get
+
+Write-Output "Invoice Status: $($updatedInvoice.status)"
 ```
 
 ## Notes
