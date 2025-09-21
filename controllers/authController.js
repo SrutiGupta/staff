@@ -17,23 +17,55 @@ const jwt = require("jsonwebtoken");
 exports.register = async (req, res) => {
   const { email, password, name, role = "SALES_STAFF", shopId } = req.body;
 
-  // Require shopId to be provided explicitly
-  if (!shopId) {
-    return res.status(400).json({ error: "Shop ID is required" });
+  // This endpoint should only be accessible by shop admins
+  // Check if the requester is authenticated and is a shop admin
+  if (!req.user) {
+    return res.status(401).json({ error: "Authentication required" });
   }
 
+  // Check if the authenticated user is a shop admin
   try {
+    const shopAdmin = await prisma.shopAdmin.findUnique({
+      where: { id: req.user.shopAdminId },
+      include: { shop: true },
+    });
+
+    if (!shopAdmin) {
+      return res
+        .status(403)
+        .json({ error: "Access denied. Only shop admins can register staff." });
+    }
+
+    // If shopId is provided, verify it matches the admin's shop
+    // If not provided, use the admin's shop
+    const targetShopId = shopId ? parseInt(shopId) : shopAdmin.shopId;
+
+    if (targetShopId !== shopAdmin.shopId) {
+      return res
+        .status(403)
+        .json({ error: "You can only register staff for your own shop" });
+    }
+
+    // Validate required fields
+    if (!email || !password || !name) {
+      return res
+        .status(400)
+        .json({ error: "Email, password, and name are required" });
+    }
+
     const existingStaff = await prisma.staff.findUnique({
       where: { email },
     });
 
     if (existingStaff) {
-      return res.status(400).json({ error: "Staff member already exists" });
+      return res
+        .status(400)
+        .json({ error: "Staff member with this email already exists" });
     }
 
-    // Verify shop exists
+    // Verify shop exists (should exist since admin is valid)
     const shop = await prisma.shop.findUnique({
-      where: { id: parseInt(shopId) },
+      where: { id: targetShopId },
     });
 
     if (!shop) {
@@ -48,21 +80,26 @@ exports.register = async (req, res) => {
         password: hashedPassword,
         name,
         role,
-        shopId: parseInt(shopId),
+        shopId: targetShopId,
       },
     });
 
-    const token = jwt.sign({ staffId: staff.id }, process.env.JWT_SECRET, {
-      expiresIn: "1h",
-    });
-
+    // Don't create a token for the new staff member
+    // Return staff details instead
     res.status(201).json({
-      token,
-      staffId: staff.id,
-      name: staff.name,
-      shopId: staff.shopId,
+      message: "Staff member registered successfully",
+      staff: {
+        id: staff.id,
+        email: staff.email,
+        name: staff.name,
+        role: staff.role,
+        shopId: staff.shopId,
+        shopName: shop.name,
+        createdAt: staff.createdAt,
+      },
     });
   } catch (error) {
+    console.error("Staff registration error:", error);
     res.status(500).json({ error: "Registration failed" });
   }
 };
