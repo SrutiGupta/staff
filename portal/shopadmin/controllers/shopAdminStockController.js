@@ -1,9 +1,8 @@
-
-const { PrismaClient } = require('@prisma/client');
+const { PrismaClient } = require("@prisma/client");
 const prisma = new PrismaClient();
 
 /**
- * @desc    List all stock receipts for the admin's shop
+ * @desc    List all stock receipts for the admin's shop with pagination
  * @route   GET /shop-admin/stock/receipts
  * @access  Private (ShopAdmin)
  */
@@ -11,86 +10,247 @@ const listStockReceipts = async (req, res) => {
   try {
     const shopId = req.user.shopId;
     if (!shopId) {
-      return res.status(403).json({ message: "Admin is not associated with a shop." });
+      return res.status(403).json({
+        error: "SHOP_NOT_ASSOCIATED",
+        message: "Admin is not associated with a shop.",
+      });
     }
 
+    // Get pagination parameters (validated by middleware)
+    const {
+      page = 1,
+      limit = 10,
+      sortBy = "createdAt",
+      sortOrder = "desc",
+    } = req.query;
+    const skip = (page - 1) * limit;
+
+    // Build where clause
+    const where = { shopId: shopId };
+
+    // Get total count for pagination
+    const totalCount = await prisma.stockReceipt.count({ where });
+
+    // Get paginated receipts
     const receipts = await prisma.stockReceipt.findMany({
-      where: { shopId: shopId },
+      where,
       include: {
-        product: { select: { name: true, sku: true } },
-        receivedByStaff: { select: { name: true } },
-        verifiedByAdmin: { select: { name: true } },
+        product: {
+          select: {
+            id: true,
+            name: true,
+            sku: true,
+            basePrice: true,
+          },
+        },
+        receivedByStaff: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        verifiedByAdmin: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
       },
-      orderBy: { createdAt: 'desc' },
+      orderBy: { [sortBy]: sortOrder },
+      skip: parseInt(skip),
+      take: parseInt(limit),
     });
 
-    res.json(receipts);
+    // Calculate pagination metadata
+    const totalPages = Math.ceil(totalCount / limit);
+    const hasNextPage = page < totalPages;
+    const hasPrevPage = page > 1;
+
+    res.json({
+      receipts,
+      pagination: {
+        currentPage: parseInt(page),
+        totalPages,
+        totalItems: totalCount,
+        itemsPerPage: parseInt(limit),
+        hasNextPage,
+        hasPrevPage,
+      },
+      summary: {
+        pending: receipts.filter((r) => r.status === "PENDING").length,
+        approved: receipts.filter((r) => r.status === "APPROVED").length,
+        rejected: receipts.filter((r) => r.status === "REJECTED").length,
+      },
+    });
   } catch (error) {
     console.error("Error fetching stock receipts:", error);
-    res.status(500).json({ message: "Internal server error" });
+    res.status(500).json({
+      error: "FETCH_RECEIPTS_FAILED",
+      message: "Failed to fetch stock receipts",
+    });
   }
 };
 
 /**
- * @desc    Approve or Reject a stock receipt
- * @route   PUT /shop-admin/stock/receipts/:id/approve
+ * @desc    Approve or Reject a stock receipt with enhanced validation
+ * @route   PUT /shop-admin/stock/receipts/:id/verify
  * @access  Private (ShopAdmin)
  */
 const approveStockReceipt = async (req, res) => {
   const { id } = req.params;
-  const { decision, verifiedQuantity, adminNotes, discrepancyReason } = req.body;
+  const { decision, verifiedQuantity, adminNotes, discrepancyReason } =
+    req.body;
   const adminId = req.user.shopAdminId;
+  const shopId = req.user.shopId;
 
-  if (!['APPROVED', 'REJECTED'].includes(decision)) {
-    return res.status(400).json({ message: "Decision must be either APPROVED or REJECTED." });
-  }
-
-  if (decision === 'APPROVED' && (verifiedQuantity === undefined || verifiedQuantity === null)) {
-    return res.status(400).json({ message: "Verified quantity is required for approval." });
-  }
-  
-  const quantity = decision === 'APPROVED' ? parseInt(verifiedQuantity, 10) : undefined;
-  if (decision === 'APPROVED' && (isNaN(quantity) || quantity < 0)) {
-    return res.status(400).json({ message: "Invalid verified quantity." });
+  // Parse and validate receipt ID
+  const receiptId = parseInt(id);
+  if (isNaN(receiptId) || receiptId <= 0) {
+    return res.status(400).json({
+      error: "INVALID_RECEIPT_ID",
+      message: "Invalid receipt ID provided.",
+    });
   }
 
   try {
-    const receipt = await prisma.stockReceipt.findUnique({
-      where: { id: parseInt(id) },
+    // Use transaction for data consistency
+    const result = await prisma.$transaction(async (prisma) => {
+      // Get receipt with lock for update
+      const receipt = await prisma.stockReceipt.findUnique({
+        where: { id: receiptId },
+        include: {
+          product: {
+            select: {
+              id: true,
+              name: true,
+              sku: true,
+            },
+          },
+        },
+      });
+
+      if (!receipt) {
+        throw new Error("RECEIPT_NOT_FOUND");
+      }
+
+      if (receipt.shopId !== shopId) {
+        throw new Error("FORBIDDEN_ACCESS");
+      }
+
+      if (receipt.status !== "PENDING") {
+        throw new Error("RECEIPT_ALREADY_PROCESSED");
+      }
+
+      const quantity =
+        decision === "APPROVED" ? parseInt(verifiedQuantity, 10) : undefined;
+
+      // Update the receipt
+      const updatedReceipt = await prisma.stockReceipt.update({
+        where: { id: receiptId },
+        data: {
+          status: decision,
+          verifiedByAdminId: adminId,
+          verifiedAt: new Date(),
+          verifiedQuantity: quantity,
+          adminNotes: adminNotes || null,
+          discrepancyReason: discrepancyReason || null,
+        },
+        include: {
+          product: {
+            select: {
+              id: true,
+              name: true,
+              sku: true,
+            },
+          },
+          verifiedByAdmin: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+        },
+      });
+
+      // If approved, update shop inventory
+      if (decision === "APPROVED" && quantity > 0) {
+        await prisma.shopInventory.upsert({
+          where: {
+            shopId_productId: {
+              shopId: shopId,
+              productId: receipt.productId,
+            },
+          },
+          update: {
+            quantity: {
+              increment: quantity,
+            },
+          },
+          create: {
+            shopId: shopId,
+            productId: receipt.productId,
+            quantity: quantity,
+          },
+        });
+
+        // Log stock movement
+        await prisma.stockMovement.create({
+          data: {
+            shopId: shopId,
+            productId: receipt.productId,
+            type: "STOCK_IN",
+            quantity: quantity,
+            notes: `Stock receipt ${decision.toLowerCase()} - Receipt #${receiptId}`,
+            createdBy: adminId,
+          },
+        });
+      }
+
+      return updatedReceipt;
     });
 
-    if (!receipt) {
-      return res.status(404).json({ message: "Stock receipt not found." });
-    }
-
-    if (receipt.shopId !== req.user.shopId) {
-      return res.status(403).json({ message: "Forbidden: You can only manage receipts for your own shop." });
-    }
-
-    if (receipt.status !== 'PENDING') {
-      return res.status(400).json({ message: `Receipt is already processed with status: ${receipt.status}` });
-    }
-    
-    const updatedReceipt = await prisma.stockReceipt.update({
-      where: { id: parseInt(id) },
-      data: {
-        status: decision,
-        verifiedByAdminId: adminId,
-        verifiedAt: new Date(),
-        verifiedQuantity: quantity,
-        adminNotes: adminNotes,
-        discrepancyReason: discrepancyReason,
-      },
+    res.status(200).json({
+      message: `Stock receipt has been ${decision.toLowerCase()} successfully.`,
+      receipt: result,
+      updatedInventory:
+        decision === "APPROVED"
+          ? {
+              productId: result.productId,
+              quantityAdded: verifiedQuantity,
+            }
+          : null,
     });
-
-    res.status(200).json({ 
-      message: `Stock receipt has been ${decision.toLowerCase()}.`, 
-      receipt: updatedReceipt 
-    });
-
   } catch (error) {
     console.error(`Failed to ${decision.toLowerCase()} stock receipt:`, error);
-    res.status(500).json({ message: "An error occurred during the process." });
+
+    // Handle specific transaction errors
+    if (error.message === "RECEIPT_NOT_FOUND") {
+      return res.status(404).json({
+        error: "RECEIPT_NOT_FOUND",
+        message: "Stock receipt not found.",
+      });
+    }
+
+    if (error.message === "FORBIDDEN_ACCESS") {
+      return res.status(403).json({
+        error: "FORBIDDEN_ACCESS",
+        message: "You can only manage receipts for your own shop.",
+      });
+    }
+
+    if (error.message === "RECEIPT_ALREADY_PROCESSED") {
+      return res.status(400).json({
+        error: "RECEIPT_ALREADY_PROCESSED",
+        message: `Receipt has already been processed with status: ${
+          error.details?.status || "unknown"
+        }`,
+      });
+    }
+
+    res.status(500).json({
+      error: "RECEIPT_PROCESSING_FAILED",
+      message: "An error occurred while processing the receipt.",
+    });
   }
 };
 

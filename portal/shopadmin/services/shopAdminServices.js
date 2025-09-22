@@ -246,11 +246,19 @@ exports.getRecentActivities = async (shopId) => {
 
         // Recent inventory movements
         prisma.stockMovement.findMany({
-          where: { shopId },
+          where: {
+            shopInventory: {
+              shopId: shopId,
+            },
+          },
           take: 5,
           orderBy: { createdAt: "desc" },
           include: {
-            product: { select: { name: true } },
+            shopInventory: {
+              include: {
+                product: { select: { name: true } },
+              },
+            },
           },
         }),
       ]);
@@ -269,7 +277,7 @@ exports.getRecentActivities = async (shopId) => {
       })),
       ...recentInventory.map((movement) => ({
         type: "inventory",
-        message: `${movement.product.name} - ${movement.type} (${movement.quantity} units)`,
+        message: `${movement.shopInventory.product.name} - ${movement.type} (${movement.quantity} units)`,
         timestamp: movement.createdAt,
       })),
     ];
@@ -471,7 +479,9 @@ exports.getSalesReport = async (shopId, { period, startDate, endDate }) => {
         _sum: {
           totalAmount: true,
           subtotal: true,
-          taxAmount: true,
+          totalIgst: true,
+          totalCgst: true,
+          totalSgst: true,
         },
         _count: true,
         _avg: {
@@ -500,14 +510,18 @@ exports.getSalesReport = async (shopId, { period, startDate, endDate }) => {
         totalSales: salesSummary._sum.totalAmount || 0,
         totalOrders: salesSummary._count || 0,
         avgOrderValue: salesSummary._avg.totalAmount || 0,
-        totalTax: salesSummary._sum.taxAmount || 0,
+        totalTax:
+          (salesSummary._sum.totalIgst || 0) +
+          (salesSummary._sum.totalCgst || 0) +
+          (salesSummary._sum.totalSgst || 0),
         subtotal: salesSummary._sum.subtotal || 0,
       },
       details: salesDetails.map((invoice) => ({
         id: invoice.id,
         date: invoice.createdAt,
         staff: invoice.staff.name,
-        patient: invoice.patient.name,
+        patient:
+          invoice.patient?.name || invoice.customer?.name || "Walk-in Customer",
         amount: invoice.totalAmount,
         items: invoice.items.length,
         products: invoice.items.map((item) => ({

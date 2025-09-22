@@ -2,27 +2,45 @@ const express = require("express");
 const router = express.Router();
 const shopAdminController = require("../controllers/shopAdminController");
 const addDoctorController = require("../controllers/addDoctorController");
-const shopAdminAuth = require("../middleware/shopAdminAuth");
+const { shopAdminAuth } = require("../middleware/shopAdminAuth");
+const {
+  authLimiter,
+  apiLimiter,
+  reportSlowDown,
+  exportLimiter,
+} = require("../middleware/rateLimiting");
+const { validate, schemas } = require("../middleware/validation");
 
 // ===== PUBLIC ROUTES (No Authentication Required) =====
 
 /**
- * @route POST /api/shopadmin/auth/login
+ * @route POST /shop-admin/auth/login
  * @desc Shop Admin Login
  * @access Public
  */
-router.post("/auth/login", shopAdminController.login);
+router.post(
+  "/auth/login",
+  authLimiter,
+  validate(schemas.login),
+  shopAdminController.login
+);
 
 /**
- * @route POST /api/shopadmin/auth/register
+ * @route POST /shop-admin/auth/register
  * @desc Register new Shop Admin and Shop
  * @access Public
  */
-router.post("/auth/register", shopAdminController.register);
+router.post(
+  "/auth/register",
+  authLimiter,
+  validate(schemas.register),
+  shopAdminController.register
+);
 
 // ===== PROTECTED ROUTES (Authentication Required) =====
-// Apply authentication middleware to all routes below
+// Apply authentication and general rate limiting to all routes below
 router.use(shopAdminAuth);
+router.use(apiLimiter);
 
 // ===== DASHBOARD ROUTES =====
 
@@ -170,70 +188,102 @@ router.get("/staff/activities", shopAdminController.getStaffActivities);
 // ===== DOCTOR MANAGEMENT ROUTES =====
 
 /**
- * @route POST /api/shopadmin/doctors/add
+ * @route POST /shop-admin/doctors/add
  * @desc Add a new doctor (OPTOMETRIST) to the shop
  * @access Private (Shop Admin)
  * @body email, password, name
  */
-router.post("/doctors/add", addDoctorController.addDoctor);
+router.post(
+  "/doctors/add",
+  validate(schemas.addDoctor),
+  addDoctorController.addDoctor
+);
 
 /**
- * @route GET /api/shopadmin/doctors
+ * @route GET /shop-admin/doctors
  * @desc Get all doctors (OPTOMETRISTS) in the shop
  * @access Private (Shop Admin)
  */
 router.get("/doctors", addDoctorController.getDoctors);
 
 /**
- * @route PUT /api/shopadmin/doctors/:doctorId/status
+ * @route PUT /shop-admin/doctors/:doctorId/status
  * @desc Update doctor status (activate/deactivate)
  * @access Private (Shop Admin)
  * @body isActive
  */
-router.put("/doctors/:doctorId/status", addDoctorController.updateDoctorStatus);
+router.put(
+  "/doctors/:doctorId/status",
+  validate(schemas.updateDoctorStatus),
+  addDoctorController.updateDoctorStatus
+);
 
 // ===== INVENTORY MANAGEMENT ROUTES =====
 
 /**
- * @route POST /api/shopadmin/inventory/stock-in
+ * @route POST /shop-admin/inventory/stock-in
  * @desc Add stock to shop inventory (from retailer)
  * @access Private (Shop Admin)
  * @body productId, quantity, notes
  */
-router.post("/inventory/stock-in", shopAdminController.stockIn);
+router.post(
+  "/inventory/stock-in",
+  validate(schemas.stockIn),
+  shopAdminController.stockIn
+);
 
 /**
- * @route POST /api/shopadmin/inventory/adjust
+ * @route POST /shop-admin/inventory/adjust
  * @desc Manual stock adjustment
  * @access Private (Shop Admin)
  * @body productId, newQuantity, reason
  */
-router.post("/inventory/adjust", shopAdminController.adjustStock);
+router.post(
+  "/inventory/adjust",
+  validate(schemas.adjustStock),
+  shopAdminController.adjustStock
+);
 
 /**
- * @route GET /api/shopadmin/inventory/status
+ * @route GET /shop-admin/inventory/status
  * @desc Get current inventory status with stock levels
  * @access Private (Shop Admin)
  */
-router.get("/inventory/status", shopAdminController.getInventoryStatus);
+router.get(
+  "/inventory/status",
+  validate(schemas.pagination, "query"),
+  shopAdminController.getInventoryStatus
+);
 
 // ===== EXPORT ROUTES =====
 
 /**
- * @route GET /api/shopadmin/export/pdf
+ * @route GET /shop-admin/export/pdf
  * @desc Export any report as PDF
  * @access Private (Shop Admin)
  * @query reportType, and other report-specific parameters
  */
-router.get("/export/pdf", shopAdminController.exportReportPDF);
+router.get(
+  "/export/pdf",
+  exportLimiter,
+  reportSlowDown,
+  validate(schemas.reportFilters, "query"),
+  shopAdminController.exportReportPDF
+);
 
 /**
- * @route GET /api/shopadmin/export/excel
+ * @route GET /shop-admin/export/excel
  * @desc Export any report as Excel
  * @access Private (Shop Admin)
  * @query reportType, and other report-specific parameters
  */
-router.get("/export/excel", shopAdminController.exportReportExcel);
+router.get(
+  "/export/excel",
+  exportLimiter,
+  reportSlowDown,
+  validate(schemas.reportFilters, "query"),
+  shopAdminController.exportReportExcel
+);
 
 // ===== ERROR HANDLING =====
 
