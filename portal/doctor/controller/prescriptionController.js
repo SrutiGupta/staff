@@ -26,13 +26,17 @@ exports.getPatients = async (req, res) => {
     const patients = await prisma.patient.findMany({
       where: {
         shopId: req.user.shopId, // 🛡️ Only patients from doctor's shop
+        isActive: true, // Only active patients
       },
       select: {
         id: true,
         name: true,
-        email: true,
+        age: true,
+        gender: true,
         phone: true,
         address: true,
+        medicalHistory: true,
+        lastVisit: true,
         createdAt: true,
         shop: {
           select: {
@@ -85,17 +89,42 @@ exports.createPrescription = async (req, res) => {
     if (access.error)
       return res.status(access.status).json({ error: access.error });
 
-    // ✅ Create prescription (link doctorId or staffId if needed)
+    // ✅ Create prescription (without doctor/staff relation for now - schema limitation)
     const newPrescription = await prisma.prescription.create({
       data: {
         patientId: parseInt(patientId),
         rightEye,
         leftEye,
-        staffId: req.user.id, // 🛡️ Use authenticated staff ID (OPTOMETRIST role)
+      },
+      include: {
+        patient: {
+          select: {
+            id: true,
+            name: true,
+            age: true,
+            gender: true,
+            shop: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
+          },
+        },
       },
     });
 
-    res.status(201).json(newPrescription);
+    res.status(201).json({
+      success: true,
+      message: "Prescription created successfully",
+      data: newPrescription,
+      doctorInfo: {
+        id: req.user.id,
+        name: req.user.name,
+        role: req.user.role,
+        shopId: req.user.shopId,
+      },
+    });
   } catch (error) {
     console.error("Error creating prescription:", error);
     res.status(500).json({ error: "Failed to create prescription." });
@@ -109,7 +138,25 @@ exports.getPrescription = async (req, res) => {
 
     const prescription = await prisma.prescription.findUnique({
       where: { id: parseInt(id) },
-      include: { patient: true, doctor: true, staff: true },
+      include: {
+        patient: {
+          select: {
+            id: true,
+            name: true,
+            age: true,
+            gender: true,
+            phone: true,
+            address: true,
+            medicalHistory: true,
+            shop: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
+          },
+        },
+      },
     });
 
     if (!prescription) {
@@ -153,7 +200,23 @@ exports.getAllPrescriptions = async (req, res) => {
         where,
         skip,
         take,
-        include: { patient: true, doctor: true, staff: true },
+        include: {
+          patient: {
+            select: {
+              id: true,
+              name: true,
+              age: true,
+              gender: true,
+              phone: true,
+              shop: {
+                select: {
+                  id: true,
+                  name: true,
+                },
+              },
+            },
+          },
+        },
         orderBy: { createdAt: "desc" },
       }),
       prisma.prescription.count({ where }),
@@ -171,76 +234,248 @@ exports.getAllPrescriptions = async (req, res) => {
   }
 };
 
-// 🛡️ SECURITY FIX: Generate PDF for prescription's invoice with shop isolation
+// 🛡️ SECURITY FIX: Generate PDF for prescription directly (no invoice needed)
 exports.generatePrescriptionPdf = async (req, res) => {
   try {
     const { id } = req.params;
     const prescriptionId = parseInt(id);
 
-    const invoice = await prisma.invoice.findFirst({
-      where: { prescriptionId },
+    const prescription = await prisma.prescription.findUnique({
+      where: { id: prescriptionId },
       include: {
-        patient: true,
-        customer: true,
-        staff: true,
-        doctor: true,
-        items: { include: { product: { include: { company: true } } } },
-        prescription: true,
+        patient: {
+          include: {
+            shop: true,
+          },
+        },
       },
     });
 
-    if (!invoice) {
+    if (!prescription) {
       return res.status(404).json({
-        error: `No invoice found for prescriptionId ${prescriptionId}. Please create an invoice first.`,
+        error: `Prescription ${prescriptionId} not found.`,
       });
     }
 
-    // 🛡️ SECURITY FIX: Check shop access for both staff and doctors
-    if (invoice.staff.shopId !== req.user.shopId) {
+    // 🛡️ SECURITY FIX: Check shop access for doctors
+    if (prescription.patient.shopId !== req.user.shopId) {
       return res.status(403).json({ error: "Access denied. Different shop." });
     }
 
-    const invoiceController = require("./invoiceController");
-    req.params.id = invoice.id;
-    return await invoiceController.generateInvoicePdf(req, res);
+    // Generate prescription PDF using PDFKit
+    const PDFDocument = require("pdfkit");
+    const doc = new PDFDocument({ margin: 50 });
+
+    // Set response headers for PDF download
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="Prescription-${prescriptionId}.pdf"`
+    );
+
+    // Pipe the PDF to the response
+    doc.pipe(res);
+
+    // Header
+    doc.fontSize(20).text("PRESCRIPTION", { align: "center" });
+    doc.moveDown();
+
+    // Shop Information
+    doc.fontSize(14).text(prescription.patient.shop.name, { align: "center" });
+    if (prescription.patient.shop.address) {
+      doc
+        .fontSize(10)
+        .text(prescription.patient.shop.address, { align: "center" });
+    }
+    doc.moveDown();
+
+    // Prescription Details
+    doc.fontSize(12).text(`Prescription ID: ${prescription.id}`);
+    doc.text(`Date: ${prescription.createdAt.toLocaleDateString()}`);
+    doc.text(`Doctor: ${req.user.name} (${req.user.role})`);
+    doc.moveDown();
+
+    // Patient Information
+    doc.fontSize(14).text("Patient Information:", { underline: true });
+    doc.fontSize(12);
+    doc.text(`Name: ${prescription.patient.name}`);
+    doc.text(`Age: ${prescription.patient.age} years`);
+    doc.text(`Gender: ${prescription.patient.gender}`);
+    if (prescription.patient.phone) {
+      doc.text(`Phone: ${prescription.patient.phone}`);
+    }
+    doc.moveDown();
+
+    // Prescription Details
+    doc.fontSize(14).text("Prescription Details:", { underline: true });
+    doc.fontSize(12);
+
+    // Right Eye
+    doc.text("Right Eye (OD):");
+    if (prescription.rightEye.sphere !== undefined)
+      doc.text(`  Sphere: ${prescription.rightEye.sphere}`);
+    if (prescription.rightEye.cylinder !== undefined)
+      doc.text(`  Cylinder: ${prescription.rightEye.cylinder}`);
+    if (prescription.rightEye.axis !== undefined)
+      doc.text(`  Axis: ${prescription.rightEye.axis}°`);
+    if (prescription.rightEye.add !== undefined)
+      doc.text(`  Add: ${prescription.rightEye.add}`);
+
+    doc.moveDown(0.5);
+
+    // Left Eye
+    doc.text("Left Eye (OS):");
+    if (prescription.leftEye.sphere !== undefined)
+      doc.text(`  Sphere: ${prescription.leftEye.sphere}`);
+    if (prescription.leftEye.cylinder !== undefined)
+      doc.text(`  Cylinder: ${prescription.leftEye.cylinder}`);
+    if (prescription.leftEye.axis !== undefined)
+      doc.text(`  Axis: ${prescription.leftEye.axis}°`);
+    if (prescription.leftEye.add !== undefined)
+      doc.text(`  Add: ${prescription.leftEye.add}`);
+
+    doc.moveDown();
+
+    // Additional Notes
+    if (prescription.patient.medicalHistory) {
+      doc.fontSize(12).text("Medical History:", { underline: true });
+      doc.text(prescription.patient.medicalHistory);
+      doc.moveDown();
+    }
+
+    // Footer
+    doc
+      .fontSize(10)
+      .text(`Generated on: ${new Date().toLocaleString()}`, { align: "right" });
+
+    // Finalize the PDF
+    doc.end();
   } catch (error) {
     console.error("Error generating prescription PDF:", error);
     res.status(500).json({ error: "Failed to generate prescription PDF" });
   }
 };
 
-// 🛡️ SECURITY FIX: Generate thermal print for prescription's invoice with shop isolation
+// 🛡️ SECURITY FIX: Generate thermal print for prescription directly (no invoice needed)
 exports.generatePrescriptionThermal = async (req, res) => {
   try {
     const { id } = req.params;
     const prescriptionId = parseInt(id);
+    const printerWidth = parseInt(process.env.THERMAL_PRINTER_WIDTH, 10) || 48;
 
-    const invoice = await prisma.invoice.findFirst({
-      where: { prescriptionId },
+    const prescription = await prisma.prescription.findUnique({
+      where: { id: prescriptionId },
       include: {
-        patient: true,
-        customer: true,
-        staff: true,
-        doctor: true,
-        items: { include: { product: { include: { company: true } } } },
-        prescription: true,
+        patient: {
+          include: {
+            shop: true,
+          },
+        },
       },
     });
 
-    if (!invoice) {
+    if (!prescription) {
       return res.status(404).json({
-        error: `No invoice found for prescriptionId ${prescriptionId}. Please create an invoice first.`,
+        error: `Prescription ${prescriptionId} not found.`,
       });
     }
 
-    // 🛡️ SECURITY FIX: Check shop access for both staff and doctors
-    if (invoice.staff.shopId !== req.user.shopId) {
+    // 🛡️ SECURITY FIX: Check shop access for doctors
+    if (prescription.patient.shopId !== req.user.shopId) {
       return res.status(403).json({ error: "Access denied. Different shop." });
     }
 
-    const invoiceController = require("./invoiceController");
-    req.params.id = invoice.id;
-    return await invoiceController.generateInvoiceThermal(req, res);
+    // Helper functions for formatting
+    const center = (text) =>
+      text
+        .padStart(Math.floor((printerWidth + text.length) / 2), " ")
+        .padEnd(printerWidth, " ");
+    const line = (left, right) =>
+      `${left.padEnd(printerWidth / 2)}${right.padStart(printerWidth / 2)}`;
+    const separator = "-".repeat(printerWidth);
+
+    let receipt = [];
+
+    // Header
+    receipt.push(center("PRESCRIPTION"));
+    receipt.push(center(prescription.patient.shop.name));
+    if (prescription.patient.shop.address) {
+      receipt.push(center(prescription.patient.shop.address));
+    }
+    receipt.push(separator);
+
+    // Prescription Info
+    receipt.push(line("Prescription ID:", prescriptionId.toString()));
+    receipt.push(line("Date:", prescription.createdAt.toLocaleDateString()));
+    receipt.push(line("Doctor:", req.user.name));
+    receipt.push(separator);
+
+    // Patient Info
+    receipt.push(center("PATIENT INFORMATION"));
+    receipt.push(line("Name:", prescription.patient.name));
+    receipt.push(line("Age:", `${prescription.patient.age} years`));
+    receipt.push(line("Gender:", prescription.patient.gender));
+    if (prescription.patient.phone) {
+      receipt.push(line("Phone:", prescription.patient.phone));
+    }
+    receipt.push(separator);
+
+    // Prescription Details
+    receipt.push(center("PRESCRIPTION DETAILS"));
+    receipt.push("");
+
+    // Right Eye
+    receipt.push("Right Eye (OD):");
+    if (prescription.rightEye.sphere !== undefined) {
+      receipt.push(`  Sphere: ${prescription.rightEye.sphere}`);
+    }
+    if (prescription.rightEye.cylinder !== undefined) {
+      receipt.push(`  Cylinder: ${prescription.rightEye.cylinder}`);
+    }
+    if (prescription.rightEye.axis !== undefined) {
+      receipt.push(`  Axis: ${prescription.rightEye.axis}°`);
+    }
+    if (prescription.rightEye.add !== undefined) {
+      receipt.push(`  Add: ${prescription.rightEye.add}`);
+    }
+
+    receipt.push("");
+
+    // Left Eye
+    receipt.push("Left Eye (OS):");
+    if (prescription.leftEye.sphere !== undefined) {
+      receipt.push(`  Sphere: ${prescription.leftEye.sphere}`);
+    }
+    if (prescription.leftEye.cylinder !== undefined) {
+      receipt.push(`  Cylinder: ${prescription.leftEye.cylinder}`);
+    }
+    if (prescription.leftEye.axis !== undefined) {
+      receipt.push(`  Axis: ${prescription.leftEye.axis}°`);
+    }
+    if (prescription.leftEye.add !== undefined) {
+      receipt.push(`  Add: ${prescription.leftEye.add}`);
+    }
+
+    receipt.push(separator);
+
+    // Medical History
+    if (prescription.patient.medicalHistory) {
+      receipt.push(center("MEDICAL HISTORY"));
+      receipt.push(prescription.patient.medicalHistory);
+      receipt.push(separator);
+    }
+
+    // Footer
+    receipt.push(center(`Generated: ${new Date().toLocaleString()}`));
+    receipt.push(separator);
+
+    // Send as plain text for thermal printer
+    res.setHeader("Content-Type", "text/plain");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="Prescription-${prescriptionId}-Thermal.txt"`
+    );
+    res.send(receipt.join("\n"));
   } catch (error) {
     console.error("Error generating prescription thermal:", error);
     res
