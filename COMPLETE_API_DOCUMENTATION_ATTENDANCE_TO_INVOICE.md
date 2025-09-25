@@ -21,7 +21,7 @@
 #### 1. **POST** `/logout`
 
 - **Description**: Mark logout time for authenticated staff
-- **Authentication**: Required (JWT)
+- **Authentication**: Required  (JWT)
 - **Headers**:
   ```json
   {
@@ -43,7 +43,7 @@
 #### 2. **GET** `/`
 
 - **Description**: Get all attendance records for the shop
-- **Authentication**: Required (JWT)
+- **Authentication**: Required shopadmin dont include(JWT)
 - **Headers**:
   ```json
   {
