@@ -171,19 +171,19 @@ router.get(
 router.get("/staff", shopAdminController.getAllStaff);
 
 /**
- * @route GET /api/shopadmin/staff/:staffId
- * @desc Get detailed information about specific staff member
- * @access Private (Shop Admin)
- */
-router.get("/staff/:staffId", shopAdminController.getStaffDetails);
-
-/**
  * @route GET /api/shopadmin/staff/activities
  * @desc Monitor staff activities and performance
  * @access Private (Shop Admin)
  * @query staffId, startDate, endDate (optional filters)
  */
 router.get("/staff/activities", shopAdminController.getStaffActivities);
+
+/**
+ * @route GET /api/shopadmin/staff/:staffId
+ * @desc Get detailed information about specific staff member
+ * @access Private (Shop Admin)
+ */
+router.get("/staff/:staffId", shopAdminController.getStaffDetails);
 
 // ===== DOCTOR MANAGEMENT ROUTES =====
 

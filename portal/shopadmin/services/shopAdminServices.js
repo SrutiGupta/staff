@@ -1080,10 +1080,22 @@ exports.getAllStaff = async (shopId) => {
  */
 exports.getStaffDetails = async (shopId, staffId) => {
   try {
+    // Ensure staffId and shopId are integers
+    const parsedStaffId =
+      typeof staffId === "number" ? staffId : parseInt(staffId);
+    const parsedShopId = typeof shopId === "number" ? shopId : parseInt(shopId);
+
+    if (isNaN(parsedStaffId) || isNaN(parsedShopId)) {
+      throw new Error("Invalid staffId or shopId provided");
+    }
+
     const staff = await prisma.staff.findFirst({
-      where: { id: staffId, shopId },
+      where: {
+        id: parsedStaffId,
+        shopId: parsedShopId,
+      },
       include: {
-        attendance: {
+        attendances: {
           orderBy: { loginTime: "desc" },
           take: 10,
         },
@@ -1093,13 +1105,6 @@ exports.getStaffDetails = async (shopId, staffId) => {
           },
           orderBy: { createdAt: "desc" },
           take: 10,
-        },
-        prescriptions: {
-          include: {
-            patient: { select: { name: true } },
-          },
-          orderBy: { createdAt: "desc" },
-          take: 5,
         },
       },
     });
@@ -1123,22 +1128,30 @@ exports.getStaffActivities = async (
   { staffId, startDate, endDate }
 ) => {
   try {
-    const whereClause = { staff: { shopId } };
-
+    // Build separate where clauses for different models
+    const invoiceWhereClause = { staff: { shopId } };
     if (staffId) {
-      whereClause.staffId = parseInt(staffId);
+      invoiceWhereClause.staffId = parseInt(staffId);
     }
-
     if (startDate && endDate) {
-      whereClause.createdAt = {
+      invoiceWhereClause.createdAt = {
         gte: new Date(startDate),
         lte: new Date(endDate),
       };
     }
 
+    const prescriptionWhereClause = { patient: { shopId } };
+    if (startDate && endDate) {
+      prescriptionWhereClause.createdAt = {
+        gte: new Date(startDate),
+        lte: new Date(endDate),
+      };
+    }
+    // Note: Prescriptions don't have direct staff relationship, so we can't filter by staffId directly
+
     const [invoices, prescriptions, attendance] = await Promise.all([
       prisma.invoice.findMany({
-        where: whereClause,
+        where: invoiceWhereClause,
         include: {
           staff: { select: { name: true } },
           patient: { select: { name: true } },
@@ -1147,10 +1160,14 @@ exports.getStaffActivities = async (
       }),
 
       prisma.prescription.findMany({
-        where: whereClause,
+        where: prescriptionWhereClause,
         include: {
-          staff: { select: { name: true } },
           patient: { select: { name: true } },
+          invoice: {
+            include: {
+              staff: { select: { name: true } },
+            },
+          },
         },
         orderBy: { createdAt: "desc" },
       }),
@@ -1178,14 +1195,16 @@ exports.getStaffActivities = async (
       ...invoices.map((invoice) => ({
         type: "invoice",
         staff: invoice.staff.name,
-        description: `Created invoice #${invoice.id} for ${invoice.patient.name}`,
+        description: `Created invoice #${invoice.id} for ${
+          invoice.patient?.name || "Unknown Patient"
+        }`,
         amount: invoice.totalAmount,
         timestamp: invoice.createdAt,
       })),
       ...prescriptions.map((prescription) => ({
         type: "prescription",
-        staff: prescription.staff.name,
-        description: `Created prescription for ${prescription.patient.name}`,
+        staff: prescription.invoice?.staff?.name || "System",
+        description: `Prescription created for ${prescription.patient.name}`,
         timestamp: prescription.createdAt,
       })),
       ...attendance.map((record) => ({
