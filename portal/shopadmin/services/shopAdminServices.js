@@ -708,7 +708,11 @@ exports.getSalesByStaffReport = async (shopId, { startDate, endDate }) => {
  */
 exports.getInventoryReport = async (shopId, { type, startDate, endDate }) => {
   try {
-    const whereClause = { shopId };
+    const whereClause = {
+      shopInventory: {
+        shopId: shopId
+      }
+    };
 
     if (type && type !== "all") {
       whereClause.type = type.toUpperCase();
@@ -724,8 +728,12 @@ exports.getInventoryReport = async (shopId, { type, startDate, endDate }) => {
     const movements = await prisma.stockMovement.findMany({
       where: whereClause,
       include: {
-        product: {
-          select: { id: true, name: true, sku: true, eyewearType: true },
+        shopInventory: {
+          include: {
+            product: {
+              select: { id: true, name: true, sku: true, eyewearType: true },
+            },
+          },
         },
       },
       orderBy: { createdAt: "desc" },
@@ -734,12 +742,13 @@ exports.getInventoryReport = async (shopId, { type, startDate, endDate }) => {
     // Group by product and type
     const summary = {};
     movements.forEach((movement) => {
-      const key = `${movement.productId}-${movement.type}`;
+      const productId = movement.shopInventory.productId;
+      const key = `${productId}-${movement.type}`;
       if (!summary[key]) {
         summary[key] = {
           product: {
-            ...movement.product,
-            category: movement.product.eyewearType, // Map eyewearType to category
+            ...movement.shopInventory.product,
+            category: movement.shopInventory.product.eyewearType, // Map eyewearType to category
           },
           type: movement.type,
           totalQuantity: 0,
@@ -760,9 +769,10 @@ exports.getInventoryReport = async (shopId, { type, startDate, endDate }) => {
       details: movements.map((movement) => ({
         ...movement,
         product: {
-          ...movement.product,
-          category: movement.product.eyewearType, // Map eyewearType to category
+          ...movement.shopInventory.product,
+          category: movement.shopInventory.product.eyewearType, // Map eyewearType to category
         },
+        productId: movement.shopInventory.productId, // Add productId for compatibility
       })),
     };
   } catch (error) {
