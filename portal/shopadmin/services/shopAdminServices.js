@@ -710,8 +710,8 @@ exports.getInventoryReport = async (shopId, { type, startDate, endDate }) => {
   try {
     const whereClause = {
       shopInventory: {
-        shopId: shopId
-      }
+        shopId: shopId,
+      },
     };
 
     if (type && type !== "all") {
@@ -900,7 +900,7 @@ exports.getLowStockAlerts = async (shopId) => {
 exports.getPatientReport = async (shopId, { type, startDate, endDate }) => {
   try {
     const whereClause = {
-      shopId: shopId
+      shopId: shopId,
     };
 
     if (type === "new" && startDate && endDate) {
@@ -919,10 +919,10 @@ exports.getPatientReport = async (shopId, { type, startDate, endDate }) => {
             select: { id: true, totalAmount: true, createdAt: true },
           },
           prescriptions: {
-            where: { 
+            where: {
               invoice: {
-                staff: { shopId }
-              }
+                staff: { shopId },
+              },
             },
             select: { id: true, createdAt: true },
           },
@@ -1045,7 +1045,7 @@ exports.getAllStaff = async (shopId) => {
     const staff = await prisma.staff.findMany({
       where: { shopId },
       include: {
-        attendance: {
+        attendances: {
           take: 1,
           orderBy: { loginTime: "desc" },
         },
@@ -1061,7 +1061,7 @@ exports.getAllStaff = async (shopId) => {
       email: member.email,
       role: member.role,
       isActive: member.isActive,
-      lastAttendance: member.attendance[0] || null,
+      lastAttendance: member.attendances[0] || null,
       totalSales: member.invoices.reduce(
         (sum, inv) => sum + inv.totalAmount,
         0
