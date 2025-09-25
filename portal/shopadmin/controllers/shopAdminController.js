@@ -1147,22 +1147,25 @@ exports.adjustStock = async (req, res) => {
       );
     }
 
-    // Get current product to validate and calculate difference
-    const product = await prisma.product.findFirst({
+    // Get current shop inventory to validate and calculate difference
+    const currentInventory = await prisma.shopInventory.findFirst({
       where: {
-        id: parseInt(productId),
+        productId: parseInt(productId),
         shopId,
+      },
+      include: {
+        product: true,
       },
     });
 
-    if (!product) {
+    if (!currentInventory) {
       throw new ValidationError(
-        "Product not found or does not belong to this shop",
+        "Product not found in shop inventory",
         "productId"
       );
     }
 
-    const quantityDifference = newQtyNum - product.quantity;
+    const quantityDifference = newQtyNum - currentInventory.quantity;
     const adjustmentTypeDetermined =
       quantityDifference > 0
         ? "increase"
@@ -1174,7 +1177,7 @@ exports.adjustStock = async (req, res) => {
       return res.json({
         message:
           "No adjustment needed - quantity is already at the specified level",
-        currentQuantity: product.quantity,
+        currentQuantity: currentInventory.quantity,
         requestedQuantity: newQtyNum,
       });
     }
@@ -1212,14 +1215,14 @@ exports.adjustStock = async (req, res) => {
           action: "STOCK_ADJUSTMENT",
           targetType: "PRODUCT",
           targetId: productId.toString(),
-          details: `${adjustmentTypeDetermined.toUpperCase()} adjustment: ${
-            product.name
-          } from ${product.quantity} to ${newQtyNum} (${
-            quantityDifference > 0 ? "+" : ""
-          }${quantityDifference}). Reason: ${reason.trim()}`,
-          metadata: {
+          details: {
+            message: `${adjustmentTypeDetermined.toUpperCase()} adjustment: ${
+              currentInventory.product.name
+            } from ${currentInventory.quantity} to ${newQtyNum} (${
+              quantityDifference > 0 ? "+" : ""
+            }${quantityDifference}). Reason: ${reason.trim()}`,
             productId: parseInt(productId),
-            previousQuantity: product.quantity,
+            previousQuantity: currentInventory.quantity,
             newQuantity: newQtyNum,
             difference: quantityDifference,
             adjustmentType,

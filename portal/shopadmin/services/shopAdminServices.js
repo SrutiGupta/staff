@@ -1275,7 +1275,7 @@ exports.stockIn = async (shopId, { productId, quantity, notes, adminId }) => {
  */
 exports.adjustStock = async (
   shopId,
-  { productId, newQuantity, reason, adminId }
+  { productId, newQuantity, reason, adjustmentType, adminId }
 ) => {
   try {
     return await prisma.$transaction(async (prisma) => {
@@ -1303,12 +1303,14 @@ exports.adjustStock = async (
       // Record stock movement
       await prisma.stockMovement.create({
         data: {
-          shopId,
-          productId,
-          type: difference > 0 ? "ADJUSTMENT_IN" : "ADJUSTMENT_OUT",
+          shopInventoryId: inventory.id,
+          type: "ADJUSTMENT",
           quantity: Math.abs(difference),
+          previousQty: oldQuantity,
+          newQty: newQuantity,
+          reason: adjustmentType || "MANUAL_ADJUSTMENT",
           notes: reason || "Manual stock adjustment",
-          createdBy: adminId,
+          adminId: adminId,
         },
       });
 

@@ -81,8 +81,8 @@ const schemas = {
     newQuantity: Joi.number().integer().min(0).required().messages({
       "number.min": "New quantity cannot be negative",
     }),
-    reason: Joi.string().min(5).max(500).required().messages({
-      "string.min": "Reason must be at least 5 characters long",
+    reason: Joi.string().min(10).max(500).required().messages({
+      "string.min": "Adjustment reason must be at least 10 characters",
       "any.required": "Reason for stock adjustment is required",
     }),
   }),
