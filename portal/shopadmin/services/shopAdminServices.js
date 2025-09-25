@@ -231,6 +231,7 @@ exports.getRecentActivities = async (shopId) => {
           include: {
             staff: { select: { name: true } },
             patient: { select: { name: true } },
+            customer: { select: { name: true } },
           },
         }),
 
@@ -259,28 +260,54 @@ exports.getRecentActivities = async (shopId) => {
                 product: { select: { name: true } },
               },
             },
+            staff: { select: { name: true } },
           },
         }),
       ]);
 
-    const activities = [
-      ...recentInvoices.map((invoice) => ({
-        type: "sale",
-        message: `${invoice.staff.name} created invoice #${invoice.id} for ${invoice.patient.name}`,
-        amount: invoice.totalAmount,
-        timestamp: invoice.createdAt,
-      })),
-      ...recentAttendance.map((attendance) => ({
-        type: "attendance",
-        message: `${attendance.staff.name} checked in`,
-        timestamp: attendance.loginTime,
-      })),
-      ...recentInventory.map((movement) => ({
-        type: "inventory",
-        message: `${movement.shopInventory.product.name} - ${movement.type} (${movement.quantity} units)`,
-        timestamp: movement.createdAt,
-      })),
-    ];
+    const activities = [];
+
+    // Process invoices with null safety
+    recentInvoices.forEach((invoice) => {
+      if (invoice && invoice.staff && invoice.staff.name) {
+        const customerName =
+          invoice.patient?.name || invoice.customer?.name || "Unknown Customer";
+        activities.push({
+          type: "sale",
+          message: `${invoice.staff.name} created invoice #${invoice.id} for ${customerName}`,
+          amount: invoice.totalAmount,
+          timestamp: invoice.createdAt,
+        });
+      }
+    });
+
+    // Process attendance with null safety
+    recentAttendance.forEach((attendance) => {
+      if (attendance && attendance.staff && attendance.staff.name) {
+        activities.push({
+          type: "attendance",
+          message: `${attendance.staff.name} checked in`,
+          timestamp: attendance.loginTime,
+        });
+      }
+    });
+
+    // Process inventory movements with null safety
+    recentInventory.forEach((movement) => {
+      if (
+        movement &&
+        movement.shopInventory &&
+        movement.shopInventory.product &&
+        movement.shopInventory.product.name
+      ) {
+        const staffName = movement.staff?.name || "System";
+        activities.push({
+          type: "inventory",
+          message: `${staffName} - ${movement.shopInventory.product.name} ${movement.type} (${movement.quantity} units)`,
+          timestamp: movement.createdAt,
+        });
+      }
+    });
 
     // Sort by timestamp and return latest 10
     return activities
@@ -568,7 +595,7 @@ exports.getProductSalesReport = async (
       where: whereClause,
       _sum: {
         quantity: true,
-        price: true,
+        totalPrice: true,
       },
       _count: {
         id: true,
@@ -602,11 +629,13 @@ exports.getProductSalesReport = async (
           company: product.company.name, // Extract company name
         },
         totalQuantitySold: sales._sum.quantity || 0,
-        totalRevenue: sales._sum.price || 0,
-        totalTransactions: sales._count || 0,
+        totalRevenue: sales._sum.totalPrice || 0,
+        totalTransactions: sales._count.id || 0,
         avgPricePerUnit:
           sales._sum.quantity > 0
-            ? parseFloat((sales._sum.price / sales._sum.quantity).toFixed(2))
+            ? parseFloat(
+                (sales._sum.totalPrice / sales._sum.quantity).toFixed(2)
+              )
             : 0,
       };
     });
