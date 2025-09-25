@@ -899,7 +899,9 @@ exports.getLowStockAlerts = async (shopId) => {
  */
 exports.getPatientReport = async (shopId, { type, startDate, endDate }) => {
   try {
-    const whereClause = {};
+    const whereClause = {
+      shopId: shopId
+    };
 
     if (type === "new" && startDate && endDate) {
       whereClause.createdAt = {
@@ -917,7 +919,11 @@ exports.getPatientReport = async (shopId, { type, startDate, endDate }) => {
             select: { id: true, totalAmount: true, createdAt: true },
           },
           prescriptions: {
-            where: { staff: { shopId } },
+            where: { 
+              invoice: {
+                staff: { shopId }
+              }
+            },
             select: { id: true, createdAt: true },
           },
         },
