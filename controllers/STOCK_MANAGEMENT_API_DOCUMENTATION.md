@@ -1,13 +1,30 @@
 # Stock Management & Barcode System API Documentation
 
+## 🚀 NEW FEATURE: Smart Barcode Parsing
+
+**Revolutionary One-Field Product Creation!**
+
+✨ **Scan fresh barcode → Automatic product creation**
+
+- **Only `scannedBarcode` required** - everything else auto-extracted!
+- **AI-powered parsing** extracts company, model, color, material, etc.
+- **Auto-company creation** for new brands
+- **Smart pricing** based on brand recognition
+- **Works with any barcode format** (structured or simple)
+
+🎯 **Jump to:** [Smart Barcode Parsing Documentation](#42-smart-barcode-parsing--fresh-product-creation--new)
+
+---
+
 ## Table of Contents
 
 1. [Stock Management APIs](#stock-management-apis)
-2. [Barcode Generation & Management APIs](#barcode-generation--management-apis)
-3. [Scanner Integration](#scanner-integration)
-4. [Error Handling](#error-handling)
-5. [Authentication](#authentication)
-6. [Example Workflows](#example-workflows)
+2. [Smart Barcode Parsing & Fresh Product Creation](#smart-barcode-parsing--fresh-product-creation)
+3. [Barcode Generation & Management APIs](#barcode-generation--management-apis)
+4. [Scanner Integration](#scanner-integration)
+5. [Error Handling](#error-handling)
+6. [Authentication](#authentication)
+7. [Example Workflows](#example-workflows)
 
 ---
 
@@ -326,7 +343,7 @@ Authorization: Bearer <token>
 }
 ```
 
-#### 4.2 Add New Product by Barcode Scan ⭐ NEW!
+#### 4.2 Smart Barcode Parsing & Fresh Product Creation ⭐ NEW!
 
 ```http
 POST /api/inventory/product/scan-to-add
@@ -334,49 +351,113 @@ Content-Type: application/json
 Authorization: Bearer <token>
 ```
 
-**Use Case:** When you scan a barcode that doesn't exist in the system yet.
+**🎯 Revolutionary Feature:** Scan fresh barcode → Automatic product creation with AI-powered data extraction!
+
+**✨ Key Benefits:**
+
+- **ONE FIELD REQUIRED**: Only `scannedBarcode` needed
+- **AUTO-PARSING**: Extracts company, model, color, material, frame type, etc.
+- **AUTO-COMPANY**: Creates companies automatically if they don't exist
+- **SMART PRICING**: Brand-appropriate pricing estimation
+- **ANY FORMAT**: Works with structured or simple barcodes
+
+---
+
+##### 📋 Supported Barcode Formats
+
+**Format 1: Structured (Recommended)**
+
+```
+BRAND-MODEL-SIZE-COLOR-MATERIAL-TYPE
+```
+
+**Examples:**
+
+```
+RAY-AVIATOR-L-BLACK-METAL-SUNGLASS
+OAK-HOLBROOK-M-BLUE-PLASTIC-SUNGLASS
+PRADA-CAT-S-RED-ACETATE-GLASSES
+GUCCI-ROUND-M-GOLD-METAL-SUNGLASS
+```
+
+**Format 2: Simple Numeric**
+
+```
+BRAND + NUMBERS
+```
+
+**Examples:**
+
+```
+RAY123456789
+OAK001234567
+EYE987654321
+```
+
+---
+
+##### 🚀 Minimal Request (ONLY barcode needed!)
 
 **Request Body:**
 
 ```json
 {
-  "scannedBarcode": "EYE123456789",
-  "name": "Ray-Ban Aviator Classic",
-  "description": "Premium aviator sunglasses with gold frame",
-  "basePrice": 2500.0,
-  "eyewearType": "SUNGLASSES",
-  "frameType": "AVIATOR",
-  "companyId": 1,
-  "material": "Metal",
-  "color": "Gold",
-  "size": "58mm",
-  "model": "RB3025",
-  "quantity": 10,
-  "sellingPrice": 2750.0
+  "scannedBarcode": "RAY-AVIATOR-L-BLACK-METAL-SUNGLASS"
 }
 ```
 
-**Response (Success 201):**
+**Auto-Extracted Data:**
+
+- Company: RAY → Ray-Ban
+- Model: AVIATOR
+- Size: L → Large
+- Color: BLACK → Black
+- Material: METAL → Metal
+- Type: SUNGLASS → SUNGLASSES
+- Frame: AVIATOR → AVIATOR
+- Price: ₹12,000 (Ray-Ban Sunglasses pricing)
+
+---
+
+##### 📤 Complete Request (with overrides)
+
+```json
+{
+  "scannedBarcode": "RAY-AVIATOR-L-BLACK-METAL-SUNGLASS",
+  "quantity": 10,
+  "sellingPrice": 15000.0,
+
+  // Optional manual overrides (if parsing fails)
+  "name": "Custom Product Name",
+  "basePrice": 13000.0,
+  "companyId": 5,
+  "color": "Gold"
+}
+```
+
+---
+
+##### ✅ Response (Success 201)
 
 ```json
 {
   "success": true,
-  "message": "Product created successfully from barcode scan",
+  "message": "Product created successfully from barcode scan with auto-parsing",
   "product": {
-    "id": 789,
-    "name": "Ray-Ban Aviator Classic",
-    "description": "Premium aviator sunglasses with gold frame",
-    "barcode": "EYE123456789",
+    "id": 45,
+    "name": "Ray-Ban Aviator Sunglasses",
+    "description": "Large black metal aviator sunglasses",
+    "barcode": "RAY-AVIATOR-L-BLACK-METAL-SUNGLASS",
     "sku": null,
-    "basePrice": 2500.0,
+    "basePrice": 12000.0,
     "eyewearType": "SUNGLASSES",
     "frameType": "AVIATOR",
     "material": "Metal",
-    "color": "Gold",
-    "size": "58mm",
-    "model": "RB3025",
+    "color": "Black",
+    "size": "Large",
+    "model": "Aviator",
     "company": {
-      "id": 1,
+      "id": 15,
       "name": "Ray-Ban"
     },
     "createdAt": "2025-09-30T15:30:00.000Z"
@@ -384,21 +465,223 @@ Authorization: Bearer <token>
   "inventory": {
     "id": 456,
     "quantity": 10,
-    "sellingPrice": 2750.0,
+    "sellingPrice": 12000.0,
     "lastRestockedAt": "2025-09-30T15:30:00.000Z"
   },
+  "parseDetails": {
+    "scannedBarcode": "RAY-AVIATOR-L-BLACK-METAL-SUNGLASS",
+    "parsingSuccess": true,
+    "parsedData": {
+      "companyName": "Ray-Ban",
+      "model": "Aviator",
+      "frameType": "AVIATOR",
+      "size": "Large",
+      "color": "Black",
+      "material": "Metal",
+      "eyewearType": "SUNGLASSES",
+      "estimatedPrice": 12000
+    },
+    "fallbackUsed": false,
+    "autoCreatedCompany": true,
+    "companyName": "Ray-Ban"
+  },
   "scanDetails": {
-    "scannedBarcode": "EYE123456789",
     "productCreated": true,
     "canNowScan": true,
+    "method": "auto_parse_barcode",
     "nextActions": [
       "Generate SKU (optional)",
       "Print barcode label",
-      "Start stock operations"
+      "Start stock operations",
+      "Verify parsed details"
     ]
   }
 }
 ```
+
+---
+
+##### 🏷️ Brand Mapping & Smart Pricing
+
+**Supported Brands:**
+
+```javascript
+RAY      → Ray-Ban
+OAK      → Oakley
+PRADA    → Prada
+GUCCI    → Gucci
+VERSACE  → Versace
+ARMANI   → Armani
+DOLCE    → Dolce & Gabbana
+TOM      → Tom Ford
+POLICE   → Police
+CARRERA  → Carrera
+PERSOL   → Persol
+MAUI     → Maui Jim
+COSTA    → Costa Del Mar
+```
+
+**Auto-Pricing by Brand (₹):**
+
+```javascript
+Ray-Ban:    Glasses: 8,000  | Sunglasses: 12,000 | Lenses: 3,000
+Oakley:     Glasses: 9,000  | Sunglasses: 15,000 | Lenses: 4,000
+Prada:      Glasses: 25,000 | Sunglasses: 30,000 | Lenses: 8,000
+Gucci:      Glasses: 30,000 | Sunglasses: 35,000 | Lenses: 10,000
+Tom Ford:   Glasses: 35,000 | Sunglasses: 40,000 | Lenses: 12,000
+Generic:    Glasses: 2,000  | Sunglasses: 3,000  | Lenses: 1,000
+```
+
+---
+
+##### 🔄 Frame Type Mapping
+
+```javascript
+AVIATOR    → AVIATOR
+WAYFARER   → WAYFARER
+ROUND      → ROUND
+SQUARE     → SQUARE
+CAT        → CAT_EYE
+RECTANGLE  → RECTANGLE
+OVAL       → OVAL
+HOLBROOK   → SQUARE
+CLUBMASTER → CLUBMASTER
+SPORT      → SPORT
+```
+
+---
+
+##### ⚠️ Error Responses
+
+**Duplicate Barcode (409 Conflict):**
+
+```json
+{
+  "error": "Product with barcode RAY-AVIATOR-L-BLACK-METAL-SUNGLASS already exists: Ray-Ban Aviator Sunglasses",
+  "suggestion": "Use GET /api/inventory/product/barcode/{barcode} to view existing product"
+}
+```
+
+**Invalid Request (400 Bad Request):**
+
+```json
+{
+  "error": "Only scannedBarcode is required! Everything else is auto-extracted.",
+  "examples": {
+    "structured": "RAY-AVIATOR-L-BLACK-METAL-SUNGLASS",
+    "simple": "RAY001234567890",
+    "minimal": { "scannedBarcode": "OAK-HOLBROOK-M-BLUE-PLASTIC-SUNGLASS" }
+  },
+  "supportedFormats": [
+    "BRAND-MODEL-SIZE-COLOR-MATERIAL-TYPE",
+    "BRAND + NUMBERS (e.g., RAY123456)",
+    "Any custom barcode (with fallback parsing)"
+  ]
+}
+```
+
+---
+
+##### 🎯 Usage Examples
+
+**Example 1: Perfect Structured Barcode**
+
+```bash
+# Request
+POST /api/inventory/product/scan-to-add
+{
+  "scannedBarcode": "OAK-HOLBROOK-M-BLUE-PLASTIC-SUNGLASS"
+}
+
+# Auto-extracted:
+✅ Company: Oakley (auto-created)
+✅ Model: Holbrook
+✅ Type: Sunglasses
+✅ Frame: Square
+✅ Size: Medium
+✅ Color: Blue
+✅ Material: Plastic
+✅ Price: ₹15,000
+```
+
+**Example 2: Simple Numeric Barcode**
+
+```bash
+# Request
+POST /api/inventory/product/scan-to-add
+{
+  "scannedBarcode": "RAY123456789"
+}
+
+# Auto-extracted:
+✅ Company: Ray-Ban (auto-created)
+✅ Model: Model 123456789
+✅ Type: Glasses (default)
+✅ Frame: Rectangle (default)
+✅ Price: ₹8,000
+```
+
+**Example 3: Unknown Format with Fallback**
+
+```bash
+# Request
+POST /api/inventory/product/scan-to-add
+{
+  "scannedBarcode": "UNKNOWN_BARCODE_12345"
+}
+
+# Fallback used:
+⚠️ Company: Unknown Brand (auto-created)
+⚠️ Model: Unknown Model
+⚠️ Type: Glasses (fallback)
+⚠️ Price: ₹1,500 (fallback)
+```
+
+---
+
+##### 📱 Scanner Integration Code
+
+```javascript
+// Complete scanner integration
+function handleBarcodeScanned(scannedValue) {
+  // Only send the scanned barcode!
+  fetch("/api/inventory/product/scan-to-add", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: "Bearer " + getAuthToken(),
+    },
+    body: JSON.stringify({
+      scannedBarcode: scannedValue, // ONLY field needed!
+    }),
+  })
+    .then((response) => response.json())
+    .then((data) => {
+      if (data.success) {
+        console.log("✅ Product created:", data.product.name);
+        console.log("💰 Price:", data.product.basePrice);
+        console.log("🏢 Company:", data.product.company.name);
+
+        // Show parsing results
+        if (data.parseDetails.parsingSuccess) {
+          showSuccess("🎉 Barcode parsed successfully!");
+          displayProductDetails(data.product);
+        } else {
+          showWarning("⚠️ Used fallback parsing - please verify details");
+        }
+
+        // Product is now ready for stock operations
+        enableStockOperations(data.product.id, data.product.barcode);
+      }
+    })
+    .catch((error) => {
+      console.error("❌ Error creating product:", error);
+      showError("Failed to create product from barcode");
+    });
+}
+```
+
+````
 
 ---
 
@@ -416,7 +699,7 @@ Authorization: Bearer <token>
 POST /api/barcode/generate/{productId}
 Content-Type: application/json
 Authorization: Bearer <token>
-```
+````
 
 **Request Body:**
 

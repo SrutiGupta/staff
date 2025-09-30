@@ -22,7 +22,8 @@ router.get(
   inventoryController.getProductByBarcode
 );
 
-// Add new product by barcode scanning (when barcode is scanned but product doesn't exist)
+// Add new product by barcode scanning (ONLY REQUIRES SCANNED BARCODE!)
+// Smart parsing extracts: company, model, frame type, color, material, etc.
 router.post(
   "/product/scan-to-add",
   auth,

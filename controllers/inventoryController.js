@@ -1507,10 +1507,223 @@ exports.getCompanyProducts = async (req, res) => {
   }
 };
 
+// Smart Barcode Parser - Extract product information from barcode
+const parseBarcodeData = (barcode) => {
+  try {
+    // Example barcode formats:
+    // Format 1: RAY-AVIATOR-L-BLACK-METAL-SUNGLASS (Ray-Ban Aviator Large Black Metal Sunglasses)
+    // Format 2: OAK-HOLBROOK-M-BLUE-PLASTIC-SUNGLASS (Oakley Holbrook Medium Blue Plastic Sunglasses)
+    // Format 3: PRADA-CAT-S-RED-ACETATE-GLASSES (Prada Cat Eye Small Red Acetate Glasses)
+    // Format 4: EYE123456789 (Simple numeric format)
+
+    // Clean the barcode
+    const cleanBarcode = barcode.toUpperCase().trim();
+
+    // Check if barcode contains structured data (has dashes)
+    if (cleanBarcode.includes("-")) {
+      const parts = cleanBarcode.split("-");
+
+      if (parts.length >= 6) {
+        const [companyCode, frameModel, size, color, material, eyewearType] =
+          parts;
+
+        // Map company codes to actual company names
+        const companyMap = {
+          RAY: "Ray-Ban",
+          OAK: "Oakley",
+          PRADA: "Prada",
+          GUCCI: "Gucci",
+          VERSACE: "Versace",
+          ARMANI: "Armani",
+          DOLCE: "Dolce & Gabbana",
+          TOM: "Tom Ford",
+          POLICE: "Police",
+          CARRERA: "Carrera",
+          PERSOL: "Persol",
+          MAUI: "Maui Jim",
+          COSTA: "Costa Del Mar",
+        };
+
+        // Map frame types
+        const frameTypeMap = {
+          AVIATOR: "AVIATOR",
+          WAYFARER: "WAYFARER",
+          ROUND: "ROUND",
+          SQUARE: "SQUARE",
+          CAT: "CAT_EYE",
+          RECTANGLE: "RECTANGLE",
+          OVAL: "OVAL",
+          HOLBROOK: "SQUARE",
+          CLUBMASTER: "CLUBMASTER",
+          SPORT: "SPORT",
+        };
+
+        // Map eyewear types
+        const eyewearTypeMap = {
+          SUNGLASS: "SUNGLASSES",
+          SUNGLASSES: "SUNGLASSES",
+          GLASSES: "GLASSES",
+          LENS: "LENSES",
+          LENSES: "LENSES",
+        };
+
+        // Map sizes
+        const sizeMap = {
+          XS: "Extra Small",
+          S: "Small",
+          M: "Medium",
+          L: "Large",
+          XL: "Extra Large",
+        };
+
+        return {
+          success: true,
+          parsed: true,
+          companyName: companyMap[companyCode] || companyCode,
+          model:
+            frameModel.charAt(0).toUpperCase() +
+            frameModel.slice(1).toLowerCase(),
+          frameType: frameTypeMap[frameModel] || "RECTANGLE",
+          size: sizeMap[size] || size,
+          color: color.charAt(0).toUpperCase() + color.slice(1).toLowerCase(),
+          material:
+            material.charAt(0).toUpperCase() + material.slice(1).toLowerCase(),
+          eyewearType: eyewearTypeMap[eyewearType] || "GLASSES",
+          name: `${companyMap[companyCode] || companyCode} ${frameModel} ${
+            eyewearTypeMap[eyewearType] || "Glasses"
+          }`,
+          description: `${
+            sizeMap[size] || size
+          } ${color.toLowerCase()} ${material.toLowerCase()} ${frameModel.toLowerCase()} ${
+            eyewearTypeMap[eyewearType]?.toLowerCase() || "glasses"
+          }`,
+          estimatedPrice: getEstimatedPrice(
+            companyMap[companyCode] || companyCode,
+            eyewearTypeMap[eyewearType] || "GLASSES"
+          ),
+        };
+      }
+    }
+
+    // For simple numeric barcodes, extract basic info
+    const numericMatch = cleanBarcode.match(/^([A-Z]{2,4})(\d+)$/);
+    if (numericMatch) {
+      const [, prefix, numbers] = numericMatch;
+
+      const companyMap = {
+        RAY: "Ray-Ban",
+        OAK: "Oakley",
+        EYE: "Generic Eyewear",
+      };
+
+      return {
+        success: true,
+        parsed: true,
+        companyName: companyMap[prefix] || "Unknown Brand",
+        model: `Model ${numbers}`,
+        frameType: "RECTANGLE",
+        size: "Medium",
+        color: "Black",
+        material: "Plastic",
+        eyewearType: "GLASSES",
+        name: `${companyMap[prefix] || "Unknown"} Model ${numbers}`,
+        description: `Medium black plastic glasses - Model ${numbers}`,
+        estimatedPrice: getEstimatedPrice(
+          companyMap[prefix] || "Unknown",
+          "GLASSES"
+        ),
+      };
+    }
+
+    // Fallback for unrecognized barcode patterns
+    return {
+      success: false,
+      parsed: false,
+      error: "Barcode format not recognized",
+      fallback: {
+        companyName: "Unknown Brand",
+        model: "Unknown Model",
+        frameType: "RECTANGLE",
+        size: "Medium",
+        color: "Black",
+        material: "Plastic",
+        eyewearType: "GLASSES",
+        name: `Product ${barcode}`,
+        description: `Product with barcode ${barcode}`,
+        estimatedPrice: 1500.0,
+      },
+    };
+  } catch (error) {
+    return {
+      success: false,
+      parsed: false,
+      error: error.message,
+      fallback: {
+        companyName: "Unknown Brand",
+        model: "Unknown Model",
+        frameType: "RECTANGLE",
+        size: "Medium",
+        color: "Black",
+        material: "Plastic",
+        eyewearType: "GLASSES",
+        name: `Product ${barcode}`,
+        description: `Product with barcode ${barcode}`,
+        estimatedPrice: 1500.0,
+      },
+    };
+  }
+};
+
+// Get estimated price based on brand and type
+const getEstimatedPrice = (brandName, eyewearType) => {
+  const brandPricing = {
+    "Ray-Ban": { GLASSES: 8000, SUNGLASSES: 12000, LENSES: 3000 },
+    Oakley: { GLASSES: 9000, SUNGLASSES: 15000, LENSES: 4000 },
+    Prada: { GLASSES: 25000, SUNGLASSES: 30000, LENSES: 8000 },
+    Gucci: { GLASSES: 30000, SUNGLASSES: 35000, LENSES: 10000 },
+    Versace: { GLASSES: 20000, SUNGLASSES: 25000, LENSES: 7000 },
+    Armani: { GLASSES: 15000, SUNGLASSES: 18000, LENSES: 5000 },
+    "Tom Ford": { GLASSES: 35000, SUNGLASSES: 40000, LENSES: 12000 },
+    Police: { GLASSES: 6000, SUNGLASSES: 8000, LENSES: 2500 },
+    "Generic Eyewear": { GLASSES: 2000, SUNGLASSES: 3000, LENSES: 1000 },
+  };
+
+  return brandPricing[brandName]?.[eyewearType] || 1500;
+};
+
+// Helper function to find or create company
+const findOrCreateCompany = async (companyName, tx) => {
+  // First try to find existing company (case-insensitive)
+  let company = await tx.company.findFirst({
+    where: {
+      name: {
+        equals: companyName,
+        mode: "insensitive",
+      },
+    },
+  });
+
+  // If not found, create new company
+  if (!company) {
+    company = await tx.company.create({
+      data: {
+        name: companyName,
+        description: `Auto-created company for ${companyName} products`,
+      },
+    });
+  }
+
+  return company;
+};
+
 // Add new product by barcode scanning - when barcode is scanned but product doesn't exist
+// NOW ONLY REQUIRES THE SCANNED BARCODE!
 exports.addProductByBarcodeScan = async (req, res) => {
   const {
-    scannedBarcode, // The barcode that was scanned
+    scannedBarcode, // The ONLY required field!
+    quantity = 0, // Optional initial stock quantity
+    sellingPrice, // Optional selling price override
+    // Optional manual overrides (if barcode parsing fails)
     name,
     description,
     basePrice,
@@ -1521,47 +1734,72 @@ exports.addProductByBarcodeScan = async (req, res) => {
     color,
     size,
     model,
-    quantity = 0, // Initial stock quantity
-    sellingPrice, // Optional selling price override
   } = req.body;
 
-  // Validate required fields
-  if (
-    !scannedBarcode ||
-    !name ||
-    basePrice === undefined ||
-    !eyewearType ||
-    !companyId
-  ) {
+  // Only validate scannedBarcode - everything else is auto-parsed!
+  if (!scannedBarcode) {
     return res.status(400).json({
       error:
-        "scannedBarcode, name, basePrice, eyewearType, and companyId are required fields.",
-      example: {
-        scannedBarcode: "EYE001234567890",
-        name: "Ray-Ban Aviator",
-        basePrice: 2500.0,
-        eyewearType: "SUNGLASSES",
-        companyId: 1,
-        frameType: "AVIATOR",
-        quantity: 10,
+        "Only scannedBarcode is required! Everything else is auto-extracted.",
+      examples: {
+        structured: "RAY-AVIATOR-L-BLACK-METAL-SUNGLASS",
+        simple: "RAY001234567890",
+        minimal: { scannedBarcode: "OAK-HOLBROOK-M-BLUE-PLASTIC-SUNGLASS" },
       },
+      supportedFormats: [
+        "BRAND-MODEL-SIZE-COLOR-MATERIAL-TYPE",
+        "BRAND + NUMBERS (e.g., RAY123456)",
+        "Any custom barcode (with fallback parsing)",
+      ],
     });
   }
 
-  // Validate eyewear type
-  const validEyewearTypes = ["GLASSES", "SUNGLASSES", "LENSES"];
-  if (!validEyewearTypes.includes(eyewearType)) {
-    return res.status(400).json({
-      error: "Invalid eyewearType. Must be GLASSES, SUNGLASSES, or LENSES.",
-    });
-  }
+  // Parse barcode to extract product information
+  const parseResult = parseBarcodeData(scannedBarcode);
 
-  // Validate frame type for glasses and sunglasses
-  if (eyewearType !== "LENSES" && !frameType) {
-    return res.status(400).json({
-      error: "FrameType is required for glasses and sunglasses.",
-    });
-  }
+  // Use parsed data or manual overrides
+  const productData = {
+    name:
+      name ||
+      (parseResult.success ? parseResult.name : parseResult.fallback.name),
+    description:
+      description ||
+      (parseResult.success
+        ? parseResult.description
+        : parseResult.fallback.description),
+    basePrice:
+      basePrice ||
+      (parseResult.success
+        ? parseResult.estimatedPrice
+        : parseResult.fallback.estimatedPrice),
+    eyewearType:
+      eyewearType ||
+      (parseResult.success
+        ? parseResult.eyewearType
+        : parseResult.fallback.eyewearType),
+    frameType:
+      frameType ||
+      (parseResult.success
+        ? parseResult.frameType
+        : parseResult.fallback.frameType),
+    material:
+      material ||
+      (parseResult.success
+        ? parseResult.material
+        : parseResult.fallback.material),
+    color:
+      color ||
+      (parseResult.success ? parseResult.color : parseResult.fallback.color),
+    size:
+      size ||
+      (parseResult.success ? parseResult.size : parseResult.fallback.size),
+    model:
+      model ||
+      (parseResult.success ? parseResult.model : parseResult.fallback.model),
+    companyName: parseResult.success
+      ? parseResult.companyName
+      : parseResult.fallback.companyName,
+  };
 
   try {
     const shopIdInt = await validateShopAccess(req);
@@ -1579,29 +1817,30 @@ exports.addProductByBarcodeScan = async (req, res) => {
         );
       }
 
-      // Check if company exists
-      const company = await tx.company.findUnique({
-        where: { id: parseInt(companyId) },
-      });
+      // Find or create company based on parsed data
+      const company = companyId
+        ? await tx.company.findUnique({ where: { id: parseInt(companyId) } })
+        : await findOrCreateCompany(productData.companyName, tx);
 
       if (!company) {
-        throw new Error("Company not found.");
+        throw new Error("Company not found and could not be created.");
       }
 
-      // Create the product with the scanned barcode
+      // Create the product with the scanned barcode and parsed data
       const product = await tx.product.create({
         data: {
-          name,
-          description,
+          name: productData.name,
+          description: productData.description,
           barcode: scannedBarcode, // Use the scanned barcode
-          basePrice: parseFloat(basePrice),
-          eyewearType,
-          frameType: eyewearType === "LENSES" ? null : frameType,
-          companyId: parseInt(companyId),
-          material,
-          color,
-          size,
-          model,
+          basePrice: parseFloat(productData.basePrice),
+          eyewearType: productData.eyewearType,
+          frameType:
+            productData.eyewearType === "LENSES" ? null : productData.frameType,
+          companyId: company.id,
+          material: productData.material,
+          color: productData.color,
+          size: productData.size,
+          model: productData.model,
         },
         include: {
           company: true,
@@ -1645,7 +1884,8 @@ exports.addProductByBarcodeScan = async (req, res) => {
 
     res.status(201).json({
       success: true,
-      message: "Product created successfully from barcode scan",
+      message:
+        "Product created successfully from barcode scan with auto-parsing",
       product: {
         id: product.id,
         name: product.name,
@@ -1673,14 +1913,23 @@ exports.addProductByBarcodeScan = async (req, res) => {
             lastRestockedAt: inventory.lastRestockedAt,
           }
         : null,
-      scanDetails: {
+      parseDetails: {
         scannedBarcode: scannedBarcode,
+        parsingSuccess: parseResult.success,
+        parsedData: parseResult.success ? parseResult : null,
+        fallbackUsed: !parseResult.success,
+        autoCreatedCompany: !companyId,
+        companyName: product.company.name,
+      },
+      scanDetails: {
         productCreated: true,
         canNowScan: true,
+        method: "auto_parse_barcode",
         nextActions: [
           "Generate SKU (optional)",
           "Print barcode label",
           "Start stock operations",
+          "Verify parsed details",
         ],
       },
     });
