@@ -36,8 +36,14 @@ exports.generateBarcodeForProduct = async (req, res) => {
 
   try {
     // Check if product exists and doesn't have a barcode
+    const productIdInt = parseInt(productId, 10);
+
+    if (isNaN(productIdInt)) {
+      return res.status(400).json({ error: "Invalid product ID." });
+    }
+
     const product = await prisma.product.findUnique({
-      where: { id: parseInt(productId) },
+      where: { id: productIdInt },
       include: { company: true },
     });
 
