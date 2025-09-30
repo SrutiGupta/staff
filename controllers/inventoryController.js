@@ -921,10 +921,12 @@ exports.getProductByBarcode = async (req, res) => {
     if (!product) {
       return res.status(404).json({
         error: `Product with barcode ${barcode} not found.`,
-        suggestion: "Check if the barcode is correct or if the product needs to be added to the system.",
+        suggestion:
+          "Check if the barcode is correct or if the product needs to be added to the system.",
         canCreateNew: true,
         scannedBarcode: barcode,
-        nextAction: "Use POST /api/inventory/product/scan-to-add to create a new product with this barcode"
+        nextAction:
+          "Use POST /api/inventory/product/scan-to-add to create a new product with this barcode",
       });
     }
 
@@ -1520,22 +1522,29 @@ exports.addProductByBarcodeScan = async (req, res) => {
     size,
     model,
     quantity = 0, // Initial stock quantity
-    sellingPrice // Optional selling price override
+    sellingPrice, // Optional selling price override
   } = req.body;
 
   // Validate required fields
-  if (!scannedBarcode || !name || basePrice === undefined || !eyewearType || !companyId) {
+  if (
+    !scannedBarcode ||
+    !name ||
+    basePrice === undefined ||
+    !eyewearType ||
+    !companyId
+  ) {
     return res.status(400).json({
-      error: "scannedBarcode, name, basePrice, eyewearType, and companyId are required fields.",
+      error:
+        "scannedBarcode, name, basePrice, eyewearType, and companyId are required fields.",
       example: {
         scannedBarcode: "EYE001234567890",
         name: "Ray-Ban Aviator",
-        basePrice: 2500.00,
+        basePrice: 2500.0,
         eyewearType: "SUNGLASSES",
         companyId: 1,
         frameType: "AVIATOR",
-        quantity: 10
-      }
+        quantity: 10,
+      },
     });
   }
 
@@ -1565,7 +1574,9 @@ exports.addProductByBarcodeScan = async (req, res) => {
       });
 
       if (existingProduct) {
-        throw new Error(`Product with barcode ${scannedBarcode} already exists: ${existingProduct.name}`);
+        throw new Error(
+          `Product with barcode ${scannedBarcode} already exists: ${existingProduct.name}`
+        );
       }
 
       // Check if company exists
@@ -1605,7 +1616,9 @@ exports.addProductByBarcodeScan = async (req, res) => {
             shopId: shopIdInt,
             productId: product.id,
             quantity: parseInt(quantity),
-            sellingPrice: sellingPrice ? parseFloat(sellingPrice) : product.basePrice,
+            sellingPrice: sellingPrice
+              ? parseFloat(sellingPrice)
+              : product.basePrice,
             lastRestockedAt: new Date(),
           },
         });
@@ -1652,12 +1665,14 @@ exports.addProductByBarcodeScan = async (req, res) => {
         },
         createdAt: product.createdAt,
       },
-      inventory: inventory ? {
-        id: inventory.id,
-        quantity: inventory.quantity,
-        sellingPrice: inventory.sellingPrice,
-        lastRestockedAt: inventory.lastRestockedAt,
-      } : null,
+      inventory: inventory
+        ? {
+            id: inventory.id,
+            quantity: inventory.quantity,
+            sellingPrice: inventory.sellingPrice,
+            lastRestockedAt: inventory.lastRestockedAt,
+          }
+        : null,
       scanDetails: {
         scannedBarcode: scannedBarcode,
         productCreated: true,
@@ -1665,21 +1680,21 @@ exports.addProductByBarcodeScan = async (req, res) => {
         nextActions: [
           "Generate SKU (optional)",
           "Print barcode label",
-          "Start stock operations"
-        ]
-      }
+          "Start stock operations",
+        ],
+      },
     });
-
   } catch (error) {
     console.error("Error creating product from barcode scan:", error);
-    
+
     if (error.message.includes("already exists")) {
-      return res.status(409).json({ 
+      return res.status(409).json({
         error: error.message,
-        suggestion: "Use GET /api/inventory/product/barcode/{barcode} to view existing product"
+        suggestion:
+          "Use GET /api/inventory/product/barcode/{barcode} to view existing product",
       });
     }
-    
+
     if (error.code === "P2002") {
       if (error.meta?.target?.includes("barcode")) {
         return res.status(409).json({ error: "Barcode already exists." });
@@ -1698,9 +1713,9 @@ exports.addProductByBarcodeScan = async (req, res) => {
       return res.status(401).json({ error: error.message });
     }
 
-    res.status(500).json({ 
+    res.status(500).json({
       error: "Failed to create product from barcode scan",
-      details: error.message 
+      details: error.message,
     });
   }
 };

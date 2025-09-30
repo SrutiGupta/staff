@@ -1,6 +1,7 @@
 # Stock Management & Barcode System API Documentation
 
 ## Table of Contents
+
 1. [Stock Management APIs](#stock-management-apis)
 2. [Barcode Generation & Management APIs](#barcode-generation--management-apis)
 3. [Scanner Integration](#scanner-integration)
@@ -19,6 +20,7 @@
 ### 1. Stock In Operations
 
 #### 1.1 Stock In by Barcode (Recommended for Scanners)
+
 ```http
 POST /api/inventory/stock-by-barcode
 Content-Type: application/json
@@ -26,15 +28,17 @@ Authorization: Bearer <token>
 ```
 
 **Request Body:**
+
 ```json
 {
   "barcode": "EYE000112345678",
   "quantity": 10,
-  "price": 2500.00
+  "price": 2500.0
 }
 ```
 
 **Response (Success 200):**
+
 ```json
 {
   "success": true,
@@ -56,7 +60,7 @@ Authorization: Bearer <token>
     "size": "58mm",
     "color": "Gold",
     "material": "Metal",
-    "price": 2500.00,
+    "price": 2500.0,
     "eyewearType": "SUNGLASSES",
     "frameType": "AVIATOR",
     "company": {
@@ -80,6 +84,7 @@ Authorization: Bearer <token>
 ```
 
 #### 1.2 Traditional Stock In (by Product ID)
+
 ```http
 POST /api/inventory/stock-in
 Content-Type: application/json
@@ -87,6 +92,7 @@ Authorization: Bearer <token>
 ```
 
 **Request Body:**
+
 ```json
 {
   "productId": 456,
@@ -95,6 +101,7 @@ Authorization: Bearer <token>
 ```
 
 **OR with Barcode:**
+
 ```json
 {
   "barcode": "EYE000112345678",
@@ -109,6 +116,7 @@ Authorization: Bearer <token>
 ### 2. Stock Out Operations
 
 #### 2.1 Stock Out by Barcode
+
 ```http
 POST /api/inventory/stock-out-by-barcode
 Content-Type: application/json
@@ -116,6 +124,7 @@ Authorization: Bearer <token>
 ```
 
 **Request Body:**
+
 ```json
 {
   "barcode": "EYE000112345678",
@@ -124,6 +133,7 @@ Authorization: Bearer <token>
 ```
 
 **Response (Success 200):**
+
 ```json
 {
   "success": true,
@@ -154,6 +164,7 @@ Authorization: Bearer <token>
 ```
 
 #### 2.2 Traditional Stock Out
+
 ```http
 POST /api/inventory/stock-out
 Content-Type: application/json
@@ -161,6 +172,7 @@ Authorization: Bearer <token>
 ```
 
 **Request Body:**
+
 ```json
 {
   "productId": 456,
@@ -169,6 +181,7 @@ Authorization: Bearer <token>
 ```
 
 **OR with Barcode:**
+
 ```json
 {
   "barcode": "EYE000112345678",
@@ -181,17 +194,20 @@ Authorization: Bearer <token>
 ### 3. Product Lookup Operations
 
 #### 3.1 Get Product by Barcode
+
 ```http
 GET /api/inventory/product/barcode/{barcode}
 Authorization: Bearer <token>
 ```
 
 **Example:**
+
 ```http
 GET /api/inventory/product/barcode/EYE000112345678
 ```
 
 **Response (Success 200):**
+
 ```json
 {
   "product": {
@@ -200,7 +216,7 @@ GET /api/inventory/product/barcode/EYE000112345678
     "description": "Classic aviator sunglasses",
     "barcode": "EYE000112345678",
     "sku": "RAY-SUN-AVI-0456-1234",
-    "basePrice": 2500.00,
+    "basePrice": 2500.0,
     "eyewearType": "SUNGLASSES",
     "frameType": "AVIATOR",
     "model": "RB3025",
@@ -214,7 +230,7 @@ GET /api/inventory/product/barcode/EYE000112345678
   },
   "inventory": {
     "quantity": 23,
-    "sellingPrice": 2500.00,
+    "sellingPrice": 2500.0,
     "lastRestockedAt": "2025-09-30T10:30:00.000Z"
   },
   "canScan": true,
@@ -223,12 +239,14 @@ GET /api/inventory/product/barcode/EYE000112345678
 ```
 
 #### 3.2 Get All Products
+
 ```http
 GET /api/inventory/products
 Authorization: Bearer <token>
 ```
 
 **Query Parameters:**
+
 - `companyId` (optional): Filter by company
 - `eyewearType` (optional): GLASSES, SUNGLASSES, LENSES
 - `hasBarcode` (optional): true/false
@@ -236,24 +254,27 @@ Authorization: Bearer <token>
 - `limit` (optional): Items per page (default: 20)
 
 **Example:**
+
 ```http
 GET /api/inventory/products?companyId=1&eyewearType=SUNGLASSES&hasBarcode=true&page=1&limit=10
 ```
 
 #### 3.3 Get Current Shop Inventory
+
 ```http
 GET /api/inventory
 Authorization: Bearer <token>
 ```
 
 **Response:**
+
 ```json
 {
   "inventory": [
     {
       "id": 123,
       "quantity": 23,
-      "sellingPrice": 2500.00,
+      "sellingPrice": 2500.0,
       "lastRestockedAt": "2025-09-30T10:30:00.000Z",
       "product": {
         "id": 456,
@@ -279,6 +300,7 @@ Authorization: Bearer <token>
 ### 4. Product Management
 
 #### 4.1 Add New Product (Traditional)
+
 ```http
 POST /api/inventory/product
 Content-Type: application/json
@@ -286,11 +308,12 @@ Authorization: Bearer <token>
 ```
 
 **Request Body:**
+
 ```json
 {
   "name": "Ray-Ban Aviator Sunglasses",
   "description": "Classic aviator sunglasses with gold frame",
-  "basePrice": 2500.00,
+  "basePrice": 2500.0,
   "eyewearType": "SUNGLASSES",
   "frameType": "AVIATOR",
   "companyId": 1,
@@ -304,6 +327,7 @@ Authorization: Bearer <token>
 ```
 
 #### 4.2 Add New Product by Barcode Scan ⭐ NEW!
+
 ```http
 POST /api/inventory/product/scan-to-add
 Content-Type: application/json
@@ -313,12 +337,13 @@ Authorization: Bearer <token>
 **Use Case:** When you scan a barcode that doesn't exist in the system yet.
 
 **Request Body:**
+
 ```json
 {
   "scannedBarcode": "EYE123456789",
   "name": "Ray-Ban Aviator Classic",
-  "description": "Premium aviator sunglasses with gold frame", 
-  "basePrice": 2500.00,
+  "description": "Premium aviator sunglasses with gold frame",
+  "basePrice": 2500.0,
   "eyewearType": "SUNGLASSES",
   "frameType": "AVIATOR",
   "companyId": 1,
@@ -327,11 +352,12 @@ Authorization: Bearer <token>
   "size": "58mm",
   "model": "RB3025",
   "quantity": 10,
-  "sellingPrice": 2750.00
+  "sellingPrice": 2750.0
 }
 ```
 
 **Response (Success 201):**
+
 ```json
 {
   "success": true,
@@ -342,7 +368,7 @@ Authorization: Bearer <token>
     "description": "Premium aviator sunglasses with gold frame",
     "barcode": "EYE123456789",
     "sku": null,
-    "basePrice": 2500.00,
+    "basePrice": 2500.0,
     "eyewearType": "SUNGLASSES",
     "frameType": "AVIATOR",
     "material": "Metal",
@@ -358,7 +384,7 @@ Authorization: Bearer <token>
   "inventory": {
     "id": 456,
     "quantity": 10,
-    "sellingPrice": 2750.00,
+    "sellingPrice": 2750.0,
     "lastRestockedAt": "2025-09-30T15:30:00.000Z"
   },
   "scanDetails": {
@@ -367,7 +393,7 @@ Authorization: Bearer <token>
     "canNowScan": true,
     "nextActions": [
       "Generate SKU (optional)",
-      "Print barcode label", 
+      "Print barcode label",
       "Start stock operations"
     ]
   }
@@ -385,6 +411,7 @@ Authorization: Bearer <token>
 ### 1. Barcode Generation
 
 #### 1.1 Generate Barcode for Product
+
 ```http
 POST /api/barcode/generate/{productId}
 Content-Type: application/json
@@ -392,6 +419,7 @@ Authorization: Bearer <token>
 ```
 
 **Request Body:**
+
 ```json
 {
   "companyPrefix": "RAY",
@@ -400,11 +428,13 @@ Authorization: Bearer <token>
 ```
 
 **Example:**
+
 ```http
 POST /api/barcode/generate/456
 ```
 
 **Response (Success 200):**
+
 ```json
 {
   "message": "Barcode generated successfully",
@@ -424,6 +454,7 @@ POST /api/barcode/generate/456
 ```
 
 #### 1.2 Generate SKU for Product
+
 ```http
 POST /api/barcode/sku/generate/{productId}
 Content-Type: application/json
@@ -431,6 +462,7 @@ Authorization: Bearer <token>
 ```
 
 **Request Body:**
+
 ```json
 {
   "companyCode": "RAY"
@@ -438,6 +470,7 @@ Authorization: Bearer <token>
 ```
 
 **Response:**
+
 ```json
 {
   "message": "SKU generated successfully",
@@ -458,6 +491,7 @@ Authorization: Bearer <token>
 ```
 
 #### 1.3 Bulk Generate Barcodes
+
 ```http
 POST /api/barcode/bulk-generate
 Content-Type: application/json
@@ -465,6 +499,7 @@ Authorization: Bearer <token>
 ```
 
 **Request Body:**
+
 ```json
 {
   "count": 5,
@@ -474,6 +509,7 @@ Authorization: Bearer <token>
 ```
 
 **Response:**
+
 ```json
 {
   "message": "Bulk barcodes generated successfully",
@@ -500,17 +536,20 @@ Authorization: Bearer <token>
 ### 2. Barcode Validation
 
 #### 2.1 Validate Barcode Uniqueness
+
 ```http
 GET /api/barcode/validate/{barcode}
 Authorization: Bearer <token>
 ```
 
 **Example:**
+
 ```http
 GET /api/barcode/validate/RAY045612345678
 ```
 
 **Response (Barcode Exists):**
+
 ```json
 {
   "isUnique": false,
@@ -527,6 +566,7 @@ GET /api/barcode/validate/RAY045612345678
 ```
 
 **Response (Barcode Unique):**
+
 ```json
 {
   "isUnique": true,
@@ -536,16 +576,19 @@ GET /api/barcode/validate/RAY045612345678
 ```
 
 #### 2.2 Get Products Without Barcodes
+
 ```http
 GET /api/barcode/missing
 Authorization: Bearer <token>
 ```
 
 **Query Parameters:**
+
 - `companyId` (optional): Filter by company
 - `eyewearType` (optional): Filter by eyewear type
 
 **Response:**
+
 ```json
 {
   "products": [
@@ -571,6 +614,7 @@ Authorization: Bearer <token>
 ### 3. Barcode Label Generation
 
 #### 3.1 Generate Barcode Label
+
 ```http
 POST /api/barcode/label
 Content-Type: application/json
@@ -578,6 +622,7 @@ Authorization: Bearer <token>
 ```
 
 **Request Body (Using Product ID):**
+
 ```json
 {
   "productId": 456
@@ -585,11 +630,12 @@ Authorization: Bearer <token>
 ```
 
 **Request Body (Manual Data):**
+
 ```json
 {
   "name": "Ray-Ban Aviator",
   "description": "Classic sunglasses",
-  "price": 2500.00,
+  "price": 2500.0,
   "data": "RAY045612345678",
   "bcid": "code128",
   "scale": 3,
@@ -601,6 +647,7 @@ Authorization: Bearer <token>
 **Response:** Binary PNG image data with Content-Type: image/png
 
 **Label Contains:**
+
 - Product name
 - Product description (if available)
 - Price
@@ -627,6 +674,7 @@ Yes, the system **fully supports laser barcode scanners**! Here's how it works:
 #### **Scanner-Compatible Endpoints:**
 
 ✅ **Stock In via Scanner:**
+
 ```http
 POST /api/inventory/stock-by-barcode
 {
@@ -636,15 +684,17 @@ POST /api/inventory/stock-by-barcode
 ```
 
 ✅ **Stock Out via Scanner:**
+
 ```http
 POST /api/inventory/stock-out-by-barcode
 {
-  "barcode": "RAY045612345678", 
+  "barcode": "RAY045612345678",
   "quantity": 2
 }
 ```
 
 ✅ **Product Lookup via Scanner:**
+
 ```http
 GET /api/inventory/product/barcode/RAY045612345678
 ```
@@ -654,38 +704,40 @@ GET /api/inventory/product/barcode/RAY045612345678
 ```javascript
 // Listen for scanner input
 function onBarcodeScanned(barcode) {
-  console.log('Scanned:', barcode);
-  
+  console.log("Scanned:", barcode);
+
   // Auto stock-in when scanned
-  fetch('/api/inventory/stock-by-barcode', {
-    method: 'POST',
+  fetch("/api/inventory/stock-by-barcode", {
+    method: "POST",
     headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
     },
     body: JSON.stringify({
       barcode: barcode,
-      quantity: 1 // Default quantity
+      quantity: 1, // Default quantity
+    }),
+  })
+    .then((response) => response.json())
+    .then((data) => {
+      if (data.success) {
+        console.log("Stock updated:", data.stockInDetails);
+        showSuccessMessage(
+          `Added ${data.stockInDetails.addedQuantity} ${data.productDetails.name}`
+        );
+      }
     })
-  })
-  .then(response => response.json())
-  .then(data => {
-    if (data.success) {
-      console.log('Stock updated:', data.stockInDetails);
-      showSuccessMessage(`Added ${data.stockInDetails.addedQuantity} ${data.productDetails.name}`);
-    }
-  })
-  .catch(error => {
-    console.error('Scanner error:', error);
-    showErrorMessage('Failed to process scanned item');
-  });
+    .catch((error) => {
+      console.error("Scanner error:", error);
+      showErrorMessage("Failed to process scanned item");
+    });
 }
 
 // Auto-detect scanner input
-document.addEventListener('keypress', function(e) {
-  if (e.key === 'Enter' && scannerInput.length > 0) {
+document.addEventListener("keypress", function (e) {
+  if (e.key === "Enter" && scannerInput.length > 0) {
     onBarcodeScanned(scannerInput);
-    scannerInput = '';
+    scannerInput = "";
   } else {
     scannerInput += e.key;
   }
@@ -693,6 +745,7 @@ document.addEventListener('keypress', function(e) {
 ```
 
 #### **Supported Scanner Types:**
+
 - ✅ USB Laser Scanners (HID mode)
 - ✅ Bluetooth Scanners
 - ✅ RS232/Serial Scanners
@@ -700,6 +753,7 @@ document.addEventListener('keypress', function(e) {
 - ✅ Mobile App Camera Scanners
 
 #### **Scanner Configuration:**
+
 - **Barcode Format**: Code 128 (recommended)
 - **Data Format**: Raw barcode string
 - **Suffix**: Enter key (for auto-submit)
@@ -712,6 +766,7 @@ document.addEventListener('keypress', function(e) {
 ### Common Error Responses:
 
 #### Authentication Error (401):
+
 ```json
 {
   "error": "Authentication required",
@@ -720,6 +775,7 @@ document.addEventListener('keypress', function(e) {
 ```
 
 #### Product Not Found (404):
+
 ```json
 {
   "error": "Product with barcode RAY045612345678 not found.",
@@ -728,6 +784,7 @@ document.addEventListener('keypress', function(e) {
 ```
 
 #### Insufficient Stock (400):
+
 ```json
 {
   "error": "Insufficient stock. Available: 5, Requested: 10",
@@ -737,6 +794,7 @@ document.addEventListener('keypress', function(e) {
 ```
 
 #### Duplicate Barcode (409):
+
 ```json
 {
   "error": "Barcode already exists.",
@@ -748,6 +806,7 @@ document.addEventListener('keypress', function(e) {
 ```
 
 #### Validation Error (400):
+
 ```json
 {
   "error": "Barcode and quantity are required.",
@@ -766,6 +825,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 ```
 
 **To get token:**
+
 ```http
 POST /api/auth/login
 Content-Type: application/json
@@ -783,6 +843,7 @@ Content-Type: application/json
 ### **Workflow 1: Complete Product Setup**
 
 1. **Create Product:**
+
 ```http
 POST /api/inventory/product
 {
@@ -794,6 +855,7 @@ POST /api/inventory/product
 ```
 
 2. **Generate Barcode:**
+
 ```http
 POST /api/barcode/generate/456
 {
@@ -802,6 +864,7 @@ POST /api/barcode/generate/456
 ```
 
 3. **Generate Label:**
+
 ```http
 POST /api/barcode/label
 {
@@ -810,6 +873,7 @@ POST /api/barcode/label
 ```
 
 4. **Stock In via Scanner:**
+
 ```http
 POST /api/inventory/stock-by-barcode
 {
@@ -823,6 +887,7 @@ POST /api/inventory/stock-by-barcode
 1. **Scanner reads barcode** → "RAY045612345678"
 
 2. **Auto Stock In:**
+
 ```http
 POST /api/inventory/stock-by-barcode
 {
@@ -832,11 +897,13 @@ POST /api/inventory/stock-by-barcode
 ```
 
 3. **Check Inventory:**
+
 ```http
 GET /api/inventory/product/barcode/RAY045612345678
 ```
 
 4. **Stock Out (Sale):**
+
 ```http
 POST /api/inventory/stock-out-by-barcode
 {
@@ -848,11 +915,13 @@ POST /api/inventory/stock-out-by-barcode
 ### **Workflow 3: Bulk Barcode Generation**
 
 1. **Get products without barcodes:**
+
 ```http
 GET /api/barcode/missing
 ```
 
 2. **Generate bulk barcodes:**
+
 ```http
 POST /api/barcode/bulk-generate
 {
