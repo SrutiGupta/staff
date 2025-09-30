@@ -1,3 +1,4 @@
+For seeing the table npx prisma studio --port 5555
 # API Endpoint Testing Guide (Postman)
 
 This guide provides instructions on how to test the API endpoints for this project using Postman.

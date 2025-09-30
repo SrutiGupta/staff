@@ -23,6 +23,20 @@ router.post(
 // Get products that don't have barcodes (need barcode generation)
 router.get("/missing", auth, barcodeController.getProductsWithoutBarcodes);
 
+// Check if a barcode is unique
+router.get(
+  "/validate/:barcode",
+  auth,
+  barcodeController.validateBarcodeUniqueness
+);
+
+// Generate bulk unique barcodes
+router.post(
+  "/bulk-generate",
+  auth,
+  barcodeController.generateBulkUniqueBarcodes
+);
+
 // Legacy route for backward compatibility
 router.post("/", auth, barcodeController.generateBarcodeLabel);
 

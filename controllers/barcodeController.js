@@ -7,7 +7,10 @@ const prisma = new PrismaClient();
 function generateUniqueBarcode(productId, companyPrefix = "EYE") {
   const timestamp = Date.now().toString().slice(-6); // Last 6 digits of timestamp
   const paddedId = productId.toString().padStart(4, "0"); // Product ID padded to 4 digits
-  return `${companyPrefix}${paddedId}${timestamp}`;
+  const randomSuffix = Math.floor(Math.random() * 100)
+    .toString()
+    .padStart(2, "0"); // Random 2-digit suffix for extra uniqueness
+  return `${companyPrefix}${paddedId}${timestamp}${randomSuffix}`;
 }
 
 // Generate a unique SKU (Stock Keeping Unit) for a product
@@ -29,7 +32,7 @@ function generateUniqueSKU(
 // Generate and assign barcode to a product without barcode
 exports.generateBarcodeForProduct = async (req, res) => {
   const { productId } = req.params;
-  const { companyPrefix } = req.body; // Optional company prefix (default: 'EYE')
+  const { companyPrefix, isClone = false } = req.body; // Added isClone flag
 
   try {
     // Check if product exists and doesn't have a barcode
@@ -49,17 +52,25 @@ exports.generateBarcodeForProduct = async (req, res) => {
       });
     }
 
-    // Generate unique barcode
+    // Generate unique barcode with enhanced collision avoidance for clones
     let newBarcode;
     let isUnique = false;
     let attempts = 0;
-    const maxAttempts = 10;
+    const maxAttempts = isClone ? 20 : 10; // More attempts for cloned products
 
     while (!isUnique && attempts < maxAttempts) {
       newBarcode = generateUniqueBarcode(
         product.id,
         companyPrefix || product.company.name.substring(0, 3).toUpperCase()
       );
+
+      // For cloned products, add additional randomization
+      if (isClone && attempts > 0) {
+        const additionalRandom = Math.floor(Math.random() * 1000)
+          .toString()
+          .padStart(3, "0");
+        newBarcode += additionalRandom;
+      }
 
       // Check if barcode is unique
       const existingProduct = await prisma.product.findUnique({
@@ -243,6 +254,116 @@ exports.getProductsWithoutBarcodes = async (req, res) => {
     });
   } catch (error) {
     console.error("Error fetching products without barcodes:", error);
+    res.status(500).json({ error: "Something went wrong." });
+  }
+};
+
+// Check if a barcode is unique across all products
+exports.validateBarcodeUniqueness = async (req, res) => {
+  const { barcode } = req.params;
+
+  try {
+    if (!barcode) {
+      return res.status(400).json({ error: "Barcode is required." });
+    }
+
+    // Check if barcode exists
+    const existingProduct = await prisma.product.findUnique({
+      where: { barcode },
+      include: {
+        company: true,
+      },
+    });
+
+    if (existingProduct) {
+      return res.status(200).json({
+        isUnique: false,
+        exists: true,
+        conflictingProduct: {
+          id: existingProduct.id,
+          name: existingProduct.name,
+          company: existingProduct.company.name,
+          eyewearType: existingProduct.eyewearType,
+          barcode: existingProduct.barcode,
+        },
+        message: "Barcode already exists in the system",
+      });
+    }
+
+    res.status(200).json({
+      isUnique: true,
+      exists: false,
+      message: "Barcode is unique and can be used",
+    });
+  } catch (error) {
+    console.error("Error validating barcode uniqueness:", error);
+    res.status(500).json({ error: "Something went wrong." });
+  }
+};
+
+// Generate multiple unique barcodes for bulk product creation
+exports.generateBulkUniqueBarcodes = async (req, res) => {
+  const { count, companyPrefix = "EYE", productIds } = req.body;
+
+  try {
+    if (!count || count <= 0 || count > 100) {
+      return res.status(400).json({
+        error: "Count must be between 1 and 100.",
+      });
+    }
+
+    const generatedBarcodes = [];
+    const usedBarcodes = new Set();
+
+    // Get existing barcodes to avoid conflicts
+    const existingProducts = await prisma.product.findMany({
+      where: { barcode: { not: null } },
+      select: { barcode: true },
+    });
+
+    existingProducts.forEach((product) => {
+      usedBarcodes.add(product.barcode);
+    });
+
+    for (let i = 0; i < count; i++) {
+      let attempts = 0;
+      let uniqueBarcode;
+      const maxAttempts = 50;
+
+      while (attempts < maxAttempts) {
+        const productId =
+          productIds && productIds[i] ? productIds[i] : 1000 + i;
+        uniqueBarcode = generateUniqueBarcode(productId, companyPrefix);
+
+        if (!usedBarcodes.has(uniqueBarcode)) {
+          usedBarcodes.add(uniqueBarcode);
+          generatedBarcodes.push({
+            barcode: uniqueBarcode,
+            productId: productIds && productIds[i] ? productIds[i] : null,
+            index: i + 1,
+          });
+          break;
+        }
+        attempts++;
+      }
+
+      if (attempts >= maxAttempts) {
+        return res.status(500).json({
+          error: `Failed to generate unique barcode for item ${i + 1}`,
+          generatedSoFar: generatedBarcodes.length,
+        });
+      }
+    }
+
+    res.status(200).json({
+      message: "Bulk barcodes generated successfully",
+      count: generatedBarcodes.length,
+      barcodes: generatedBarcodes,
+      prefix: companyPrefix,
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error) {
+    console.error("Error generating bulk barcodes:", error);
     res.status(500).json({ error: "Something went wrong." });
   }
 };

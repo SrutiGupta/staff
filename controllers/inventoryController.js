@@ -432,109 +432,109 @@ exports.stockIn = async (req, res) => {
 
   try {
     const shopIdInt = await validateShopAccess(req);
-    let product;
 
-    // Find product by barcode or productId
-    if (barcode) {
-      product = await prisma.product.findUnique({
-        where: { barcode: barcode },
-        include: { company: true },
-      });
+    // CRITICAL FIX: Wrap everything in a transaction to prevent race conditions
+    const result = await prisma.$transaction(async (tx) => {
+      let product;
 
-      if (!product) {
-        return res.status(404).json({
-          error: `Product with barcode ${barcode} not found.`,
-          suggestion:
-            "Verify the barcode or add the product to the system first.",
+      // Find product by barcode or productId
+      if (barcode) {
+        product = await tx.product.findUnique({
+          where: { barcode: barcode },
+          include: { company: true },
         });
-      }
-    } else {
-      product = await prisma.product.findUnique({
-        where: { id: parseInt(productId) },
-        include: { company: true },
-      });
 
-      if (!product) {
-        return res.status(404).json({
-          error: `Product with ID ${productId} not found.`,
+        if (!product) {
+          throw new Error(`Product with barcode ${barcode} not found.`);
+        }
+      } else {
+        product = await tx.product.findUnique({
+          where: { id: parseInt(productId) },
+          include: { company: true },
         });
+
+        if (!product) {
+          throw new Error(`Product with ID ${productId} not found.`);
+        }
       }
-    }
 
-    // SECURITY CHECK: Verify there's an approved stock receipt for this product
-    let approvedReceipt, consumedQuantity;
-    try {
-      const receiptValidation = await validateApprovedReceipt(
-        shopIdInt,
-        product.id,
-        parseInt(quantity),
-        product
-      );
-      approvedReceipt = receiptValidation.approvedReceipt;
-      consumedQuantity = receiptValidation.consumedQuantity;
-    } catch (error) {
-      return res.status(403).json({
-        error: error.message,
-        suggestion:
-          "Create a stock receipt and wait for shop admin approval before performing stock operations.",
-      });
-    }
+      // SECURITY CHECK: Verify there's an approved stock receipt for this product
+      const { approvedReceipt, consumedQuantity } =
+        await validateApprovedReceipt(
+          shopIdInt,
+          product.id,
+          parseInt(quantity),
+          product
+        );
 
-    // Check if inventory exists for this shop
-    const existingInventory = await prisma.shopInventory.findFirst({
-      where: {
-        productId: product.id,
-        shopId: shopIdInt, // Get shopId from authenticated user
-      },
-    });
-
-    let inventory;
-    const previousQuantity = existingInventory?.quantity || 0;
-
-    if (existingInventory) {
-      inventory = await prisma.shopInventory.update({
-        where: { id: existingInventory.id },
-        data: {
-          quantity: {
-            increment: parseInt(quantity),
+      // Get current inventory to calculate previous quantity
+      const currentInventory = await tx.shopInventory.findUnique({
+        where: {
+          shopId_productId: {
+            shopId: shopIdInt,
+            productId: product.id,
           },
         },
       });
-    } else {
-      inventory = await prisma.shopInventory.create({
-        data: {
-          productId: product.id,
+
+      const previousQuantity = currentInventory?.quantity || 0;
+
+      // Use upsert to handle race conditions properly
+      const inventory = await tx.shopInventory.upsert({
+        where: {
+          shopId_productId: {
+            shopId: shopIdInt,
+            productId: product.id,
+          },
+        },
+        update: {
+          quantity: { increment: parseInt(quantity) },
+          lastRestockedAt: new Date(),
+        },
+        create: {
           shopId: shopIdInt,
+          productId: product.id,
           quantity: parseInt(quantity),
+          lastRestockedAt: new Date(),
         },
       });
-    }
 
-    // Create stock movement record for audit trail
-    await prisma.stockMovement.create({
-      data: {
-        shopInventoryId: inventory.id,
-        type: "STOCK_IN",
-        quantity: parseInt(quantity),
-        previousQty: previousQuantity,
-        newQty: inventory.quantity,
-        staffId: req.user?.id,
-        reason: "STOCK_IN",
-        supplierName: product.company.name,
-        notes: `Stock in via ${barcode ? "barcode scan" : "product ID"}: ${
-          barcode || productId
-        }`,
-      },
+      // Create stock movement record for audit trail
+      await tx.stockMovement.create({
+        data: {
+          shopInventoryId: inventory.id,
+          type: "STOCK_IN",
+          quantity: parseInt(quantity),
+          previousQty: previousQuantity,
+          newQty: inventory.quantity,
+          staffId: req.user?.id,
+          reason: "STOCK_IN",
+          supplierName: product.company.name,
+          notes: `Stock in via ${barcode ? "barcode scan" : "product ID"}: ${
+            barcode || productId
+          }`,
+        },
+      });
+
+      // Update stock receipt status if fully consumed
+      const newConsumedQuantity = consumedQuantity + parseInt(quantity);
+      if (newConsumedQuantity >= approvedReceipt.verifiedQuantity) {
+        await tx.stockReceipt.update({
+          where: { id: approvedReceipt.id },
+          data: { status: "COMPLETED" },
+        });
+      }
+
+      return {
+        product,
+        inventory,
+        previousQuantity,
+        approvedReceipt,
+        consumedQuantity,
+      };
     });
 
-    // Update stock receipt status if fully consumed
-    const newConsumedQuantity = consumedQuantity + parseInt(quantity);
-    if (newConsumedQuantity >= approvedReceipt.verifiedQuantity) {
-      await prisma.stockReceipt.update({
-        where: { id: approvedReceipt.id },
-        data: { status: "COMPLETED" },
-      });
-    }
+    const { product, inventory, previousQuantity } = result;
 
     // Enhanced response with complete product details
     const response = {
@@ -590,14 +590,14 @@ exports.stockIn = async (req, res) => {
         company: product.company.name,
         addedQuantity: parseInt(quantity),
         newQuantity: inventory.quantity,
-        previousQuantity: existingInventory ? existingInventory.quantity : 0,
+        previousQuantity: previousQuantity,
         stockOperation: "STOCK_IN",
         timestamp: new Date().toISOString(),
       },
       inventoryStatus: await getInventoryStatus(inventory.quantity, shopIdInt),
     };
 
-    const statusCode = existingInventory ? 200 : 201;
+    const statusCode = previousQuantity > 0 ? 200 : 201;
     res.status(statusCode).json(response);
   } catch (error) {
     console.error(error);
@@ -610,6 +610,16 @@ exports.stockIn = async (req, res) => {
     }
     if (error.message.includes("not found")) {
       return res.status(404).json({ error: error.message });
+    }
+    if (
+      error.message.includes("No approved stock receipt") ||
+      error.message.includes("Insufficient approved stock")
+    ) {
+      return res.status(403).json({
+        error: error.message,
+        suggestion:
+          "Create a stock receipt and wait for shop admin approval before performing stock operations.",
+      });
     }
     res.status(500).json({ error: "Something went wrong" });
   }
@@ -635,88 +645,91 @@ exports.stockOut = async (req, res) => {
 
   try {
     const shopIdInt = await validateShopAccess(req);
-    let product;
 
-    // Find product by barcode or productId
-    if (barcode) {
-      product = await prisma.product.findUnique({
-        where: { barcode: barcode },
-        include: {
-          company: true,
-          shopInventory: {
-            where: {
-              shopId: shopIdInt, // Only get inventory for current shop
-            },
+    // CRITICAL FIX: Wrap in transaction to prevent race conditions
+    const result = await prisma.$transaction(async (tx) => {
+      let product;
+
+      // Find product by barcode or productId
+      if (barcode) {
+        product = await tx.product.findUnique({
+          where: { barcode: barcode },
+          include: { company: true },
+        });
+
+        if (!product) {
+          throw new Error(`Product with barcode ${barcode} not found.`);
+        }
+      } else {
+        product = await tx.product.findUnique({
+          where: { id: parseInt(productId) },
+          include: { company: true },
+        });
+
+        if (!product) {
+          throw new Error(`Product with ID ${productId} not found.`);
+        }
+      }
+
+      // Check current inventory within transaction
+      const currentInventory = await tx.shopInventory.findUnique({
+        where: {
+          shopId_productId: {
+            shopId: shopIdInt,
+            productId: product.id,
           },
         },
       });
 
-      if (!product) {
-        return res.status(404).json({
-          error: `Product with barcode ${barcode} not found.`,
-        });
+      if (!currentInventory) {
+        throw new Error(`No inventory found for product: ${product.name}`);
       }
-    } else {
-      product = await prisma.product.findUnique({
-        where: { id: parseInt(productId) },
-        include: {
-          company: true,
-          shopInventory: {
-            where: {
-              shopId: shopIdInt, // Only get inventory for current shop
-            },
+
+      if (currentInventory.quantity < parseInt(quantity)) {
+        throw new Error(
+          `Insufficient stock. Available: ${currentInventory.quantity}, Requested: ${quantity}`
+        );
+      }
+
+      // Update inventory using transaction
+      const updatedInventory = await tx.shopInventory.update({
+        where: {
+          shopId_productId: {
+            shopId: shopIdInt,
+            productId: product.id,
+          },
+        },
+        data: {
+          quantity: {
+            decrement: parseInt(quantity),
           },
         },
       });
 
-      if (!product) {
-        return res.status(404).json({
-          error: `Product with ID ${productId} not found.`,
-        });
-      }
-    }
-
-    // Check current inventory
-    const currentInventory = product.shopInventory[0];
-    if (!currentInventory) {
-      return res.status(400).json({
-        error: `No inventory found for product: ${product.name}`,
-        suggestion: "Add stock to this product first.",
-      });
-    }
-
-    if (currentInventory.quantity < parseInt(quantity)) {
-      return res.status(400).json({
-        error: `Insufficient stock. Available: ${currentInventory.quantity}, Requested: ${quantity}`,
-        availableStock: currentInventory.quantity,
-      });
-    }
-
-    // Update inventory
-    const updatedInventory = await prisma.shopInventory.update({
-      where: { id: currentInventory.id },
-      data: {
-        quantity: {
-          decrement: parseInt(quantity),
+      // Create stock movement record for audit trail
+      await tx.stockMovement.create({
+        data: {
+          shopInventoryId: currentInventory.id,
+          type: "STOCK_OUT",
+          quantity: parseInt(quantity),
+          previousQty: currentInventory.quantity,
+          newQty: updatedInventory.quantity,
+          staffId: req.user?.id,
+          reason: "STOCK_OUT",
+          notes: `Stock out via ${barcode ? "barcode scan" : "product ID"}: ${
+            barcode || productId
+          }`,
         },
-      },
+      });
+
+      return {
+        product,
+        currentInventory,
+        updatedInventory,
+      };
     });
 
-    // Create stock movement record for audit trail
-    await prisma.stockMovement.create({
-      data: {
-        shopInventoryId: currentInventory.id,
-        type: "STOCK_OUT",
-        quantity: parseInt(quantity),
-        previousQty: currentInventory.quantity,
-        newQty: updatedInventory.quantity,
-        staffId: req.user?.id,
-        reason: "STOCK_OUT",
-        notes: `Stock out via ${barcode ? "barcode scan" : "product ID"}: ${
-          barcode || productId
-        }`,
-      },
-    });
+    const { product, currentInventory, updatedInventory } = result;
 
     // Enhanced response with product details
     const lowStockThreshold = await getLowStockThreshold(shopIdInt);
