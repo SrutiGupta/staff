@@ -278,7 +278,7 @@ Authorization: Bearer <token>
 
 ### 4. Product Management
 
-#### 4.1 Add New Product
+#### 4.1 Add New Product (Traditional)
 ```http
 POST /api/inventory/product
 Content-Type: application/json
@@ -303,26 +303,73 @@ Authorization: Bearer <token>
 }
 ```
 
-**Response (Success 201):**
+#### 4.2 Add New Product by Barcode Scan ⭐ NEW!
+```http
+POST /api/inventory/product/scan-to-add
+Content-Type: application/json
+Authorization: Bearer <token>
+```
+
+**Use Case:** When you scan a barcode that doesn't exist in the system yet.
+
+**Request Body:**
 ```json
 {
-  "id": 456,
-  "name": "Ray-Ban Aviator Sunglasses",
-  "description": "Classic aviator sunglasses with gold frame",
+  "scannedBarcode": "EYE123456789",
+  "name": "Ray-Ban Aviator Classic",
+  "description": "Premium aviator sunglasses with gold frame", 
   "basePrice": 2500.00,
   "eyewearType": "SUNGLASSES",
   "frameType": "AVIATOR",
+  "companyId": 1,
   "material": "Metal",
   "color": "Gold",
   "size": "58mm",
   "model": "RB3025",
-  "barcode": null,
-  "sku": null,
-  "companyId": 1,
-  "createdAt": "2025-09-30T10:00:00.000Z",
-  "company": {
-    "id": 1,
-    "name": "Ray-Ban"
+  "quantity": 10,
+  "sellingPrice": 2750.00
+}
+```
+
+**Response (Success 201):**
+```json
+{
+  "success": true,
+  "message": "Product created successfully from barcode scan",
+  "product": {
+    "id": 789,
+    "name": "Ray-Ban Aviator Classic",
+    "description": "Premium aviator sunglasses with gold frame",
+    "barcode": "EYE123456789",
+    "sku": null,
+    "basePrice": 2500.00,
+    "eyewearType": "SUNGLASSES",
+    "frameType": "AVIATOR",
+    "material": "Metal",
+    "color": "Gold",
+    "size": "58mm",
+    "model": "RB3025",
+    "company": {
+      "id": 1,
+      "name": "Ray-Ban"
+    },
+    "createdAt": "2025-09-30T15:30:00.000Z"
+  },
+  "inventory": {
+    "id": 456,
+    "quantity": 10,
+    "sellingPrice": 2750.00,
+    "lastRestockedAt": "2025-09-30T15:30:00.000Z"
+  },
+  "scanDetails": {
+    "scannedBarcode": "EYE123456789",
+    "productCreated": true,
+    "canNowScan": true,
+    "nextActions": [
+      "Generate SKU (optional)",
+      "Print barcode label", 
+      "Start stock operations"
+    ]
   }
 }
 ```

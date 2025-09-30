@@ -921,8 +921,10 @@ exports.getProductByBarcode = async (req, res) => {
     if (!product) {
       return res.status(404).json({
         error: `Product with barcode ${barcode} not found.`,
-        suggestion:
-          "Check if the barcode is correct or if the product needs to be added to the system.",
+        suggestion: "Check if the barcode is correct or if the product needs to be added to the system.",
+        canCreateNew: true,
+        scannedBarcode: barcode,
+        nextAction: "Use POST /api/inventory/product/scan-to-add to create a new product with this barcode"
       });
     }
 
@@ -1500,5 +1502,205 @@ exports.getCompanyProducts = async (req, res) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: "Something went wrong" });
+  }
+};
+
+// Add new product by barcode scanning - when barcode is scanned but product doesn't exist
+exports.addProductByBarcodeScan = async (req, res) => {
+  const {
+    scannedBarcode, // The barcode that was scanned
+    name,
+    description,
+    basePrice,
+    eyewearType,
+    frameType,
+    companyId,
+    material,
+    color,
+    size,
+    model,
+    quantity = 0, // Initial stock quantity
+    sellingPrice // Optional selling price override
+  } = req.body;
+
+  // Validate required fields
+  if (!scannedBarcode || !name || basePrice === undefined || !eyewearType || !companyId) {
+    return res.status(400).json({
+      error: "scannedBarcode, name, basePrice, eyewearType, and companyId are required fields.",
+      example: {
+        scannedBarcode: "EYE001234567890",
+        name: "Ray-Ban Aviator",
+        basePrice: 2500.00,
+        eyewearType: "SUNGLASSES",
+        companyId: 1,
+        frameType: "AVIATOR",
+        quantity: 10
+      }
+    });
+  }
+
+  // Validate eyewear type
+  const validEyewearTypes = ["GLASSES", "SUNGLASSES", "LENSES"];
+  if (!validEyewearTypes.includes(eyewearType)) {
+    return res.status(400).json({
+      error: "Invalid eyewearType. Must be GLASSES, SUNGLASSES, or LENSES.",
+    });
+  }
+
+  // Validate frame type for glasses and sunglasses
+  if (eyewearType !== "LENSES" && !frameType) {
+    return res.status(400).json({
+      error: "FrameType is required for glasses and sunglasses.",
+    });
+  }
+
+  try {
+    const shopIdInt = await validateShopAccess(req);
+
+    // Use transaction to ensure data consistency
+    const result = await prisma.$transaction(async (tx) => {
+      // Check if barcode already exists
+      const existingProduct = await tx.product.findUnique({
+        where: { barcode: scannedBarcode },
+      });
+
+      if (existingProduct) {
+        throw new Error(`Product with barcode ${scannedBarcode} already exists: ${existingProduct.name}`);
+      }
+
+      // Check if company exists
+      const company = await tx.company.findUnique({
+        where: { id: parseInt(companyId) },
+      });
+
+      if (!company) {
+        throw new Error("Company not found.");
+      }
+
+      // Create the product with the scanned barcode
+      const product = await tx.product.create({
+        data: {
+          name,
+          description,
+          barcode: scannedBarcode, // Use the scanned barcode
+          basePrice: parseFloat(basePrice),
+          eyewearType,
+          frameType: eyewearType === "LENSES" ? null : frameType,
+          companyId: parseInt(companyId),
+          material,
+          color,
+          size,
+          model,
+        },
+        include: {
+          company: true,
+        },
+      });
+
+      // If quantity is provided, create initial inventory
+      let inventory = null;
+      if (parseInt(quantity) > 0) {
+        inventory = await tx.shopInventory.create({
+          data: {
+            shopId: shopIdInt,
+            productId: product.id,
+            quantity: parseInt(quantity),
+            sellingPrice: sellingPrice ? parseFloat(sellingPrice) : product.basePrice,
+            lastRestockedAt: new Date(),
+          },
+        });
+
+        // Create stock movement record for initial stock
+        await tx.stockMovement.create({
+          data: {
+            shopInventoryId: inventory.id,
+            type: "STOCK_IN",
+            quantity: parseInt(quantity),
+            previousQty: 0,
+            newQty: parseInt(quantity),
+            staffId: req.user?.id,
+            reason: "INITIAL_STOCK",
+            notes: `Initial stock via barcode scan: ${scannedBarcode}`,
+          },
+        });
+      }
+
+      return { product, inventory };
+    });
+
+    const { product, inventory } = result;
+
+    res.status(201).json({
+      success: true,
+      message: "Product created successfully from barcode scan",
+      product: {
+        id: product.id,
+        name: product.name,
+        description: product.description,
+        barcode: product.barcode,
+        sku: product.sku,
+        basePrice: product.basePrice,
+        eyewearType: product.eyewearType,
+        frameType: product.frameType,
+        material: product.material,
+        color: product.color,
+        size: product.size,
+        model: product.model,
+        company: {
+          id: product.company.id,
+          name: product.company.name,
+        },
+        createdAt: product.createdAt,
+      },
+      inventory: inventory ? {
+        id: inventory.id,
+        quantity: inventory.quantity,
+        sellingPrice: inventory.sellingPrice,
+        lastRestockedAt: inventory.lastRestockedAt,
+      } : null,
+      scanDetails: {
+        scannedBarcode: scannedBarcode,
+        productCreated: true,
+        canNowScan: true,
+        nextActions: [
+          "Generate SKU (optional)",
+          "Print barcode label",
+          "Start stock operations"
+        ]
+      }
+    });
+
+  } catch (error) {
+    console.error("Error creating product from barcode scan:", error);
+    
+    if (error.message.includes("already exists")) {
+      return res.status(409).json({ 
+        error: error.message,
+        suggestion: "Use GET /api/inventory/product/barcode/{barcode} to view existing product"
+      });
+    }
+    
+    if (error.code === "P2002") {
+      if (error.meta?.target?.includes("barcode")) {
+        return res.status(409).json({ error: "Barcode already exists." });
+      }
+      if (error.meta?.target?.includes("sku")) {
+        return res.status(409).json({ error: "SKU already exists." });
+      }
+      return res.status(409).json({ error: "Duplicate entry found." });
+    }
+
+    if (
+      error.message.includes("Authentication required") ||
+      error.message.includes("Access denied") ||
+      error.message.includes("Shop not found")
+    ) {
+      return res.status(401).json({ error: error.message });
+    }
+
+    res.status(500).json({ 
+      error: "Failed to create product from barcode scan",
+      details: error.message 
+    });
   }
 };
