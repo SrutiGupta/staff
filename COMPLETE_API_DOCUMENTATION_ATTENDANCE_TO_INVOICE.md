@@ -18,28 +18,6 @@
 
 ### Base URL: `/api/attendance`
 
-#### 1. **POST** `/logout`
-
-- **Description**: Mark logout time for authenticated staff
-- **Authentication**: Required  (JWT)
-- **Headers**:
-  ```json
-  {
-    "Authorization": "Bearer <jwt_token>",
-    "Content-Type": "application/json"
-  }
-  ```
-- **Request Body**: None
-- **Response**:
-  ```json
-  {
-    "message": "Logout successful"
-  }
-  ```
-- **Error Responses**:
-  - `401`: User not authenticated
-  - `500`: Something went wrong
-
 #### 2. **GET** `/`
 
 - **Description**: Get all attendance records for the shop
@@ -70,7 +48,7 @@
 
 #### 3. **GET** `/:staffId`
 
-- **Description**: Get attendance records for specific staff member
+- **Description**: Get attendance records for specific staff member shopadmin
 - **Authentication**: Required (JWT)
 - **Headers**:
   ```json

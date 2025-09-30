@@ -7,9 +7,9 @@
 ✨ **Scan fresh barcode → Automatic product creation**
 
 - **Only `scannedBarcode` required** - everything else auto-extracted!
-- **AI-powered parsing** extracts company, model, color, material, etc.
+- **AI-powered parsing** extracts company, model, color, material, pricing, etc.
 - **Auto-company creation** for new brands
-- **Smart pricing** based on brand recognition
+- **Pricing from barcode** - no manual entry needed
 - **Works with any barcode format** (structured or simple)
 
 🎯 **Jump to:** [Smart Barcode Parsing Documentation](#42-smart-barcode-parsing--fresh-product-creation--new)
@@ -356,9 +356,9 @@ Authorization: Bearer <token>
 **✨ Key Benefits:**
 
 - **ONE FIELD REQUIRED**: Only `scannedBarcode` needed
-- **AUTO-PARSING**: Extracts company, model, color, material, frame type, etc.
+- **AUTO-PARSING**: Extracts company, model, color, material, frame type, pricing, etc.
 - **AUTO-COMPANY**: Creates companies automatically if they don't exist
-- **SMART PRICING**: Brand-appropriate pricing estimation
+- **PRICING INCLUDED**: Price extracted directly from barcode data
 - **ANY FORMAT**: Works with structured or simple barcodes
 
 ---
@@ -415,7 +415,7 @@ EYE987654321
 - Material: METAL → Metal
 - Type: SUNGLASS → SUNGLASSES
 - Frame: AVIATOR → AVIATOR
-- Price: ₹12,000 (Ray-Ban Sunglasses pricing)
+- Price: Extracted from barcode data
 
 ---
 
@@ -501,7 +501,7 @@ EYE987654321
 
 ---
 
-##### 🏷️ Brand Mapping & Smart Pricing
+##### 🏷️ Brand Mapping & Data Extraction
 
 **Supported Brands:**
 
@@ -521,16 +521,7 @@ MAUI     → Maui Jim
 COSTA    → Costa Del Mar
 ```
 
-**Auto-Pricing by Brand (₹):**
-
-```javascript
-Ray-Ban:    Glasses: 8,000  | Sunglasses: 12,000 | Lenses: 3,000
-Oakley:     Glasses: 9,000  | Sunglasses: 15,000 | Lenses: 4,000
-Prada:      Glasses: 25,000 | Sunglasses: 30,000 | Lenses: 8,000
-Gucci:      Glasses: 30,000 | Sunglasses: 35,000 | Lenses: 10,000
-Tom Ford:   Glasses: 35,000 | Sunglasses: 40,000 | Lenses: 12,000
-Generic:    Glasses: 2,000  | Sunglasses: 3,000  | Lenses: 1,000
-```
+**Note:** Pricing is extracted directly from the barcode data, not auto-estimated.
 
 ---
 
@@ -601,7 +592,7 @@ POST /api/inventory/product/scan-to-add
 ✅ Size: Medium
 ✅ Color: Blue
 ✅ Material: Plastic
-✅ Price: ₹15,000
+✅ Price: From barcode data
 ```
 
 **Example 2: Simple Numeric Barcode**
@@ -618,7 +609,7 @@ POST /api/inventory/product/scan-to-add
 ✅ Model: Model 123456789
 ✅ Type: Glasses (default)
 ✅ Frame: Rectangle (default)
-✅ Price: ₹8,000
+✅ Price: From barcode data
 ```
 
 **Example 3: Unknown Format with Fallback**
@@ -634,7 +625,7 @@ POST /api/inventory/product/scan-to-add
 ⚠️ Company: Unknown Brand (auto-created)
 ⚠️ Model: Unknown Model
 ⚠️ Type: Glasses (fallback)
-⚠️ Price: ₹1,500 (fallback)
+⚠️ Price: Default fallback value
 ```
 
 ---
