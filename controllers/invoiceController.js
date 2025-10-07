@@ -283,7 +283,7 @@ exports.generateInvoicePdf = async (req, res) => {
       balance: invoiceData.totalAmount - paidAmount,
     };
 
-    // --- Prescription (Eye Power) ---
+    // --- Prescription (Eye Power) - Only for patients with prescriptions ---
     if (invoiceData.prescription && invoiceData.patient) {
       const pres = invoiceData.prescription;
       invoice.eyePower = [
@@ -302,12 +302,8 @@ exports.generateInvoicePdf = async (req, res) => {
           gst: "12%",
         },
       ];
-    } else {
-      invoice.eyePower = [
-        { eye: "RE", sphere: "0.00", cylinder: "0.00", axis: "0", gst: "18%" },
-        { eye: "LE", sphere: "0.00", cylinder: "0.00", axis: "0", gst: "12%" },
-      ];
     }
+    // Note: No else block - customers don't get eye power tables
 
     // --- Start PDF ---
     const doc = new PDFDocument({ margin: 40, size: "A4" });
@@ -367,45 +363,47 @@ exports.generateInvoicePdf = async (req, res) => {
     doc.font("Helvetica-Bold").text(`Mobile:`, 40, doc.y + 10);
     doc.font("Helvetica").text(invoice.customer.phone, 150, doc.y - 12);
 
-    // --- EYE POWER TABLE ---
-    doc
-      .moveDown(2)
-      .font("Helvetica-Bold")
-      .fontSize(11)
-      .text("Customer Eye Power");
+    // --- EYE POWER TABLE (Only for patients with prescriptions) ---
+    if (invoice.eyePower && invoiceData.patient && invoiceData.prescription) {
+      doc
+        .moveDown(2)
+        .font("Helvetica-Bold")
+        .fontSize(11)
+        .text("Customer Eye Power");
 
-    let startY = doc.y + 10;
-    const colWidthsEye = [80, 100, 100, 100, 100];
-    const colXEye = [40, 120, 220, 320, 420];
-    const rowHeight = 25;
+      let startY = doc.y + 10;
+      const colWidthsEye = [80, 100, 100, 100, 100];
+      const colXEye = [40, 120, 220, 320, 420];
+      const rowHeight = 25;
 
-    // Draw header row
-    doc.rect(40, startY, 480, rowHeight).stroke();
-    ["Eye", "Sphere", "Cylinder", "Axis", "GST"].forEach((h, i) => {
-      doc.text(h, colXEye[i] + 5, startY + 7);
-      if (i < colXEye.length - 1) {
-        doc
-          .moveTo(colXEye[i + 1], startY)
-          .lineTo(colXEye[i + 1], startY + rowHeight)
-          .stroke();
-      }
-    });
-
-    // Draw rows
-    invoice.eyePower.forEach((eye, idx) => {
-      let y = startY + rowHeight * (idx + 1);
-      doc.rect(40, y, 480, rowHeight).stroke();
-      const values = [eye.eye, eye.sphere, eye.cylinder, eye.axis, eye.gst];
-      values.forEach((v, i) => {
-        doc.text(v.toString(), colXEye[i] + 5, y + 7);
+      // Draw header row
+      doc.rect(40, startY, 480, rowHeight).stroke();
+      ["Eye", "Sphere", "Cylinder", "Axis", "GST"].forEach((h, i) => {
+        doc.text(h, colXEye[i] + 5, startY + 7);
         if (i < colXEye.length - 1) {
           doc
-            .moveTo(colXEye[i + 1], y)
-            .lineTo(colXEye[i + 1], y + rowHeight)
+            .moveTo(colXEye[i + 1], startY)
+            .lineTo(colXEye[i + 1], startY + rowHeight)
             .stroke();
         }
       });
-    });
+
+      // Draw rows
+      invoice.eyePower.forEach((eye, idx) => {
+        let y = startY + rowHeight * (idx + 1);
+        doc.rect(40, y, 480, rowHeight).stroke();
+        const values = [eye.eye, eye.sphere, eye.cylinder, eye.axis, eye.gst];
+        values.forEach((v, i) => {
+          doc.text(v.toString(), colXEye[i] + 5, y + 7);
+          if (i < colXEye.length - 1) {
+            doc
+              .moveTo(colXEye[i + 1], y)
+              .lineTo(colXEye[i + 1], y + rowHeight)
+              .stroke();
+          }
+        });
+      });
+    }
 
     // --- PRODUCT DETAILS TABLE ---
     doc.moveDown(2).font("Helvetica-Bold").fontSize(11).text("Product Details");
