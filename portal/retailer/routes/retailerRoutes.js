@@ -185,7 +185,7 @@ router.get(
 // SHOP DISTRIBUTION ROUTES
 // ================================
 
-// Shop management
+// Shop management - existing routes
 router.get(
   "/shops",
   authenticateRetailer,
@@ -198,7 +198,19 @@ router.put(
   shopDistributionController.updateShopRelationship
 );
 
-// Distribution management
+// 🆕 NEW: Enhanced shop discovery and management
+router.get(
+  "/shops/available",
+  authenticateRetailer,
+  shopDistributionController.getAvailableShops
+);
+router.get(
+  "/shops/my-network",
+  authenticateRetailer,
+  shopDistributionController.getMyNetwork
+);
+
+// Distribution management - existing routes
 router.post(
   "/distributions",
   authenticateRetailer,
@@ -215,7 +227,7 @@ router.get(
   shopDistributionController.getShopDistributions
 );
 
-// Update distribution status
+// Update distribution status - existing routes
 router.put(
   "/distributions/:distributionId/delivery-status",
   authenticateRetailer,

@@ -208,7 +208,7 @@ exports.updateShopRelationship = async (req, res) => {
   }
 };
 
-// Distribute products to shop
+// Enhanced distribute products to shop with planning and validation
 exports.distributeToShop = async (req, res) => {
   try {
     const retailerId = req.retailer.id;
@@ -217,20 +217,40 @@ exports.distributeToShop = async (req, res) => {
       distributions, // Array of { retailerProductId, quantity, unitPrice }
       notes,
       paymentDueDate,
+      deliveryExpectedDate,
+      planDistribution = false, // Optional: plan distribution without committing
     } = req.body;
 
+    // Enhanced validation
     if (!retailerShopId || !distributions || !Array.isArray(distributions)) {
       return res.status(400).json({
         error: "Shop ID and distributions array are required",
       });
     }
 
-    // Verify retailer shop exists
+    if (distributions.length === 0) {
+      return res.status(400).json({
+        error: "At least one distribution item is required",
+      });
+    }
+
+    // Verify retailer shop exists and get detailed info
     const retailerShop = await prisma.retailerShop.findFirst({
       where: {
         id: parseInt(retailerShopId),
         retailerId: retailerId,
         isActive: true,
+      },
+      include: {
+        shop: {
+          select: {
+            id: true,
+            name: true,
+            address: true,
+            contactNumber: true,
+            isActive: true,
+          },
+        },
       },
     });
 
@@ -240,18 +260,46 @@ exports.distributeToShop = async (req, res) => {
       });
     }
 
-    const createdDistributions = [];
+    if (!retailerShop.shop?.isActive) {
+      return res.status(400).json({
+        error: "Cannot distribute to inactive shop",
+      });
+    }
+
+    // Batch validation phase - collect all errors before processing
+    const validationErrors = [];
+    const distributionPlan = [];
     let totalAmount = 0;
 
-    // Process each distribution item
-    for (const dist of distributions) {
+    // Pre-validate all distributions
+    for (let i = 0; i < distributions.length; i++) {
+      const dist = distributions[i];
       const { retailerProductId, quantity, unitPrice } = dist;
 
+      // Validate required fields
       if (!retailerProductId || !quantity || !unitPrice) {
-        return res.status(400).json({
-          error:
-            "Product ID, quantity, and unit price are required for each distribution",
+        validationErrors.push({
+          index: i,
+          error: "Product ID, quantity, and unit price are required",
         });
+        continue;
+      }
+
+      // Validate data types and ranges
+      if (parseInt(quantity) <= 0) {
+        validationErrors.push({
+          index: i,
+          error: "Quantity must be greater than 0",
+        });
+        continue;
+      }
+
+      if (parseFloat(unitPrice) <= 0) {
+        validationErrors.push({
+          index: i,
+          error: "Unit price must be greater than 0",
+        });
+        continue;
       }
 
       // Verify retailer product exists and has sufficient stock
@@ -262,103 +310,200 @@ exports.distributeToShop = async (req, res) => {
           isActive: true,
         },
         include: {
-          product: true,
+          product: {
+            include: {
+              company: true,
+            },
+          },
         },
       });
 
       if (!retailerProduct) {
-        return res.status(400).json({
-          error: `Product ${retailerProductId} not found in your inventory`,
+        validationErrors.push({
+          index: i,
+          productId: retailerProductId,
+          error: `Product not found in your inventory`,
         });
+        continue;
       }
 
-      if (retailerProduct.availableStock < parseInt(quantity)) {
-        return res.status(400).json({
-          error: `Insufficient stock for ${retailerProduct.product.name}. Available: ${retailerProduct.availableStock}, Requested: ${quantity}`,
+      const requestedQuantity = parseInt(quantity);
+      if (retailerProduct.availableStock < requestedQuantity) {
+        validationErrors.push({
+          index: i,
+          productId: retailerProductId,
+          productName: retailerProduct.product.name,
+          error: `Insufficient stock. Available: ${retailerProduct.availableStock}, Requested: ${requestedQuantity}`,
         });
+        continue;
       }
 
-      const itemTotal = parseInt(quantity) * parseFloat(unitPrice);
+      const itemTotal = requestedQuantity * parseFloat(unitPrice);
       totalAmount += itemTotal;
 
-      // Create distribution record
-      const distribution = await prisma.shopDistribution.create({
-        data: {
-          retailerId: retailerId,
-          retailerShopId: parseInt(retailerShopId),
-          retailerProductId: parseInt(retailerProductId),
-          quantity: parseInt(quantity),
-          unitPrice: parseFloat(unitPrice),
-          totalAmount: itemTotal,
+      distributionPlan.push({
+        ...dist,
+        retailerProduct,
+        itemTotal,
+        parsedQuantity: requestedQuantity,
+        parsedUnitPrice: parseFloat(unitPrice),
+      });
+    }
+
+    // Return validation errors if any
+    if (validationErrors.length > 0) {
+      return res.status(400).json({
+        error: "Validation failed for distribution items",
+        validationErrors,
+        summary: {
+          totalItems: distributions.length,
+          validItems: distributionPlan.length,
+          errorItems: validationErrors.length,
+        },
+      });
+    }
+
+    // If planning mode, return plan without executing
+    if (planDistribution) {
+      return res.status(200).json({
+        message: "Distribution plan created successfully",
+        plan: {
+          shop: {
+            id: retailerShop.id,
+            name: retailerShop.shop.name,
+            address: retailerShop.shop.address,
+          },
+          items: distributionPlan.map((item) => ({
+            productId: item.retailerProductId,
+            productName: item.retailerProduct.product.name,
+            company: item.retailerProduct.product.company.name,
+            quantity: item.parsedQuantity,
+            unitPrice: item.parsedUnitPrice,
+            itemTotal: item.itemTotal,
+            availableStock: item.retailerProduct.availableStock,
+            stockAfterDistribution:
+              item.retailerProduct.availableStock - item.parsedQuantity,
+          })),
+          totalAmount,
           paymentDueDate: paymentDueDate ? new Date(paymentDueDate) : null,
+          deliveryExpectedDate: deliveryExpectedDate
+            ? new Date(deliveryExpectedDate)
+            : null,
           notes,
         },
-        include: {
-          retailerProduct: {
-            include: {
-              product: {
-                include: {
-                  company: true,
+      });
+    }
+
+    // Execute distribution - use transaction for data consistency
+    const result = await prisma.$transaction(async (tx) => {
+      const createdDistributions = [];
+
+      // Process each validated distribution item
+      for (const planItem of distributionPlan) {
+        // Create distribution record
+        const distribution = await tx.shopDistribution.create({
+          data: {
+            retailerId: retailerId,
+            retailerShopId: parseInt(retailerShopId),
+            retailerProductId: parseInt(planItem.retailerProductId),
+            quantity: planItem.parsedQuantity,
+            unitPrice: planItem.parsedUnitPrice,
+            totalAmount: planItem.itemTotal,
+            paymentDueDate: paymentDueDate ? new Date(paymentDueDate) : null,
+            deliveryExpectedDate: deliveryExpectedDate
+              ? new Date(deliveryExpectedDate)
+              : null,
+            notes,
+            deliveryStatus: "PENDING",
+            paymentStatus: "PENDING",
+          },
+          include: {
+            retailerProduct: {
+              include: {
+                product: {
+                  include: {
+                    company: true,
+                  },
                 },
               },
             },
-          },
-          retailerShop: {
-            include: {
-              shop: true,
+            retailerShop: {
+              include: {
+                shop: true,
+              },
             },
           },
-        },
-      });
+        });
 
-      // Update retailer product stock
-      await prisma.retailerProduct.update({
-        where: { id: parseInt(retailerProductId) },
+        // Update retailer product stock
+        await tx.retailerProduct.update({
+          where: { id: parseInt(planItem.retailerProductId) },
+          data: {
+            availableStock: {
+              decrement: planItem.parsedQuantity,
+            },
+            allocatedStock: {
+              increment: planItem.parsedQuantity,
+            },
+          },
+        });
+
+        // Update inventory tracking
+        await tx.retailerInventory.updateMany({
+          where: {
+            retailerId: retailerId,
+            retailerProductId: parseInt(planItem.retailerProductId),
+          },
+          data: {
+            reservedStock: {
+              increment: planItem.parsedQuantity,
+            },
+          },
+        });
+
+        createdDistributions.push(distribution);
+      }
+
+      // Create revenue transaction
+      await tx.retailerTransaction.create({
         data: {
-          availableStock: {
-            decrement: parseInt(quantity),
-          },
-          allocatedStock: {
-            increment: parseInt(quantity),
-          },
-        },
-      });
-
-      // Update inventory
-      await prisma.retailerInventory.updateMany({
-        where: {
           retailerId: retailerId,
-          retailerProductId: parseInt(retailerProductId),
-        },
-        data: {
-          reservedStock: {
-            increment: parseInt(quantity),
-          },
+          type: "SALE_TO_SHOP",
+          amount: totalAmount,
+          description: `Distribution to ${
+            retailerShop.shop?.name || "Shop"
+          } - ${distributionPlan.length} items`,
+          shopId: retailerShop.shopId,
+          referenceId: `DIST-${Date.now()}`,
         },
       });
 
-      createdDistributions.push(distribution);
-    }
-
-    // Create revenue transaction
-    await prisma.retailerTransaction.create({
-      data: {
-        retailerId: retailerId,
-        type: "SALE_TO_SHOP",
-        amount: totalAmount,
-        description: `Distribution to ${retailerShop.shop?.name || "Shop"}`,
-        shopId: retailerShop.shopId,
-      },
+      return createdDistributions;
     });
 
     res.status(201).json({
       message: "Products distributed successfully",
-      distributions: createdDistributions,
-      totalAmount,
+      distributions: result,
+      summary: {
+        shopName: retailerShop.shop.name,
+        totalItems: distributionPlan.length,
+        totalAmount,
+        distributionDate: new Date().toISOString(),
+        paymentDueDate: paymentDueDate
+          ? new Date(paymentDueDate).toISOString()
+          : null,
+        deliveryExpectedDate: deliveryExpectedDate
+          ? new Date(deliveryExpectedDate).toISOString()
+          : null,
+      },
     });
   } catch (error) {
-    console.error("Distribute to shop error:", error);
-    res.status(500).json({ error: "Failed to distribute products" });
+    console.error("Enhanced distribute to shop error:", error);
+    res.status(500).json({
+      error: "Failed to distribute products",
+      details:
+        process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
   }
 };
 
@@ -725,5 +870,304 @@ exports.getAllDistributions = async (req, res) => {
   } catch (error) {
     console.error("Get all distributions error:", error);
     res.status(500).json({ error: "Failed to fetch distributions" });
+  }
+};
+
+// 🆕 NEW: Get available shops not yet connected to retailer
+exports.getAvailableShops = async (req, res) => {
+  try {
+    const retailerId = req.retailer.id;
+
+    const availableShops = await prisma.shop.findMany({
+      where: {
+        // Only show shops not already in retailer's network
+        retailerShops: {
+          none: {
+            retailerId: retailerId,
+          },
+        },
+      },
+      select: {
+        id: true,
+        name: true,
+        address: true,
+        phone: true,
+        email: true,
+        createdAt: true,
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+    });
+
+    res.json({
+      availableShops,
+      total: availableShops.length,
+      message: `${availableShops.length} new shops available for connection`,
+    });
+  } catch (error) {
+    console.error("Get available shops error:", error);
+    res.status(500).json({ error: "Failed to fetch available shops" });
+  }
+};
+
+// 🆕 NEW: Get retailer's connected shops with enhanced stats (alias for getRetailerShops)
+exports.getMyNetwork = async (req, res) => {
+  try {
+    const retailerId = req.retailer.id;
+
+    const myShops = await prisma.retailerShop.findMany({
+      where: {
+        retailerId: retailerId,
+        isActive: true,
+      },
+      include: {
+        shop: {
+          select: {
+            id: true,
+            name: true,
+            address: true,
+            phone: true,
+            email: true,
+            createdAt: true,
+          },
+        },
+      },
+      orderBy: {
+        joinedAt: "desc",
+      },
+    });
+
+    // Add enhanced distribution stats for each shop
+    const shopsWithStats = await Promise.all(
+      myShops.map(async (rs) => {
+        // Get distribution statistics
+        const stats = await prisma.shopDistribution.aggregate({
+          where: {
+            retailerId: retailerId,
+            retailerShopId: rs.id,
+          },
+          _sum: {
+            quantity: true,
+            totalAmount: true,
+          },
+          _count: {
+            id: true,
+          },
+        });
+
+        // Get pending distributions
+        const pendingStats = await prisma.shopDistribution.aggregate({
+          where: {
+            retailerId: retailerId,
+            retailerShopId: rs.id,
+            deliveryStatus: "PENDING",
+          },
+          _count: {
+            id: true,
+          },
+          _sum: {
+            totalAmount: true,
+          },
+        });
+
+        // Get last distribution
+        const lastDistribution = await prisma.shopDistribution.findFirst({
+          where: {
+            retailerId: retailerId,
+            retailerShopId: rs.id,
+          },
+          orderBy: {
+            distributionDate: "desc",
+          },
+          include: {
+            retailerProduct: {
+              include: { product: true },
+            },
+          },
+        });
+
+        return {
+          id: rs.id,
+          shop: rs.shop,
+          partnershipType: rs.partnershipType,
+          joinedAt: rs.joinedAt,
+          isActive: rs.isActive,
+          stats: {
+            totalDistributions: stats._count.id || 0,
+            totalQuantityDistributed: stats._sum.quantity || 0,
+            totalAmountDistributed: stats._sum.totalAmount || 0,
+            pendingDeliveries: pendingStats._count.id || 0,
+            pendingAmount: pendingStats._sum.totalAmount || 0,
+            lastDistribution: lastDistribution
+              ? {
+                  date: lastDistribution.distributionDate,
+                  product: lastDistribution.retailerProduct.product.name,
+                  quantity: lastDistribution.quantity,
+                  amount: lastDistribution.totalAmount,
+                  status: lastDistribution.deliveryStatus,
+                }
+              : null,
+          },
+        };
+      })
+    );
+
+    res.json({
+      myShops: shopsWithStats,
+      totalShops: shopsWithStats.length,
+      message: `You have ${shopsWithStats.length} shops in your distribution network`,
+    });
+  } catch (error) {
+    console.error("Get my network error:", error);
+    res.status(500).json({ error: "Failed to fetch shop network" });
+  }
+};
+
+// 🆕 NEW: Simplified distribution using direct shop ID
+exports.distributeToShopById = async (req, res) => {
+  try {
+    const retailerId = req.retailer.id;
+    const {
+      shopId, // Direct shop ID (much simpler than retailerShopId)
+      products, // [{ productId, quantity, unitPrice }]
+      notes,
+      expectedDeliveryDate,
+    } = req.body;
+
+    if (!shopId || !products || !Array.isArray(products)) {
+      return res.status(400).json({
+        error: "Shop ID and products array are required",
+      });
+    }
+
+    // Verify shop is in retailer's network
+    const retailerShop = await prisma.retailerShop.findFirst({
+      where: {
+        retailerId: retailerId,
+        shop: { id: parseInt(shopId) },
+        isActive: true,
+      },
+      include: {
+        shop: {
+          select: { id: true, name: true, address: true },
+        },
+      },
+    });
+
+    if (!retailerShop) {
+      return res.status(404).json({
+        error: "Shop not found in your distribution network",
+        hint: "Add the shop to your network first using POST /shops",
+      });
+    }
+
+    const distributions = [];
+    let totalAmount = 0;
+
+    // Process each product
+    for (const item of products) {
+      const { productId, quantity, unitPrice } = item;
+
+      if (!productId || !quantity || !unitPrice) {
+        return res.status(400).json({
+          error:
+            "Product ID, quantity, and unit price are required for each product",
+        });
+      }
+
+      // Verify retailer has this product with sufficient stock
+      const retailerProduct = await prisma.retailerProduct.findFirst({
+        where: {
+          retailerId: retailerId,
+          productId: parseInt(productId),
+          isActive: true,
+        },
+        include: {
+          product: {
+            select: { id: true, name: true, sku: true },
+          },
+        },
+      });
+
+      if (!retailerProduct) {
+        return res.status(400).json({
+          error: `Product ${productId} not found in your inventory`,
+        });
+      }
+
+      if (retailerProduct.availableStock < parseInt(quantity)) {
+        return res.status(400).json({
+          error: `Insufficient stock for ${retailerProduct.product.name}`,
+          available: retailerProduct.availableStock,
+          requested: parseInt(quantity),
+        });
+      }
+
+      const itemTotal = parseInt(quantity) * parseFloat(unitPrice);
+      totalAmount += itemTotal;
+
+      // Create distribution record
+      const distribution = await prisma.shopDistribution.create({
+        data: {
+          retailerId: retailerId,
+          retailerShopId: retailerShop.id,
+          retailerProductId: retailerProduct.id,
+          quantity: parseInt(quantity),
+          unitPrice: parseFloat(unitPrice),
+          totalAmount: itemTotal,
+          deliveryStatus: "PENDING",
+          paymentStatus: "PENDING",
+          notes,
+          expectedDeliveryDate: expectedDeliveryDate
+            ? new Date(expectedDeliveryDate)
+            : null,
+        },
+        include: {
+          retailerProduct: {
+            include: { product: true },
+          },
+        },
+      });
+
+      // Update retailer stock
+      await prisma.retailerProduct.update({
+        where: { id: retailerProduct.id },
+        data: {
+          availableStock: { decrement: parseInt(quantity) },
+          allocatedStock: { increment: parseInt(quantity) },
+        },
+      });
+
+      distributions.push({
+        distributionId: distribution.id,
+        product: retailerProduct.product,
+        quantity: distribution.quantity,
+        unitPrice: distribution.unitPrice,
+        totalAmount: distribution.totalAmount,
+      });
+    }
+
+    // Create revenue transaction
+    await prisma.retailerTransaction.create({
+      data: {
+        retailerId: retailerId,
+        type: "SALE_TO_SHOP",
+        amount: totalAmount,
+        description: `Distribution to ${retailerShop.shop.name}`,
+        shopId: retailerShop.shopId,
+      },
+    });
+
+    res.status(201).json({
+      message: "Products distributed successfully",
+      shop: retailerShop.shop,
+      distributions,
+      totalAmount,
+      totalProducts: distributions.length,
+    });
+  } catch (error) {
+    console.error("Distribute to shop by ID error:", error);
+    res.status(500).json({ error: "Failed to distribute products" });
   }
 };

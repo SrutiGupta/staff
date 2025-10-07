@@ -2,7 +2,7 @@
 
 ## 🎯 Overview
 
-This comprehensive guide covers all **31 endpoints** in the Retailer Portal, organized by functionality with complete request/response examples for Postman testing.
+This comprehensive guide covers all **33 endpoints** in the Retailer Portal, organized by functionality with complete request/response examples for Postman testing.
 
 **Base URL:** `http://localhost:8080/retailer`
 
@@ -926,7 +926,7 @@ Authorization: Bearer <token>
 
 ---
 
-## 🏪 SHOP DISTRIBUTION ENDPOINTS (6)
+## 🏪 SHOP DISTRIBUTION ENDPOINTS (9)
 
 ### 26. Get Retailer Shops
 
@@ -1055,7 +1055,7 @@ Authorization: Bearer <token>
 }
 ```
 
-### 29. Distribute Products to Shop
+### 29. Enhanced Distribute Products to Shop
 
 **POST** `/distributions`
 
@@ -1064,6 +1064,8 @@ Authorization: Bearer <token>
 ```
 Authorization: Bearer <token>
 ```
+
+**Description:** Enhanced distribution endpoint with planning mode, batch validation, and improved error handling
 
 **Request Body:**
 
@@ -1082,12 +1084,31 @@ Authorization: Bearer <token>
       "unitPrice": 220.0
     }
   ],
-  "notes": "Monthly distribution",
-  "paymentDueDate": "2025-10-23T00:00:00Z"
+  "notes": "Monthly distribution with enhanced tracking",
+  "paymentDueDate": "2025-10-23T00:00:00Z",
+  "deliveryExpectedDate": "2025-10-15T00:00:00Z",
+  "planDistribution": false
 }
 ```
 
-**Response (201):**
+**Planning Mode Request (planDistribution: true):**
+
+```json
+{
+  "retailerShopId": 1,
+  "distributions": [
+    {
+      "retailerProductId": 1,
+      "quantity": 10,
+      "unitPrice": 180.0
+    }
+  ],
+  "planDistribution": true,
+  "notes": "Test distribution plan"
+}
+```
+
+**Enhanced Response (201) - Actual Distribution:**
 
 ```json
 {
@@ -1103,11 +1124,15 @@ Authorization: Bearer <token>
       "totalAmount": 1800,
       "deliveryStatus": "PENDING",
       "paymentStatus": "PENDING",
-      "notes": "Monthly distribution",
+      "notes": "Monthly distribution with enhanced tracking",
       "paymentDueDate": "2025-10-23T00:00:00.000Z",
+      "deliveryExpectedDate": "2025-10-15T00:00:00.000Z",
       "retailerProduct": {
         "product": {
-          "name": "Ray-Ban Aviator Classic Updated"
+          "name": "Ray-Ban Aviator Classic Updated",
+          "company": {
+            "name": "Ray-Ban"
+          }
         }
       },
       "retailerShop": {
@@ -1116,8 +1141,85 @@ Authorization: Bearer <token>
         }
       }
     }
-  ]
+  ],
+  "summary": {
+    "shopName": "Optical World Test Branch",
+    "totalItems": 2,
+    "totalAmount": 2900,
+    "distributionDate": "2025-09-23T05:45:00.000Z",
+    "paymentDueDate": "2025-10-23T00:00:00.000Z",
+    "deliveryExpectedDate": "2025-10-15T00:00:00.000Z"
+  }
 }
+```
+
+**Planning Mode Response (200):**
+
+```json
+{
+  "message": "Distribution plan created successfully",
+  "plan": {
+    "shop": {
+      "id": 1,
+      "name": "Optical World Test Branch",
+      "address": "456 Retail Ave, Business District"
+    },
+    "items": [
+      {
+        "productId": 1,
+        "productName": "Ray-Ban Aviator Classic Updated",
+        "company": "Ray-Ban",
+        "quantity": 10,
+        "unitPrice": 180,
+        "itemTotal": 1800,
+        "availableStock": 50,
+        "stockAfterDistribution": 40
+      }
+    ],
+    "totalAmount": 1800,
+    "paymentDueDate": "2025-10-23T00:00:00.000Z",
+    "deliveryExpectedDate": null,
+    "notes": "Test distribution plan"
+  }
+}
+```
+
+**Enhanced Error Response (400) - Validation Errors:**
+
+```json
+{
+  "error": "Validation failed for distribution items",
+  "validationErrors": [
+    {
+      "index": 0,
+      "productId": 1,
+      "productName": "Ray-Ban Aviator Classic",
+      "error": "Insufficient stock. Available: 5, Requested: 10"
+    },
+    {
+      "index": 1,
+      "error": "Unit price must be greater than 0"
+    }
+  ],
+  "summary": {
+    "totalItems": 2,
+    "validItems": 0,
+    "errorItems": 2
+  }
+}
+```
+
+**Features:**
+
+- ✅ **Planning Mode**: Test distributions without committing changes
+- ✅ **Batch Validation**: Validate all items before processing any
+- ✅ **Enhanced Error Handling**: Detailed error messages with item indices
+- ✅ **Transaction Safety**: Database consistency with Prisma transactions
+- ✅ **Comprehensive Responses**: Detailed summaries and planning information
+- ✅ **Delivery Tracking**: Expected delivery dates and enhanced status tracking
+- ✅ **Stock Validation**: Real-time stock availability checking
+- ✅ **Shop Validation**: Active shop verification with detailed information
+
 ```
 
 ### 30. Get All Distributions
@@ -1127,8 +1229,10 @@ Authorization: Bearer <token>
 **Headers:**
 
 ```
+
 Authorization: Bearer <token>
-```
+
+````
 
 **Query Parameters:**
 
@@ -1169,7 +1273,7 @@ Authorization: Bearer <token>
     "pages": 1
   }
 }
-```
+````
 
 ### 31. Get Shop Specific Distributions
 
@@ -1212,6 +1316,94 @@ Authorization: Bearer <token>
   }
 }
 ```
+
+### 32. 🆕 Get Available Shops for Connection
+
+**GET** `/shops/available`
+
+**Headers:**
+
+```
+Authorization: Bearer <token>
+```
+
+**Description:** Discover shops that are not yet connected to your retailer network
+
+**Response (200):**
+
+```json
+{
+  "availableShops": [
+    {
+      "id": 1,
+      "name": "Test Optical Shop",
+      "address": "123 Test Street, Test City",
+      "phone": "+1234567890",
+      "email": "contact@testshop.com",
+      "createdAt": "2025-09-30T08:11:35.195Z"
+    }
+  ],
+  "total": 1,
+  "message": "1 new shops available for connection"
+}
+```
+
+**Status:** ✅ **WORKING** - Tested and verified
+
+---
+
+### 33. 🆕 Get My Shop Network with Enhanced Analytics
+
+**GET** `/shops/my-network`
+
+**Headers:**
+
+```
+Authorization: Bearer <token>
+```
+
+**Description:** Get comprehensive analytics of your connected shops with distribution statistics
+
+**Response (200):**
+
+```json
+{
+  "myShops": [
+    {
+      "id": 2,
+      "shop": {
+        "id": 1,
+        "name": "Test Optical Shop",
+        "address": "123 Test Street, Test City",
+        "phone": "+1234567890",
+        "email": "contact@testshop.com",
+        "createdAt": "2025-09-30T08:11:35.195Z"
+      },
+      "partnershipType": "FRANCHISE",
+      "joinedAt": "2025-10-07T07:55:31.041Z",
+      "isActive": true,
+      "stats": {
+        "totalDistributions": 2,
+        "totalQuantityDistributed": 8,
+        "totalAmountDistributed": 885,
+        "pendingDeliveries": 2,
+        "pendingAmount": 885,
+        "lastDistribution": {
+          "date": "2025-10-07T07:59:35.124Z",
+          "product": "Ray-Ban Aviator Classic",
+          "quantity": 5,
+          "amount": 600,
+          "status": "PENDING"
+        }
+      }
+    }
+  ],
+  "totalShops": 1,
+  "message": "You have 1 shops in your distribution network"
+}
+```
+
+**Status:** ✅ **WORKING** - Enhanced with real-time statistics
 
 ---
 
@@ -1300,6 +1492,12 @@ All endpoints may return these common error responses:
 
 ---
 
-**🎯 Total Endpoints Documented: 31/31**
+**🎯 Total Endpoints Documented: 33/33**
 **📊 All Categories Covered: Authentication, Dashboard, Reports, Inventory, Shop Distribution**
 **✅ Integration Verified: Retailer ↔ Shop Admin Portal**
+
+### 🆕 ENHANCED ENDPOINTS (Updated Oct 2025)
+
+- [x] **Shop Discovery** - GET /shops/available ✅ WORKING
+- [x] **Network Analytics** - GET /shops/my-network ✅ WORKING
+- [x] **Enhanced Distribution** - POST /distributions ✅ ENHANCED (Planning mode, batch validation, improved error handling)
