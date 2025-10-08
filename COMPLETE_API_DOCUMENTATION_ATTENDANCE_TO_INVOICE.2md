@@ -34,7 +34,7 @@ POST / api / auth / login;
 
 ### 4. Create Patient
 
-**POST** `/patients`
+**POST** `/api/patient`
 
 **Headers:** `Authorization: Bearer <token>`
 
@@ -70,7 +70,7 @@ POST / api / auth / login;
 
 ### 5. Get All Patients
 
-**GET** `/patients`
+**GET** `/api/patient`
 
 **Headers:** `Authorization: Bearer <token>`
 
@@ -106,7 +106,7 @@ POST / api / auth / login;
 
 ### 6. Get Patient by ID
 
-**GET** `/patients/:id`
+**GET** `/api/patient/:id`
 
 **Headers:** `Authorization: Bearer <token>`
 
@@ -168,7 +168,7 @@ POST / api / auth / login;
 
 ### 7. Process Payment
 
-**POST** `/payments`
+**POST** `/api/payment`
 
 **Request Body:**
 
@@ -264,7 +264,7 @@ POST / api / auth / login;
 
 ### 8. Create Prescription
 
-**POST** `/prescriptions`
+**POST** `/api/prescription`
 
 **Headers:** `Authorization: Bearer <token>`
 
@@ -341,7 +341,7 @@ POST / api / auth / login;
 
 ### 9. Get All Prescriptions
 
-**GET** `/prescriptions`
+**GET** `/api/prescription`
 
 **Headers:** `Authorization: Bearer <token>`
 
@@ -389,7 +389,7 @@ POST / api / auth / login;
 
 ### 10. Get Prescription by ID
 
-**GET** `/prescriptions/:id`
+**GET** `/api/prescription/:id`
 
 **Headers:** `Authorization: Bearer <token>`
 
@@ -433,7 +433,7 @@ POST / api / auth / login;
 
 ### 11. Generate Prescription PDF
 
-**GET** `/prescriptions/:id/pdf`
+**GET** `/api/prescription/:id/pdf`
 
 **Headers:** `Authorization: Bearer <token>`
 
@@ -448,7 +448,7 @@ Content-Disposition: attachment; filename="prescription-1.pdf"
 
 ### 12. Generate Prescription Thermal Print
 
-**GET** `/prescriptions/:id/thermal`
+**GET** `/api/prescription/:id/thermal`
 
 **Headers:** `Authorization: Bearer <token>`
 
@@ -466,7 +466,7 @@ Content-Disposition: attachment; filename="prescription-1.pdf"
 
 ### 13. Get All Products
 
-**GET** `/products`
+**GET** `/api/inventory/products`
 
 **Headers:** `Authorization: Bearer <token>`
 
@@ -506,7 +506,7 @@ Content-Disposition: attachment; filename="prescription-1.pdf"
 
 ### 14. Add New Product
 
-**POST** `/products`
+**POST** `/api/inventory/product`
 
 **Headers:** `Authorization: Bearer <token>`
 
@@ -595,7 +595,7 @@ Content-Disposition: attachment; filename="prescription-1.pdf"
 
 ### 14. Create Stock Receipt
 
-**POST** `/stock-receipts`
+**POST** `/api/stock-receipts`
 
 **Headers:** `Authorization: Bearer <token>`
 
@@ -662,7 +662,7 @@ Content-Disposition: attachment; filename="prescription-1.pdf"
 
 ### 15. Get All Stock Receipts
 
-**GET** `/stock-receipts`
+**GET** `/api/stock-receipts`
 
 **Headers:** `Authorization: Bearer <token>`
 
@@ -715,7 +715,7 @@ Content-Disposition: attachment; filename="prescription-1.pdf"
 
 ### 16. Get Stock Receipt by ID
 
-**GET** `/stock-receipts/:id`
+**GET** `/api/stock-receipts/:id`
 
 **Headers:** `Authorization: Bearer <token>`
 
@@ -758,7 +758,7 @@ Content-Disposition: attachment; filename="prescription-1.pdf"
 
 ### 14. Daily Report
 
-**GET** `/reports/daily`
+**GET** `/api/reporting/daily`
 
 **Headers:** `Authorization: Bearer <token>`
 
@@ -804,7 +804,7 @@ Content-Disposition: attachment; filename="prescription-1.pdf"
 
 ### 15. Monthly Report
 
-**GET** `/reports/monthly`
+**GET** `/api/reporting/monthly`
 
 **Headers:** `Authorization: Bearer <token>`
 
@@ -851,7 +851,7 @@ Content-Disposition: attachment; filename="prescription-1.pdf"
 
 ### 16. Staff Sales Report
 
-**GET** `/reports/staff-sales`
+**GET** `/api/reporting/staff-sales`
 
 **Headers:** `Authorization: Bearer <token>`
 
@@ -889,7 +889,7 @@ Content-Disposition: attachment; filename="prescription-1.pdf"
 
 ### 17. Sales by Price Tier
 
-**GET** `/reports/sales-by-price-tier`
+**GET** `/api/reporting/sales-by-price-tier`
 
 **Headers:** `Authorization: Bearer <token>`
 
@@ -930,7 +930,7 @@ Content-Disposition: attachment; filename="prescription-1.pdf"
 
 ### 18. Best Sellers by Price Tier
 
-**GET** `/reports/best-sellers-by-price-tier`
+**GET** `/api/reporting/best-sellers-by-price-tier`
 
 **Headers:** `Authorization: Bearer <token>`
 
@@ -988,7 +988,7 @@ Content-Disposition: attachment; filename="prescription-1.pdf"
 
 ### 19. Add Loyalty Points
 
-**POST** `/royalty`
+**POST** `/api/royalty`
 
 **Headers:** `Authorization: Bearer <token>`
 
@@ -1028,7 +1028,7 @@ Content-Disposition: attachment; filename="prescription-1.pdf"
 
 ### 20. Get Loyalty Points
 
-**GET** `/royalty/:patientId`
+**GET** `/api/royalty/:patientId`
 
 **Headers:** `Authorization: Bearer <token>`
 
