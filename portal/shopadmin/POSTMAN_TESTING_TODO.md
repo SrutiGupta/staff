@@ -950,6 +950,44 @@
   ```
 - **Status**: Not Started
 
+=====================
+### 31 . Staff Performance Report
+
+**GET** `/reports/staff-performance`
+
+**Headers:** `Authorization: Bearer <token>`
+it is for shop admin ==>>.
+**Query Parameters:**
+
+- `staffId` (optional): Specific staff member
+- `startDate` (optional): Filter from date
+- `endDate` (optional): Filter to date
+
+**Response (200):**
+
+```json
+{
+  "staffPerformance": [
+    {
+      "staffId": 1,
+      "staffName": "John Doe",
+      "totalSales": 15000.0,
+      "invoiceCount": 45,
+      "averageOrderValue": 333.33,
+      "workingDays": 20,
+      "averageDailySales": 750.0,
+      "attendanceRate": 95.0
+    }
+  ],
+  "topPerformer": {
+    "staffId": 1,
+    "staffName": "John Doe",
+    "totalSales": 15000.0
+  }
+}
+```
+
+
 ---
 
 ## 📋 **POSTMAN COLLECTION STRUCTURE**

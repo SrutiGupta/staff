@@ -1,0 +1,665 @@
+# Staff Portal - Complete API Documentation
+
+## 🎯 Overview
+
+This comprehensive guide covers all **94 endpoints** in the Staff Portal, organized by functionality with complete request/response examples for Postman testing.
+
+**Base URL:** `http://localhost:8080/api`
+
+---
+
+## 🔐 AUTHENTICATION & JWT TOKEN
+
+### JWT Token Usage
+
+All protected routes require JWT token in the Authorization header:
+
+```
+Authorization: Bearer <your_jwt_token>
+```
+
+### Getting JWT Token
+
+Use the login endpoint to get your JWT token:
+
+```javascript
+POST / api / auth / login;
+```
+
+---
+
+## 📋 TABLE OF CONTENTs
+
+
+## 👥 PATIENT MANAGEMENT
+
+### 4. Create Patient
+
+**POST** `/patients`
+
+**Headers:** `Authorization: Bearer <token>`
+
+**Request Body:**
+
+```json
+{
+  "name": "John Patient",
+  "phone": "+1234567890",
+  "email": "patient@example.com",
+  "address": "123 Patient Street",
+  "dateOfBirth": "1990-05-15",
+  "gender": "MALE"
+}
+```
+
+**Response (201):**
+
+```json
+{
+  "message": "Patient created successfully",
+  "patient": {
+    "id": 1,
+    "name": "John Patient",
+    "phone": "+1234567890",
+    "email": "patient@example.com",
+    "address": "123 Patient Street",
+    "dateOfBirth": "1990-05-15T00:00:00.000Z",
+    "gender": "MALE",
+    "shopId": 1,
+    "createdAt": "2025-10-08T10:00:00.000Z"
+  }
+}
+```
+
+### 5. Get All Patients
+
+**GET** `/patients`
+
+**Headers:** `Authorization: Bearer <token>`
+
+**Query Parameters:**
+
+- `page` (optional): Page number (default: 1)
+- `limit` (optional): Items per page (default: 10)
+- `search` (optional): Search by name, phone, or email
+
+**Response (200):**
+
+```json
+{
+  "patients": [
+    {
+      "id": 1,
+      "name": "John Patient",
+      "phone": "+1234567890",
+      "email": "patient@example.com",
+      "address": "123 Patient Street",
+      "dateOfBirth": "1990-05-15T00:00:00.000Z",
+      "gender": "MALE",
+      "createdAt": "2025-10-08T10:00:00.000Z"
+    }
+  ],
+  "pagination": {
+    "currentPage": 1,
+    "totalPages": 1,
+    "totalItems": 1,
+    "limit": 10
+  }
+}
+```
+
+### 6. Get Patient by ID
+
+**GET** `/patients/:id`
+
+**Headers:** `Authorization: Bearer <token>`
+
+**Response (200):**
+
+```json
+{
+  "patient": {
+    "id": 1,
+    "name": "John Patient",
+    "phone": "+1234567890",
+    "email": "patient@example.com",
+    "address": "123 Patient Street",
+    "dateOfBirth": "1990-05-15T00:00:00.000Z",
+    "gender": "MALE",
+    "prescriptions": [],
+    "invoices": [],
+    "createdAt": "2025-10-08T10:00:00.000Z"
+  }
+}
+```
+
+---
+
+## 💳 PAYMENT PROCESSING
+
+### 7. Process Payment
+
+**POST** `/payments`
+
+**Request Body:**
+
+```json
+{
+  "invoiceId": 1,
+  "amount": 566.4,
+  "paymentMethod": "CARD",
+  "transactionId": "TXN123456",
+  "notes": "Card payment processed"
+}
+```
+
+**Response (200):**
+
+```json
+{
+  "message": "Payment processed successfully",
+  "payment": {
+    "id": 1,
+    "invoiceId": 1,
+    "amount": 566.4,
+    "paymentMethod": "CARD",
+    "transactionId": "TXN123456",
+    "status": "COMPLETED",
+    "createdAt": "2025-10-08T10:30:00.000Z"
+  }
+}
+```
+
+---
+
+## 📋 PRESCRIPTION MANAGEMENT
+
+### 8. Create Prescription
+
+**POST** `/prescriptions`
+
+**Headers:** `Authorization: Bearer <token>`
+
+**Request Body:**
+
+```json
+{
+  "patientId": 1,
+  "rightEye": {
+    "sph": "-2.00",
+    "cyl": "-0.50",
+    "axis": "90",
+    "add": "0.00",
+    "pd": "32",
+    "bc": "8.6"
+  },
+  "leftEye": {
+    "sph": "-1.75",
+    "cyl": "-0.25",
+    "axis": "85",
+    "add": "0.00",
+    "pd": "32",
+    "bc": "8.6"
+  },
+  "notes": "First prescription for patient",
+  "prescribedBy": "Dr. Smith",
+  "validUntil": "2026-10-08"
+}
+```
+
+**Response (201):**
+
+```json
+{
+  "message": "Prescription created successfully",
+  "prescription": {
+    "id": 1,
+    "patientId": 1,
+    "rightEye": {
+      "sph": "-2.00",
+      "cyl": "-0.50",
+      "axis": "90",
+      "add": "0.00",
+      "pd": "32",
+      "bc": "8.6"
+    },
+    "leftEye": {
+      "sph": "-1.75",
+      "cyl": "-0.25",
+      "axis": "85",
+      "add": "0.00",
+      "pd": "32",
+      "bc": "8.6"
+    },
+    "notes": "First prescription for patient",
+    "prescribedBy": "Dr. Smith",
+    "validUntil": "2026-10-08T00:00:00.000Z",
+    "createdAt": "2025-10-08T10:00:00.000Z"
+  }
+}
+```
+
+### 9. Get All Prescriptions
+
+**GET** `/prescriptions`
+
+**Headers:** `Authorization: Bearer <token>`
+
+**Query Parameters:**
+
+- `patientId` (optional): Filter by patient ID
+- `valid` (optional): Filter by validity (true/false)
+- `page` (optional): Page number
+- `limit` (optional): Items per page
+
+**Response (200):**
+
+```json
+{
+  "prescriptions": [
+    {
+      "id": 1,
+      "patient": {
+        "name": "John Patient",
+        "phone": "+1234567890"
+      },
+      "rightEye": {
+        "sph": "-2.00",
+        "cyl": "-0.50",
+        "axis": "90"
+      },
+      "leftEye": {
+        "sph": "-1.75",
+        "cyl": "-0.25",
+        "axis": "85"
+      },
+      "prescribedBy": "Dr. Smith",
+      "validUntil": "2026-10-08T00:00:00.000Z",
+      "isValid": true,
+      "createdAt": "2025-10-08T10:00:00.000Z"
+    }
+  ],
+  "pagination": {
+    "currentPage": 1,
+    "totalPages": 1,
+    "totalItems": 1
+  }
+}
+```
+
+### 10. Get Prescription by ID
+
+**GET** `/prescriptions/:id`
+
+**Headers:** `Authorization: Bearer <token>`
+
+**Response (200):**
+
+```json
+{
+  "prescription": {
+    "id": 1,
+    "patient": {
+      "id": 1,
+      "name": "John Patient",
+      "phone": "+1234567890",
+      "email": "patient@example.com"
+    },
+    "rightEye": {
+      "sph": "-2.00",
+      "cyl": "-0.50",
+      "axis": "90",
+      "add": "0.00",
+      "pd": "32",
+      "bc": "8.6"
+    },
+    "leftEye": {
+      "sph": "-1.75",
+      "cyl": "-0.25",
+      "axis": "85",
+      "add": "0.00",
+      "pd": "32",
+      "bc": "8.6"
+    },
+    "notes": "First prescription for patient",
+    "prescribedBy": "Dr. Smith",
+    "validUntil": "2026-10-08T00:00:00.000Z",
+    "isValid": true,
+    "invoices": [],
+    "createdAt": "2025-10-08T10:00:00.000Z"
+  }
+}
+```
+
+---
+
+## 📦 STOCK RECEIPT MANAGEMENT
+
+### 11. Create Stock Receipt
+
+**POST** `/stock-receipts`
+
+**Headers:** `Authorization: Bearer <token>`
+
+**Request Body:**
+
+```json
+{
+  "supplierName": "Vision Supplies Co.",
+  "supplierContact": "+1555666777",
+  "receiptNo": "SR-001",
+  "items": [
+    {
+      "productId": 1,
+      "quantity": 50,
+      "unitCost": 110.0,
+      "batchNumber": "BATCH-202510",
+      "expiryDate": "2027-10-08"
+    },
+    {
+      "productId": 2,
+      "quantity": 30,
+      "unitCost": 85.0,
+      "batchNumber": "BATCH-202511"
+    }
+  ],
+  "totalAmount": 8050.0,
+  "notes": "Monthly stock delivery"
+}
+```
+
+**Response (201):**
+
+```json
+{
+  "message": "Stock receipt created successfully",
+  "stockReceipt": {
+    "id": 1,
+    "receiptNo": "SR-001",
+    "supplierName": "Vision Supplies Co.",
+    "supplierContact": "+1555666777",
+    "totalAmount": 8050.0,
+    "status": "RECEIVED",
+    "staffId": 1,
+    "shopId": 1,
+    "items": [
+      {
+        "id": 1,
+        "product": {
+          "name": "Ray-Ban Aviator Classic",
+          "sku": "RB-AV-001"
+        },
+        "quantity": 50,
+        "unitCost": 110.0,
+        "totalCost": 5500.0,
+        "batchNumber": "BATCH-202510"
+      }
+    ],
+    "createdAt": "2025-10-08T10:00:00.000Z"
+  }
+}
+```
+
+### 12. Get All Stock Receipts
+
+**GET** `/stock-receipts`
+
+**Headers:** `Authorization: Bearer <token>`
+
+**Query Parameters:**
+
+- `status` (optional): Filter by status (PENDING, RECEIVED, VERIFIED)
+- `supplier` (optional): Filter by supplier name
+- `startDate` (optional): Filter from date
+- `endDate` (optional): Filter to date
+- `page` (optional): Page number
+- `limit` (optional): Items per page
+
+**Response (200):**
+
+```json
+{
+  "stockReceipts": [
+    {
+      "id": 1,
+      "receiptNo": "SR-001",
+      "supplierName": "Vision Supplies Co.",
+      "totalAmount": 8050.0,
+      "status": "RECEIVED",
+      "itemCount": 2,
+      "staff": {
+        "name": "Staff Member"
+      },
+      "createdAt": "2025-10-08T10:00:00.000Z"
+    }
+  ],
+  "pagination": {
+    "currentPage": 1,
+    "totalPages": 1,
+    "totalItems": 1
+  }
+}
+```
+
+### 13. Get Stock Receipt by ID
+
+**GET** `/stock-receipts/:id`
+
+**Headers:** `Authorization: Bearer <token>`
+
+**Response (200):**
+
+```json
+{
+  "stockReceipt": {
+    "id": 1,
+    "receiptNo": "SR-001",
+    "supplierName": "Vision Supplies Co.",
+    "supplierContact": "+1555666777",
+    "totalAmount": 8050.0,
+    "status": "RECEIVED",
+    "notes": "Monthly stock delivery",
+    "staff": {
+      "name": "Staff Member",
+      "email": "staff@example.com"
+    },
+    "items": [
+      {
+        "id": 1,
+        "product": {
+          "id": 1,
+          "name": "Ray-Ban Aviator Classic",
+          "sku": "RB-AV-001"
+        },
+        "quantity": 50,
+        "unitCost": 110.0,
+        "totalCost": 5500.0,
+        "batchNumber": "BATCH-202510",
+        "expiryDate": "2027-10-08T00:00:00.000Z"
+      }
+    ],
+    "createdAt": "2025-10-08T10:00:00.000Z"
+  }
+}
+```
+
+---
+
+## 📊 REPORTING & ANALYTICS
+
+### 14. Daily Sales Report
+
+**GET** `/reports/daily-sales`
+
+**Headers:** `Authorization: Bearer <token>`
+
+**Query Parameters:**
+
+- `date` (optional): Specific date (YYYY-MM-DD, default: today)
+
+**Response (200):**
+
+```json
+{
+  "date": "2025-10-08",
+  "summary": {
+    "totalSales": 5650.0,
+    "totalInvoices": 10,
+    "totalItems": 25,
+    "averageOrderValue": 565.0,
+    "topPaymentMethod": "CASH"
+  },
+  "salesByHour": [
+    {
+      "hour": 9,
+      "sales": 850.0,
+      "invoiceCount": 2
+    },
+    {
+      "hour": 10,
+      "sales": 1200.0,
+      "invoiceCount": 3
+    }
+  ],
+  "topProducts": [
+    {
+      "productId": 1,
+      "productName": "Ray-Ban Aviator Classic",
+      "quantitySold": 8,
+      "revenue": 1600.0
+    }
+  ]
+}
+```
+
+### 15. Monthly Sales Report
+
+**GET** `/reports/monthly-sales`
+
+**Headers:** `Authorization: Bearer <token>`
+
+**Query Parameters:**
+
+- `month` (optional): Month (1-12, default: current month)
+- `year` (optional): Year (default: current year)
+
+**Response (200):**
+
+```json
+{
+  "month": 10,
+  "year": 2025,
+  "summary": {
+    "totalSales": 125000.0,
+    "totalInvoices": 250,
+    "averageDailySales": 4032.26,
+    "growthFromLastMonth": 8.5
+  },
+  "salesByDay": [
+    {
+      "date": "2025-10-01",
+      "sales": 4500.0,
+      "invoiceCount": 12
+    }
+  ],
+  "categoryBreakdown": [
+    {
+      "category": "Sunglasses",
+      "sales": 75000.0,
+      "percentage": 60.0
+    },
+    {
+      "category": "Prescription Glasses",
+      "sales": 50000.0,
+      "percentage": 40.0
+    }
+  ]
+}
+```
+
+
+---
+
+## 👑 ROYALTY MANAGEMENT
+
+### 16. Calculate Royalties
+
+**GET** `/royalties/calculate`
+
+**Headers:** `Authorization: Bearer <token>`
+
+**Query Parameters:**
+
+- `startDate` (required): Calculation start date (YYYY-MM-DD)
+- `endDate` (required): Calculation end date (YYYY-MM-DD)
+- `companyId` (optional): Filter by specific company
+
+**Response (200):**
+
+```json
+{
+  "period": {
+    "startDate": "2025-10-01",
+    "endDate": "2025-10-08"
+  },
+  "totalSales": 25000.0,
+  "totalRoyalties": 2500.0,
+  "companyRoyalties": [
+    {
+      "companyId": 1,
+      "companyName": "Ray-Ban",
+      "totalSales": 15000.0,
+      "royaltyRate": 10.0,
+      "royaltyAmount": 1500.0,
+      "productsSold": 75
+    },
+    {
+      "companyId": 2,
+      "companyName": "Oakley",
+      "totalSales": 10000.0,
+      "royaltyRate": 10.0,
+      "royaltyAmount": 1000.0,
+      "productsSold": 50
+    }
+  ]
+}
+```
+
+### 17. Get Royalty History
+
+**GET** `/royalties/history`
+
+**Headers:** `Authorization: Bearer <token>`
+
+**Query Parameters:**
+
+- `companyId` (optional): Filter by company
+- `page` (optional): Page number
+- `limit` (optional): Items per page
+
+**Response (200):**
+
+```json
+{
+  "royalties": [
+    {
+      "id": 1,
+      "companyId": 1,
+      "companyName": "Ray-Ban",
+      "period": "2025-10",
+      "totalSales": 15000.0,
+      "royaltyRate": 10.0,
+      "royaltyAmount": 1500.0,
+      "status": "CALCULATED",
+      "calculatedAt": "2025-10-08T10:00:00.000Z"
+    }
+  ],
+  "pagination": {
+    "currentPage": 1,
+    "totalPages": 1,
+    "totalItems": 1
+  }
+}
+```
+
+---
