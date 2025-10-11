@@ -176,7 +176,7 @@ exports.getInvoice = async (req, res) => {
 
   try {
     const invoice = await prisma.invoice.findUnique({
-      where: { id: parseInt(id) },
+      where: { id: id },
       include: {
         patient: true,
         customer: true,
@@ -229,7 +229,7 @@ exports.generateInvoicePdf = async (req, res) => {
   try {
     // Fetch invoice data (same as your original code)
     const invoiceData = await prisma.invoice.findUnique({
-      where: { id: parseInt(id) },
+      where: { id: id },
       include: {
         patient: true,
         customer: true,
@@ -484,7 +484,7 @@ exports.generateInvoiceThermal = async (req, res) => {
 
   try {
     const invoice = await prisma.invoice.findUnique({
-      where: { id: parseInt(id) },
+      where: { id: id },
       include: {
         patient: true,
         customer: true,
