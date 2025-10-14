@@ -14,7 +14,10 @@ exports.createCompany = async (req, res) => {
 exports.addProduct = async (req, res) => {
   try {
     const { companyId } = req.params;
-    const product = await companyService.addProduct(Number(companyId), req.body);
+    const product = await companyService.addProduct(
+      Number(companyId),
+      req.body
+    );
     res.json(product);
   } catch (error) {
     res.status(500).json({ error: error.message });
