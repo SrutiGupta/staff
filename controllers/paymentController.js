@@ -36,13 +36,11 @@ exports.processPayment = async (req, res) => {
 
     const amountDue = invoice.totalAmount - invoice.paidAmount;
     if (amount > amountDue) {
-      return res
-        .status(400)
-        .json({
-          error: `Payment amount cannot exceed the amount due of $${amountDue.toFixed(
-            2
-          )}.`,
-        });
+      return res.status(400).json({
+        error: `Payment amount cannot exceed the amount due of $${amountDue.toFixed(
+          2
+        )}.`,
+      });
     }
 
     let giftCardId = null;
@@ -50,11 +48,9 @@ exports.processPayment = async (req, res) => {
     // Handle Gift Card payments
     if (paymentMethod === "GIFT_CARD") {
       if (!giftCardCode) {
-        return res
-          .status(400)
-          .json({
-            error: "Gift card code is required for gift card payments.",
-          });
+        return res.status(400).json({
+          error: "Gift card code is required for gift card payments.",
+        });
       }
 
       const giftCard = await prisma.giftCard.findUnique({
@@ -66,13 +62,11 @@ exports.processPayment = async (req, res) => {
       }
 
       if (giftCard.balance < amount) {
-        return res
-          .status(400)
-          .json({
-            error: `Insufficient gift card balance. Current balance is $${giftCard.balance.toFixed(
-              2
-            )}.`,
-          });
+        return res.status(400).json({
+          error: `Insufficient gift card balance. Current balance is $${giftCard.balance.toFixed(
+            2
+          )}.`,
+        });
       }
 
       // Deduct from gift card balance
