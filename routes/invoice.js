@@ -35,4 +35,20 @@ router.get(
   invoiceController.generateInvoiceThermal
 );
 
+// ==================== NEW WHATSAPP ENDPOINTS ====================
+
+// Send invoice via WhatsApp - REQUIRES AUTH
+router.post(
+  "/:id/send-whatsapp",
+  authMiddleware,
+  invoiceController.sendInvoiceViaWhatsApp
+);
+
+// Send payment reminder via WhatsApp - REQUIRES AUTH
+router.post(
+  "/:id/payment-reminder",
+  authMiddleware,
+  invoiceController.sendPaymentReminder
+);
+
 module.exports = router;
