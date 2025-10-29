@@ -1,6 +1,7 @@
 const { PrismaClient } = require("@prisma/client");
 const PDFDocument = require("pdfkit");
 const bwipjs = require("bwip-js");
+const whatsappService = require("../shared/services/whatsappService");
 require("dotenv").config();
 
 const prisma = new PrismaClient();
@@ -985,5 +986,290 @@ exports.deleteInvoice = async (req, res) => {
   } catch (error) {
     console.error("Error deleting invoice:", error);
     res.status(500).json({ error: "Failed to delete invoice." });
+  }
+};
+
+/**
+ * Send invoice to customer/patient via WhatsApp
+ * Endpoint: POST /api/invoice/:id/send-whatsapp
+ * Body: { phoneNumber?: string, useDefault?: boolean, method: "TEXT" | "PDF" }
+ */
+exports.sendInvoiceViaWhatsApp = async (req, res) => {
+  const { id } = req.params;
+  const { phoneNumber, useDefault = true, method = "TEXT" } = req.body;
+
+  try {
+    // Check if WhatsApp is configured
+    if (!whatsappService.isConfigured()) {
+      return res.status(503).json({
+        error:
+          "WhatsApp service is not configured. Please contact administrator.",
+        hint: "Set WHATSAPP_API_TOKEN and WHATSAPP_PHONE_NUMBER_ID environment variables.",
+      });
+    }
+
+    // Fetch invoice with all required details
+    const invoice = await prisma.invoice.findUnique({
+      where: { id },
+      include: {
+        patient: true,
+        customer: true,
+        staff: true,
+        items: {
+          include: {
+            product: {
+              include: {
+                company: true,
+              },
+            },
+          },
+        },
+        transactions: true,
+      },
+    });
+
+    if (!invoice) {
+      return res.status(404).json({ error: "Invoice not found." });
+    }
+
+    // Verify invoice belongs to the same shop as the staff member
+    if (invoice.staff.shopId !== req.user.shopId) {
+      return res.status(403).json({
+        error: "Access denied. Invoice belongs to different shop.",
+      });
+    }
+
+    // Get recipient information
+    const recipient = invoice.patient || invoice.customer;
+
+    if (!recipient) {
+      return res.status(400).json({
+        error: "Invoice has no patient or customer information.",
+      });
+    }
+
+    // Determine phone number to use
+    let targetPhoneNumber = phoneNumber;
+
+    if (useDefault && !phoneNumber) {
+      targetPhoneNumber = recipient.phone;
+    }
+
+    if (!targetPhoneNumber) {
+      return res.status(400).json({
+        error:
+          "No phone number provided and recipient has no default phone number.",
+        hint: "Provide phoneNumber in request body or ensure recipient has a phone number stored.",
+      });
+    }
+
+    // Validate phone number
+    if (!whatsappService.validatePhoneNumber(targetPhoneNumber)) {
+      return res.status(400).json({
+        error: `Invalid phone number format: ${targetPhoneNumber}`,
+        hint: "Phone number should be a valid Indian mobile number (10 digits)",
+      });
+    }
+
+    // Calculate paid amount and balance
+    const paidAmount = invoice.transactions.reduce(
+      (sum, transaction) => sum + transaction.amount,
+      0
+    );
+    const balanceAmount = invoice.totalAmount - paidAmount;
+
+    // Prepare invoice data for WhatsApp
+    const invoiceData = {
+      clientName: recipient.name || "Valued Customer",
+      invoiceId: invoice.id,
+      totalAmount: invoice.totalAmount,
+      paidAmount: paidAmount,
+      balanceAmount: balanceAmount,
+      itemCount: invoice.items.length,
+      status: invoice.status,
+      createdAt: invoice.createdAt.toLocaleDateString("en-IN", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+      }),
+    };
+
+    let response;
+
+    // Send based on method
+    if (method === "TEXT") {
+      // Send text invoice via WhatsApp
+      response = await whatsappService.sendInvoice(
+        targetPhoneNumber,
+        invoiceData,
+        id
+      );
+    } else if (method === "PDF") {
+      // For PDF, we send a message with a link to download
+      response = await whatsappService.sendInvoice(
+        targetPhoneNumber,
+        invoiceData,
+        id
+      );
+    } else {
+      return res.status(400).json({
+        error: 'Invalid method. Use "TEXT" or "PDF".',
+      });
+    }
+
+    // Log the action (optional - for audit trail)
+    console.log(`Invoice ${id} sent via WhatsApp to ${targetPhoneNumber}`);
+
+    res.status(200).json({
+      success: true,
+      message: `Invoice sent successfully to ${targetPhoneNumber}`,
+      data: {
+        invoiceId: id,
+        phoneNumber: targetPhoneNumber,
+        method: method,
+        messageId: response.messageId,
+        timestamp: response.timestamp,
+        recipientName: recipient.name,
+        invoiceData: {
+          totalAmount: invoiceData.totalAmount,
+          balanceAmount: invoiceData.balanceAmount,
+          itemCount: invoiceData.itemCount,
+        },
+      },
+    });
+  } catch (error) {
+    console.error("Error sending invoice via WhatsApp:", error);
+
+    // Handle specific error types
+    if (error.message.includes("Invalid phone number")) {
+      return res.status(400).json({
+        error: error.message,
+        hint: "Please provide a valid 10-digit Indian mobile number",
+      });
+    }
+
+    if (error.message.includes("API credentials not configured")) {
+      return res.status(503).json({
+        error: error.message,
+      });
+    }
+
+    res.status(500).json({
+      error: "Failed to send invoice via WhatsApp.",
+      details: error.message,
+    });
+  }
+};
+
+/**
+ * Send payment reminder via WhatsApp
+ * Endpoint: POST /api/invoice/:id/payment-reminder
+ * Body: { phoneNumber?: string, useDefault?: true }
+ */
+exports.sendPaymentReminder = async (req, res) => {
+  const { id } = req.params;
+  const { phoneNumber, useDefault = true } = req.body;
+
+  try {
+    // Check if WhatsApp is configured
+    if (!whatsappService.isConfigured()) {
+      return res.status(503).json({
+        error: "WhatsApp service is not configured.",
+      });
+    }
+
+    // Fetch invoice
+    const invoice = await prisma.invoice.findUnique({
+      where: { id },
+      include: {
+        patient: true,
+        customer: true,
+        staff: true,
+        transactions: true,
+      },
+    });
+
+    if (!invoice) {
+      return res.status(404).json({ error: "Invoice not found." });
+    }
+
+    // Verify access
+    if (invoice.staff.shopId !== req.user.shopId) {
+      return res.status(403).json({
+        error: "Access denied.",
+      });
+    }
+
+    // Check if invoice needs payment
+    const paidAmount = invoice.transactions.reduce(
+      (sum, transaction) => sum + transaction.amount,
+      0
+    );
+
+    if (paidAmount >= invoice.totalAmount) {
+      return res.status(400).json({
+        error: "Invoice is already fully paid.",
+      });
+    }
+
+    // Get recipient
+    const recipient = invoice.patient || invoice.customer;
+
+    if (!recipient) {
+      return res.status(400).json({
+        error: "Invoice has no patient or customer information.",
+      });
+    }
+
+    // Determine phone number
+    let targetPhoneNumber = phoneNumber;
+    if (useDefault && !phoneNumber) {
+      targetPhoneNumber = recipient.phone;
+    }
+
+    if (!targetPhoneNumber) {
+      return res.status(400).json({
+        error: "No phone number available.",
+      });
+    }
+
+    if (!whatsappService.validatePhoneNumber(targetPhoneNumber)) {
+      return res.status(400).json({
+        error: `Invalid phone number format: ${targetPhoneNumber}`,
+      });
+    }
+
+    // Send reminder
+    const invoiceData = {
+      clientName: recipient.name || "Valued Customer",
+      invoiceId: invoice.id,
+      balanceAmount: invoice.totalAmount - paidAmount,
+      dueDate: new Date(
+        invoice.createdAt.getTime() + 30 * 24 * 60 * 60 * 1000
+      ).toLocaleDateString("en-IN", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+      }),
+    };
+
+    await whatsappService.sendPaymentReminder(targetPhoneNumber, invoiceData);
+
+    res.status(200).json({
+      success: true,
+      message: `Payment reminder sent to ${targetPhoneNumber}`,
+      data: {
+        invoiceId: id,
+        phoneNumber: targetPhoneNumber,
+        balanceAmount: invoiceData.balanceAmount,
+        timestamp: new Date(),
+      },
+    });
+  } catch (error) {
+    console.error("Error sending payment reminder:", error);
+    res.status(500).json({
+      error: "Failed to send payment reminder.",
+      details: error.message,
+    });
   }
 };
