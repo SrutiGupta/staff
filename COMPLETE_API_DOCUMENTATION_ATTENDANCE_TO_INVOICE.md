@@ -169,7 +169,7 @@
 
 #### 1. **POST** `/label`
 
-- **Description**: Generate barcode label (with or without productId)
+- **Description**: Generate barcode label with product details as PNG image
 - **Authentication**: Required (JWT)
 - **Headers**:
   ```json
@@ -178,67 +178,188 @@
     "Content-Type": "application/json"
   }
   ```
-- **Request Body**:
+- **Request Body (Option 1 - With Product ID)**:
   ```json
   {
-    "productId": 1,
-    "format": "png",
-    "width": 200,
-    "height": 100
+    "productId": 1
   }
   ```
-- **Response**: Binary image data (PNG/SVG)
+- **Request Body (Option 2 - Manual Details)**:
+  ```json
+  {
+    "name": "Ray-Ban Aviator",
+    "description": "Classic Sunglasses",
+    "price": 2500.0,
+    "data": "EYE00011234"
+  }
+  ```
+- **Response**: Binary PNG image (barcode label with product info)
 
 #### 2. **POST** `/generate/:productId`
 
-- **Description**: Generate and assign barcode to product without barcode
+- **Description**: Generate and assign unique barcode to product without barcode
 - **Authentication**: Required (JWT)
 - **Path Parameters**:
   - `productId` (integer): Product ID
-- **Response**:
+- **Request Body**:
   ```json
   {
-    "productId": 1,
-    "barcode": "1234567890123",
-    "message": "Barcode generated and assigned successfully"
+    "companyPrefix": "EYE",
+    "isClone": false
   }
   ```
+- **Response** (200 OK):
+  ```json
+  {
+    "message": "Barcode generated successfully",
+    "product": {
+      "id": 1,
+      "name": "Ray-Ban Aviator",
+      "barcode": "EYE00011234AB",
+      "company": { "name": "Ray-Ban" },
+      "shopInventory": []
+    },
+    "generatedBarcode": "EYE00011234AB",
+    "canNowScan": true,
+    "nextStep": "Use this barcode for stock-in/stock-out operations"
+  }
+  ```
+- **Error Responses**:
+  - `400`: Product already has a barcode
+  - `404`: Product not found
+  - `500`: Unable to generate unique barcode
 
 #### 3. **POST** `/sku/generate/:productId`
 
-- **Description**: Generate and assign SKU to product without SKU
+- **Description**: Generate and assign unique SKU to product without SKU
 - **Authentication**: Required (JWT)
 - **Path Parameters**:
   - `productId` (integer): Product ID
-- **Response**:
+- **Request Body**:
   ```json
   {
-    "productId": 1,
-    "sku": "SKU12345",
-    "message": "SKU generated and assigned successfully"
+    "companyCode": "RAY"
+  }
+  ```
+- **Response** (200 OK):
+  ```json
+  {
+    "message": "SKU generated successfully",
+    "product": {
+      "id": 1,
+      "name": "Ray-Ban Aviator",
+      "sku": "RAY-SUN-AVI-0001-2025",
+      "company": { "name": "Ray-Ban" }
+    },
+    "generatedSKU": "RAY-SUN-AVI-0001-2025",
+    "skuBreakdown": {
+      "company": "RAY",
+      "eyewearType": "SUN",
+      "frameType": "AVI",
+      "productId": "0001",
+      "timestamp": "2025"
+    },
+    "nextStep": "SKU can now be used for internal tracking and inventory management"
   }
   ```
 
 #### 4. **GET** `/missing`
 
-- **Description**: Get products that don't have barcodes
+- **Description**: Get products that don't have barcodes assigned
 - **Authentication**: Required (JWT)
-- **Response**:
+- **Query Parameters**:
+  - `companyId` (optional): Filter by company
+  - `eyewearType` (optional): Filter by eyewear type
+- **Response** (200 OK):
   ```json
-  [
-    {
-      "id": 1,
-      "name": "Product Name",
-      "barcode": null,
-      "sku": null
-    }
-  ]
+  {
+    "products": [
+      {
+        "id": 2,
+        "name": "Product Name",
+        "description": "Product Description",
+        "barcode": null,
+        "sku": null,
+        "basePrice": 100.0,
+        "eyewearType": "GLASSES",
+        "company": { "name": "Ray-Ban" },
+        "shopInventory": []
+      }
+    ],
+    "count": 5,
+    "message": "5 products need barcode generation"
+  }
   ```
 
-#### 5. **POST** `/` (Legacy route)
+#### 5. **POST** `/bulk-generate`
 
-- **Description**: Same as `/label` for backward compatibility
+- **Description**: Generate multiple unique barcodes in bulk (max 100 at once)
 - **Authentication**: Required (JWT)
+- **Request Body**:
+  ```json
+  {
+    "count": 10,
+    "companyPrefix": "EYE",
+    "productIds": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+  }
+  ```
+- **Response** (200 OK):
+  ```json
+  {
+    "message": "Bulk barcodes generated successfully",
+    "count": 10,
+    "barcodes": [
+      {
+        "barcode": "EYE00011234AB",
+        "productId": 1,
+        "index": 1
+      },
+      {
+        "barcode": "EYE00021567CD",
+        "productId": 2,
+        "index": 2
+      }
+    ],
+    "prefix": "EYE",
+    "timestamp": "2025-10-31T10:30:00.000Z"
+  }
+  ```
+- **Validation Errors** (400):
+  ```json
+  {
+    "error": "Count must be between 1 and 100."
+  }
+  ```
+
+#### 6. **GET** `/validate/:barcode`
+
+- **Description**: Check if barcode is unique across all products
+- **Authentication**: Required (JWT)
+- **Path Parameters**:
+  - `barcode` (string): Barcode to validate
+- **Response - Unique** (200 OK):
+  ```json
+  {
+    "isUnique": true,
+    "exists": false,
+    "message": "Barcode is unique and can be used"
+  }
+  ```
+- **Response - Already Exists** (200 OK):
+  ```json
+  {
+    "isUnique": false,
+    "exists": true,
+    "conflictingProduct": {
+      "id": 1,
+      "name": "Ray-Ban Aviator",
+      "company": "Ray-Ban",
+      "eyewearType": "SUNGLASSES",
+      "barcode": "EYE00011234AB"
+    },
+    "message": "Barcode already exists in the system"
+  }
+  ```
 
 ---
 
@@ -646,9 +767,9 @@
 
 #### 2. **POST** `/`
 
-- **Description**: Create new invoice
+- **Description**: Create new invoice (for Patient OR Walk-in Customer, but not both)
 - **Authentication**: Required (JWT)
-- **Request Body**:
+- **Request Body (For Patient)**:
   ```json
   {
     "patientId": 1,
@@ -656,28 +777,75 @@
     "items": [
       {
         "productId": 1,
-        "quantity": 1,
-        "unitPrice": 120.0,
+        "quantity": 2,
         "discount": 10.0,
-        "cgstRate": 9.0,
-        "sgstRate": 9.0
+        "cgst": 18.0,
+        "sgst": 18.0
       }
-    ],
-    "paidAmount": 120.0,
-    "paymentMethod": "CASH",
-    "notes": "Regular customer"
+    ]
   }
   ```
-- **Response**:
+- **Request Body (For Walk-in Customer)**:
+  ```json
+  {
+    "customerId": 5,
+    "items": [
+      {
+        "productId": 2,
+        "quantity": 1,
+        "discount": 0.0,
+        "cgst": 9.0,
+        "sgst": 9.0
+      }
+    ]
+  }
+  ```
+- **Response** (201 Created):
   ```json
   {
     "id": "INV-002",
     "patientId": 1,
-    "totalAmount": 120.00,
-    "paidAmount": 120.00,
-    "status": "PAID",
-    "items": [...],
-    "createdAt": "2023-09-25T11:00:00.000Z"
+    "customerId": null,
+    "totalAmount": 120.0,
+    "paidAmount": 0.0,
+    "status": "UNPAID",
+    "subtotal": 100.0,
+    "totalDiscount": 10.0,
+    "totalCgst": 18.0,
+    "totalSgst": 18.0,
+    "totalIgst": 0.0,
+    "items": [
+      {
+        "productId": 1,
+        "quantity": 2,
+        "unitPrice": 50.0,
+        "discount": 10.0,
+        "cgst": 18.0,
+        "sgst": 18.0,
+        "totalPrice": 76.0
+      }
+    ],
+    "staffId": 1,
+    "createdAt": "2025-10-31T11:00:00.000Z",
+    "updatedAt": "2025-10-31T11:00:00.000Z"
+  }
+  ```
+- **Validation Errors** (400):
+  ```json
+  {
+    "error": "Either Patient ID or Customer ID is required, but not both."
+  }
+  ```
+- **Not Found Errors** (404):
+  ```json
+  {
+    "error": "Patient not found."
+  }
+  ```
+- **Access Denied** (403):
+  ```json
+  {
+    "error": "Access denied. Patient belongs to different shop."
   }
   ```
 
