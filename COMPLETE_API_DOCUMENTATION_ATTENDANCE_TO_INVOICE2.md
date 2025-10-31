@@ -62,7 +62,10 @@ POST / api / auth / login;
   "phone": "+1234567890",
   "address": "123 Patient Street",
   "medicalHistory": "No known allergies",
+  "isActive": true,
   "shopId": 1,
+  "royalty": null,
+  "giftCards": [],
   "createdAt": "2025-10-08T10:00:00.000Z",
   "updatedAt": "2025-10-08T10:00:00.000Z"
 }
@@ -121,6 +124,7 @@ POST / api / auth / login;
   "phone": "+1234567890",
   "address": "123 Patient Street",
   "medicalHistory": "No known allergies",
+  "isActive": true,
   "shopId": 1,
   "prescriptions": [
     {
@@ -157,6 +161,8 @@ POST / api / auth / login;
       ]
     }
   ],
+  "royalty": null,
+  "giftCards": [],
   "createdAt": "2025-10-08T10:00:00.000Z",
   "updatedAt": "2025-10-08T10:00:00.000Z"
 }

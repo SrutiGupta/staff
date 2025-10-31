@@ -100,10 +100,7 @@ exports.processPayment = async (req, res) => {
     const allTransactions = await prisma.transaction.findMany({
       where: { invoiceId },
     });
-    const newPaidAmount = allTransactions.reduce(
-      (sum, t) => sum + t.amount,
-      0
-    );
+    const newPaidAmount = allTransactions.reduce((sum, t) => sum + t.amount, 0);
     const newStatus =
       newPaidAmount >= invoice.totalAmount ? "PAID" : "PARTIALLY_PAID";
 
