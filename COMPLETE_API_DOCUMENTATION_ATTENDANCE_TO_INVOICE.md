@@ -227,9 +227,30 @@
     "product": {
       "id": 1,
       "name": "Ray-Ban Aviator",
+      "description": "Classic Sunglasses",
       "barcode": "EYE00011234AB",
-      "company": { "name": "Ray-Ban" },
-      "shopInventory": []
+      "sku": "RB-AV-001",
+      "basePrice": 200.0,
+      "eyewearType": "SUNGLASSES",
+      "frameType": "FULL_RIM",
+      "material": "Metal",
+      "color": "Gold",
+      "size": "Medium",
+      "companyId": 1,
+      "company": {
+        "id": 1,
+        "name": "Ray-Ban"
+      },
+      "shopInventory": [
+        {
+          "id": 1,
+          "shopId": 1,
+          "productId": 1,
+          "quantity": 15,
+          "minStockLevel": 5,
+          "maxStockLevel": 50
+        }
+      ]
     },
     "generatedBarcode": "EYE00011234AB",
     "canNowScan": true,
@@ -288,14 +309,31 @@
     "products": [
       {
         "id": 2,
-        "name": "Product Name",
-        "description": "Product Description",
+        "name": "Oakley Holbrook",
+        "description": "Premium Sunglasses",
         "barcode": null,
         "sku": null,
-        "basePrice": 100.0,
-        "eyewearType": "GLASSES",
-        "company": { "name": "Ray-Ban" },
-        "shopInventory": []
+        "basePrice": 300.0,
+        "eyewearType": "SUNGLASSES",
+        "frameType": "FULL_RIM",
+        "material": "Plastic",
+        "color": "Black",
+        "size": "Large",
+        "companyId": 2,
+        "company": {
+          "id": 2,
+          "name": "Oakley"
+        },
+        "shopInventory": [
+          {
+            "id": 2,
+            "shopId": 1,
+            "productId": 2,
+            "quantity": 8,
+            "minStockLevel": 5,
+            "maxStockLevel": 50
+          }
+        ]
       }
     ],
     "count": 5,
@@ -418,10 +456,29 @@
   - `page` (integer, default: 1): Page number
   - `limit` (integer, default: 10): Items per page
   - `search` (string): Search by name, phone, or address
-- **Response**:
+- **Response** (200 OK):
   ```json
   {
-    "customers": [...],
+    "customers": [
+      {
+        "id": 1,
+        "name": "Ahmed Khan",
+        "phone": "9876543210",
+        "address": "Downtown Mall, Main Street",
+        "shopId": 1,
+        "createdAt": "2025-10-31T09:00:00.000Z",
+        "updatedAt": "2025-10-31T09:00:00.000Z"
+      },
+      {
+        "id": 2,
+        "name": "Fatima Ali",
+        "phone": "9123456789",
+        "address": "Shopping Complex, Market Road",
+        "shopId": 1,
+        "createdAt": "2025-10-30T14:30:00.000Z",
+        "updatedAt": "2025-10-30T14:30:00.000Z"
+      }
+    ],
     "total": 100,
     "page": 1,
     "totalPages": 10
@@ -430,14 +487,30 @@
 
 #### 3. **GET** `/hotspots`
 
-- **Description**: Get top customer address hotspots
+- **Description**: Get top 10 most frequent customer address locations (hotspots)
 - **Authentication**: Required (JWT)
-- **Response**:
+- **Response** (200 OK):
   ```json
   [
     {
-      "address": "Downtown Area",
-      "customerCount": 25
+      "address": "Downtown Mall, Main Street",
+      "customerCount": 12
+    },
+    {
+      "address": "Shopping Complex, Market Road",
+      "customerCount": 8
+    },
+    {
+      "address": "Business District, Park Avenue",
+      "customerCount": 7
+    },
+    {
+      "address": "Residential Area, Oak Lane",
+      "customerCount": 5
+    },
+    {
+      "address": "Tech Park, Innovation Street",
+      "customerCount": 3
     }
   ]
   ```
@@ -448,14 +521,34 @@
 - **Authentication**: Required (JWT)
 - **Path Parameters**:
   - `id` (integer): Customer ID
-- **Response**:
+- **Response** (200 OK):
   ```json
   {
     "id": 1,
-    "name": "Customer Name",
-    "phone": "1234567890",
-    "address": "Customer Address",
-    "invoices": [...]
+    "name": "Ahmed Khan",
+    "phone": "9876543210",
+    "address": "Downtown Mall, Main Street",
+    "shopId": 1,
+    "invoices": [
+      {
+        "id": "clp123abc456",
+        "customerId": 1,
+        "totalAmount": 450.0,
+        "paidAmount": 450.0,
+        "status": "PAID",
+        "staffId": 1,
+        "prescriptionId": null,
+        "subtotal": 400.0,
+        "totalDiscount": 20.0,
+        "totalCgst": 36.0,
+        "totalSgst": 36.0,
+        "totalIgst": 0.0,
+        "createdAt": "2025-10-31T10:30:00.000Z",
+        "updatedAt": "2025-10-31T11:00:00.000Z"
+      }
+    ],
+    "createdAt": "2025-10-31T09:00:00.000Z",
+    "updatedAt": "2025-10-31T09:00:00.000Z"
   }
   ```
 
@@ -467,9 +560,9 @@
   ```json
   {
     "customer": {
-      "name": "Walk-in Customer",
-      "phone": "1234567890",
-      "address": "Customer Address"
+      "name": "John Walk-in",
+      "phone": "9876543210",
+      "address": "Downtown Mall, Main Street"
     },
     "items": [
       {
@@ -478,16 +571,41 @@
         "unitPrice": 100.0
       }
     ],
-    "paidAmount": 200.0,
+    "paidAmount": 150.0,
     "paymentMethod": "CASH"
   }
   ```
-- **Response**:
+- **Response** (201 Created):
   ```json
   {
-    "message": "Customer and invoice created successfully",
-    "customer": {...},
-    "invoice": {...}
+    "id": "clp999xyz789",
+    "customerId": 3,
+    "patientId": null,
+    "prescriptionId": null,
+    "staffId": 1,
+    "subtotal": 200.0,
+    "totalAmount": 200.0,
+    "paidAmount": 150.0,
+    "status": "PARTIALLY_PAID",
+    "totalDiscount": 0.0,
+    "totalCgst": 0.0,
+    "totalSgst": 0.0,
+    "totalIgst": 0.0,
+    "items": [
+      {
+        "id": 5,
+        "invoiceId": "clp999xyz789",
+        "productId": 1,
+        "quantity": 2,
+        "unitPrice": 100.0,
+        "totalPrice": 200.0,
+        "discount": 0.0,
+        "cgst": 0.0,
+        "sgst": 0.0
+      }
+    ],
+    "createdAt": "2025-10-31T14:30:00.000Z",
+    "updatedAt": "2025-10-31T14:30:00.000Z"
   }
   ```
 
@@ -618,26 +736,162 @@
 
 #### 4. **GET** `/product/:productId`
 
-- **Description**: Get product by ID
+- **Description**: Get product by ID with inventory details
 - **Authentication**: Required (JWT)
 - **Path Parameters**:
   - `productId` (integer): Product ID
+- **Response** (200 OK):
+  ```json
+  {
+    "id": 1,
+    "sku": "RB-AV-001",
+    "name": "Ray-Ban Aviator Classic",
+    "description": "Classic aviator sunglasses",
+    "basePrice": 100.0,
+    "barcode": "EYE00011234AB",
+    "eyewearType": "SUNGLASSES",
+    "frameType": "FULL_RIM",
+    "company": {
+      "id": 1,
+      "name": "Ray-Ban",
+      "description": "American eyewear brand"
+    },
+    "material": "Metal",
+    "color": "Gold",
+    "size": "58mm",
+    "model": "Aviator",
+    "inventory": {
+      "quantity": 48,
+      "sellingPrice": 150.0,
+      "lastRestockedAt": "2024-08-25T14:30:00Z",
+      "lastUpdated": "2024-09-01T10:00:00Z",
+      "stockStatus": {
+        "currentStock": 48,
+        "stockLevel": "MEDIUM",
+        "statusMessage": "Stock available"
+      }
+    },
+    "createdAt": "2024-08-01T08:00:00Z",
+    "updatedAt": "2024-09-01T10:00:00Z"
+  }
+  ```
 
 #### 5. **GET** `/products`
 
-- **Description**: Get all products with pagination
+- **Description**: Get all products with pagination, filtering, and grouping
 - **Authentication**: Required (JWT)
 - **Query Parameters**:
-  - `page` (integer): Page number
-  - `limit` (integer): Items per page
-  - `search` (string): Search term
-- **Response**:
+  - `page` (integer): Page number (default: 1)
+  - `limit` (integer): Items per page (default: 50)
+  - `eyewearType` (string): Filter by eyewear type
+  - `companyId` (integer): Filter by company
+  - `frameType` (string): Filter by frame type
+- **Response** (200 OK):
   ```json
   {
-    "products": [...],
-    "total": 100,
-    "page": 1,
-    "totalPages": 10
+    "success": true,
+    "products": [
+      {
+        "id": 1,
+        "sku": "RB-AV-001",
+        "name": "Ray-Ban Aviator Classic",
+        "description": "Classic aviator sunglasses",
+        "basePrice": 100.0,
+        "barcode": "EYE00011234AB",
+        "eyewearType": "SUNGLASSES",
+        "frameType": "FULL_RIM",
+        "material": "Metal",
+        "color": "Gold",
+        "size": "58mm",
+        "model": "Aviator",
+        "company": {
+          "id": 1,
+          "name": "Ray-Ban",
+          "description": "American eyewear brand"
+        },
+        "inventory": {
+          "quantity": 48,
+          "sellingPrice": 150.0,
+          "lastRestockedAt": "2024-08-25T14:30:00Z",
+          "lastUpdated": "2024-09-01T10:00:00Z",
+          "stockStatus": {
+            "currentStock": 48,
+            "stockLevel": "MEDIUM",
+            "statusMessage": "Stock available"
+          }
+        },
+        "createdAt": "2024-08-01T08:00:00Z",
+        "updatedAt": "2024-09-01T10:00:00Z"
+      },
+      {
+        "id": 2,
+        "sku": "OAK-HOL-001",
+        "name": "Oakley Holbrook",
+        "description": "Premium sports sunglasses",
+        "basePrice": 300.0,
+        "barcode": "EYE00021567CD",
+        "eyewearType": "SUNGLASSES",
+        "frameType": "FULL_RIM",
+        "material": "Plastic",
+        "color": "Black",
+        "size": "55mm",
+        "model": "Holbrook",
+        "company": {
+          "id": 2,
+          "name": "Oakley",
+          "description": "Premium sports eyewear"
+        },
+        "inventory": {
+          "quantity": 150,
+          "sellingPrice": 450.0,
+          "lastRestockedAt": "2024-08-20T10:15:00Z",
+          "lastUpdated": "2024-09-01T11:30:00Z",
+          "stockStatus": {
+            "currentStock": 150,
+            "stockLevel": "HIGH",
+            "statusMessage": "Stock available"
+          }
+        },
+        "createdAt": "2024-08-02T09:30:00Z",
+        "updatedAt": "2024-09-01T11:30:00Z"
+      }
+    ],
+    "grouped": {
+      "Ray-Ban": {
+        "SUNGLASSES": [
+          {
+            "id": 1,
+            "sku": "RB-AV-001",
+            "name": "Ray-Ban Aviator Classic",
+            "basePrice": 100.0
+          }
+        ]
+      },
+      "Oakley": {
+        "SUNGLASSES": [
+          {
+            "id": 2,
+            "sku": "OAK-HOL-001",
+            "name": "Oakley Holbrook",
+            "basePrice": 300.0
+          }
+        ]
+      }
+    },
+    "pagination": {
+      "currentPage": 1,
+      "totalPages": 5,
+      "totalProducts": 25,
+      "hasNextPage": true,
+      "hasPrevPage": false
+    },
+    "summary": {
+      "totalProducts": 2,
+      "companiesCount": 2,
+      "byEyewearType": {
+        "SUNGLASSES": 2
+      }
+    }
   }
   ```
 
@@ -661,10 +915,50 @@
 
 #### 7. **PUT** `/product/:productId`
 
-- **Description**: Update existing product
+- **Description**: Update existing product details
 - **Authentication**: Required (JWT)
 - **Path Parameters**:
   - `productId` (integer): Product ID
+- **Request Body** (all fields optional):
+  ```json
+  {
+    "name": "Ray-Ban Aviator Classic",
+    "description": "Updated description",
+    "barcode": "EYE00011234AB",
+    "basePrice": 120.0,
+    "eyewearType": "SUNGLASSES",
+    "frameType": "FULL_RIM",
+    "companyId": 1,
+    "material": "Metal",
+    "color": "Gold",
+    "size": "58mm",
+    "model": "Aviator"
+  }
+  ```
+- **Response** (200 OK):
+  ```json
+  {
+    "id": 1,
+    "sku": "RB-AV-001",
+    "name": "Ray-Ban Aviator Classic",
+    "description": "Updated description",
+    "barcode": "EYE00011234AB",
+    "basePrice": 120.0,
+    "eyewearType": "SUNGLASSES",
+    "frameType": "FULL_RIM",
+    "material": "Metal",
+    "color": "Gold",
+    "size": "58mm",
+    "model": "Aviator",
+    "companyId": 1,
+    "company": {
+      "id": 1,
+      "name": "Ray-Ban"
+    },
+    "createdAt": "2024-08-01T08:00:00Z",
+    "updatedAt": "2024-09-02T10:30:00Z"
+  }
+  ```
 
 #### 8. **POST** `/stock-in`
 
@@ -696,19 +990,50 @@
 
 - **Description**: Get current inventory with stock levels
 - **Authentication**: Required (JWT)
-- **Response**:
+- **Response** (200 OK):
   ```json
   [
     {
       "id": 1,
+      "shopId": 1,
       "productId": 1,
       "quantity": 48,
-      "minThreshold": 10,
+      "minStockLevel": 10,
+      "maxStockLevel": 100,
       "product": {
-        "name": "Product Name",
-        "barcode": "1234567890123"
+        "id": 1,
+        "name": "Ray-Ban Aviator Classic",
+        "sku": "RB-AV-001",
+        "barcode": "EYE00011234AB",
+        "basePrice": 100.0,
+        "eyewearType": "SUNGLASSES",
+        "company": {
+          "id": 1,
+          "name": "Ray-Ban"
+        }
       },
       "stockLevel": "MEDIUM"
+    },
+    {
+      "id": 2,
+      "shopId": 1,
+      "productId": 2,
+      "quantity": 150,
+      "minStockLevel": 5,
+      "maxStockLevel": 200,
+      "product": {
+        "id": 2,
+        "name": "Oakley Holbrook",
+        "sku": "OAK-HOL-001",
+        "barcode": "EYE00021567CD",
+        "basePrice": 300.0,
+        "eyewearType": "SUNGLASSES",
+        "company": {
+          "id": 2,
+          "name": "Oakley"
+        }
+      },
+      "stockLevel": "HIGH"
     }
   ]
   ```
@@ -720,22 +1045,156 @@
 - **Request Body**:
   ```json
   {
-    "name": "Company Name",
-    "description": "Company description"
+    "name": "Ray-Ban",
+    "description": "American eyewear brand known for sunglasses"
+  }
+  ```
+- **Response** (201 Created):
+  ```json
+  {
+    "id": 5,
+    "name": "Ray-Ban",
+    "description": "American eyewear brand known for sunglasses",
+    "createdAt": "2024-09-01T10:30:00Z",
+    "updatedAt": "2024-09-01T10:30:00Z"
   }
   ```
 
 #### 12. **GET** `/companies`
 
-- **Description**: Get all companies
+- **Description**: Get all companies with product counts
 - **Authentication**: Required (JWT)
+- **Response** (200 OK):
+  ```json
+  [
+    {
+      "id": 1,
+      "name": "Ray-Ban",
+      "description": "American eyewear brand known for sunglasses",
+      "_count": {
+        "products": 12
+      },
+      "createdAt": "2024-08-01T08:00:00Z",
+      "updatedAt": "2024-09-01T10:00:00Z"
+    },
+    {
+      "id": 2,
+      "name": "Oakley",
+      "description": "Premium sports eyewear brand",
+      "_count": {
+        "products": 8
+      },
+      "createdAt": "2024-08-02T09:15:00Z",
+      "updatedAt": "2024-09-01T11:30:00Z"
+    }
+  ]
+  ```
 
 #### 13. **GET** `/company/:companyId/products`
 
-- **Description**: Get products by company
+- **Description**: Get products by company with optional filtering and grouping
 - **Authentication**: Required (JWT)
 - **Path Parameters**:
   - `companyId` (integer): Company ID
+- **Query Parameters** (optional):
+  - `eyewearType` (string): Filter by eyewear type (SUNGLASSES, READING, COMPUTER_GLASSES, etc.)
+  - `frameType` (string): Filter by frame type (FULL_RIM, HALF_RIM, RIMLESS, etc.)
+- **Response** (200 OK):
+  ```json
+  {
+    "products": [
+      {
+        "id": 1,
+        "name": "Ray-Ban Aviator Classic",
+        "sku": "RB-AV-001",
+        "barcode": "EYE00011234AB",
+        "basePrice": 100.0,
+        "description": "Classic aviator sunglasses",
+        "eyewearType": "SUNGLASSES",
+        "frameType": "FULL_RIM",
+        "material": "Metal",
+        "color": "Gold",
+        "size": "58mm",
+        "companyId": 1,
+        "company": {
+          "id": 1,
+          "name": "Ray-Ban",
+          "description": "American eyewear brand"
+        },
+        "shopInventory": [
+          {
+            "id": 1,
+            "shopId": 1,
+            "productId": 1,
+            "quantity": 25,
+            "minStockLevel": 5,
+            "maxStockLevel": 100
+          }
+        ],
+        "createdAt": "2024-08-01T08:00:00Z",
+        "updatedAt": "2024-09-01T10:00:00Z"
+      },
+      {
+        "id": 2,
+        "name": "Ray-Ban Wayfarer",
+        "sku": "RB-WF-001",
+        "barcode": "EYE00021345CD",
+        "basePrice": 120.0,
+        "description": "Classic wayfarer sunglasses",
+        "eyewearType": "SUNGLASSES",
+        "frameType": "FULL_RIM",
+        "material": "Plastic",
+        "color": "Black",
+        "size": "50mm",
+        "companyId": 1,
+        "company": {
+          "id": 1,
+          "name": "Ray-Ban",
+          "description": "American eyewear brand"
+        },
+        "shopInventory": [
+          {
+            "id": 2,
+            "shopId": 1,
+            "productId": 2,
+            "quantity": 30,
+            "minStockLevel": 5,
+            "maxStockLevel": 100
+          }
+        ],
+        "createdAt": "2024-08-02T08:30:00Z",
+        "updatedAt": "2024-09-01T10:15:00Z"
+      }
+    ],
+    "grouped": {
+      "SUNGLASSES": {
+        "FULL_RIM": [
+          {
+            "id": 1,
+            "name": "Ray-Ban Aviator Classic",
+            "sku": "RB-AV-001",
+            "basePrice": 100.0
+          },
+          {
+            "id": 2,
+            "name": "Ray-Ban Wayfarer",
+            "sku": "RB-WF-001",
+            "basePrice": 120.0
+          }
+        ]
+      }
+    },
+    "summary": {
+      "totalProducts": 2,
+      "byEyewearType": {
+        "SUNGLASSES": 2
+      },
+      "byFrameType": {
+        "FULL_RIM": 2
+      }
+    }
+  }
+  ```
 
 ---
 
@@ -763,14 +1222,14 @@
         "id": "clp123abc456",
         "patientId": 1,
         "customerId": null,
-        "totalAmount": 250.00,
-        "paidAmount": 100.00,
+        "totalAmount": 250.0,
+        "paidAmount": 100.0,
         "status": "PARTIALLY_PAID",
-        "subtotal": 200.00,
-        "totalDiscount": 20.00,
-        "totalCgst": 36.00,
-        "totalSgst": 36.00,
-        "totalIgst": 0.00,
+        "subtotal": 200.0,
+        "totalDiscount": 20.0,
+        "totalCgst": 36.0,
+        "totalSgst": 36.0,
+        "totalIgst": 0.0,
         "staffId": 1,
         "items": [
           {
@@ -923,14 +1382,14 @@
     "patientId": 1,
     "customerId": null,
     "prescriptionId": 1,
-    "totalAmount": 250.00,
-    "paidAmount": 100.00,
+    "totalAmount": 250.0,
+    "paidAmount": 100.0,
     "status": "PARTIALLY_PAID",
-    "subtotal": 200.00,
-    "totalDiscount": 20.00,
-    "totalCgst": 36.00,
-    "totalSgst": 36.00,
-    "totalIgst": 0.00,
+    "subtotal": 200.0,
+    "totalDiscount": 20.0,
+    "totalCgst": 36.0,
+    "totalSgst": 36.0,
+    "totalIgst": 0.0,
     "staffId": 1,
     "items": [
       {
