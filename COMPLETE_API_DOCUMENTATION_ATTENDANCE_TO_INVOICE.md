@@ -633,55 +633,82 @@
     "balance": 500.0
   }
   ```
-- **Response**:
+- **Response** (201 Created):
   ```json
   {
     "id": 1,
-    "code": "GIFT123456789",
+    "code": "abcd1234efgh5678",
     "balance": 500.0,
     "patientId": 1,
-    "createdAt": "2023-09-25T10:00:00.000Z"
+    "createdAt": "2025-10-31T10:00:00.000Z",
+    "updatedAt": "2025-10-31T10:00:00.000Z"
   }
   ```
+- **Error Responses**:
+  - `400`: Missing required fields (patientId, balance)
+  - `401`: Authentication required
+  - `500`: Failed to issue gift card
 
 #### 2. **POST** `/redeem`
 
 - **Description**: Redeem gift card amount
 - **Authentication**: Required (JWT)
+- **Headers**:
+  ```json
+  {
+    "Authorization": "Bearer <jwt_token>",
+    "Content-Type": "application/json"
+  }
+  ```
 - **Request Body**:
   ```json
   {
-    "code": "GIFT123456789",
+    "code": "abcd1234efgh5678",
     "amount": 100.0
   }
   ```
-- **Response**:
+- **Response** (200 OK):
   ```json
   {
     "id": 1,
-    "code": "GIFT123456789",
+    "code": "abcd1234efgh5678",
     "balance": 400.0,
-    "message": "Gift card redeemed successfully"
+    "patientId": 1,
+    "createdAt": "2025-10-31T10:00:00.000Z",
+    "updatedAt": "2025-10-31T10:30:00.000Z"
+  }
+  ```
+- **Error Responses**:
+  - `400`: Insufficient balance / Missing required fields (code, amount)
+  - `404`: Gift card not found
+  - `500`: Failed to redeem gift card
+
+#### 3. **GET** `/:code`
+
+- **Description**: Get gift card balance and details by code
+- **Authentication**: Required (JWT)
+- **Headers**:
+  ```json
+  {
+    "Authorization": "Bearer <jwt_token>"
+  }
+  ```
+- **Path Parameters**:
+  - `code` (string): Gift card code
+- **Response** (200 OK):
+  ```json
+  {
+    "id": 1,
+    "code": "abcd1234efgh5678",
+    "balance": 400.0,
+    "patientId": 1,
+    "createdAt": "2025-10-31T10:00:00.000Z",
+    "updatedAt": "2025-10-31T10:30:00.000Z"
   }
   ```
 - **Error Responses**:
   - `404`: Gift card not found
-  - `400`: Insufficient balance
-
-#### 3. **GET** `/:code`
-
-- **Description**: Get gift card balance by code
-- **Authentication**: Required (JWT)
-- **Path Parameters**:
-  - `code` (string): Gift card code
-- **Response**:
-  ```json
-  {
-    "code": "GIFT123456789",
-    "balance": 400.0,
-    "patientId": 1
-  }
-  ```
+  - `500`: Failed to fetch gift card
 
 ---
 
@@ -691,28 +718,157 @@
 
 #### 1. **POST** `/stock-by-barcode`
 
-- **Description**: Update stock using barcode
+- **Description**: Update stock using barcode scan (adds stock to inventory)
 - **Authentication**: Required (JWT)
+- **Headers**:
+  ```json
+  {
+    "Authorization": "Bearer <jwt_token>",
+    "Content-Type": "application/json"
+  }
+  ```
 - **Request Body**:
   ```json
   {
-    "barcode": "1234567890123",
+    "barcode": "EYE00011234AB",
     "quantity": 10,
-    "action": "add"
+    "price": 120.0
   }
   ```
+- **Response** (200 OK):
+  ```json
+  {
+    "success": true,
+    "message": "Stock updated successfully via barcode scan",
+    "inventory": {
+      "id": 1,
+      "productId": 1,
+      "quantity": 48,
+      "lastRestockedAt": "2025-10-31T10:30:00.000Z",
+      "lastUpdated": "2025-10-31T10:30:00.000Z"
+    },
+    "productDetails": {
+      "id": 1,
+      "sku": "RB-AV-001",
+      "barcode": "EYE00011234AB",
+      "name": "Ray-Ban Aviator Classic",
+      "description": "Classic aviator sunglasses",
+      "model": "Aviator",
+      "size": "58mm",
+      "color": "Gold",
+      "material": "Metal",
+      "price": 150.0,
+      "eyewearType": "SUNGLASSES",
+      "frameType": "FULL_RIM",
+      "company": {
+        "id": 1,
+        "name": "Ray-Ban",
+        "description": "American eyewear brand"
+      }
+    },
+    "stockInDetails": {
+      "method": "barcode_scan",
+      "scannedBarcode": "EYE00011234AB",
+      "productName": "Ray-Ban Aviator Classic",
+      "productId": 1,
+      "sku": "RB-AV-001",
+      "model": "Aviator",
+      "size": "58mm",
+      "color": "Gold",
+      "basePrice": 100.0,
+      "sellingPrice": 150.0,
+      "eyewearType": "SUNGLASSES",
+      "frameType": "FULL_RIM",
+      "company": "Ray-Ban",
+      "addedQuantity": 10,
+      "newQuantity": 48,
+      "previousQuantity": 38,
+      "stockOperation": "STOCK_IN",
+      "timestamp": "2025-10-31T10:30:00.000Z"
+    },
+    "inventoryStatus": {
+      "currentStock": 48,
+      "stockLevel": "MEDIUM",
+      "statusMessage": "Stock available"
+    }
+  }
+  ```
+- **Error Responses**:
+  - `400`: Barcode and quantity are required / Invalid quantity or price format
+  - `401`: Authentication required
+  - `403`: Access denied or No approved stock receipt found
+  - `404`: Product with barcode not found
+  - `500`: Failed to update stock
 
 #### 2. **POST** `/stock-out-by-barcode`
 
-- **Description**: Remove stock using barcode
+- **Description**: Remove stock using barcode scan (reduces inventory)
 - **Authentication**: Required (JWT)
+- **Headers**:
+  ```json
+  {
+    "Authorization": "Bearer <jwt_token>",
+    "Content-Type": "application/json"
+  }
+  ```
 - **Request Body**:
   ```json
   {
-    "barcode": "1234567890123",
+    "barcode": "EYE00011234AB",
     "quantity": 2
   }
   ```
+- **Response** (200 OK):
+  ```json
+  {
+    "id": 1,
+    "shopId": 1,
+    "productId": 1,
+    "quantity": 46,
+    "minStockLevel": 10,
+    "maxStockLevel": 100,
+    "lastRestockedAt": "2025-10-25T14:30:00.000Z",
+    "createdAt": "2025-10-01T08:00:00.000Z",
+    "updatedAt": "2025-10-31T10:30:00.000Z",
+    "product": {
+      "id": 1,
+      "sku": "RB-AV-001",
+      "name": "Ray-Ban Aviator Classic",
+      "description": "Classic aviator sunglasses",
+      "barcode": "EYE00011234AB",
+      "basePrice": 100.0,
+      "eyewearType": "SUNGLASSES",
+      "frameType": "FULL_RIM",
+      "material": "Metal",
+      "color": "Gold",
+      "size": "58mm",
+      "model": "Aviator",
+      "companyId": 1,
+      "company": {
+        "id": 1,
+        "name": "Ray-Ban",
+        "description": "American eyewear brand"
+      },
+      "createdAt": "2024-08-01T08:00:00.000Z",
+      "updatedAt": "2024-09-01T10:00:00.000Z"
+    },
+    "stockOutDetails": {
+      "productName": "Ray-Ban Aviator Classic",
+      "eyewearType": "SUNGLASSES",
+      "frameType": "FULL_RIM",
+      "company": "Ray-Ban",
+      "previousQuantity": 48,
+      "removedQuantity": 2,
+      "newQuantity": 46,
+      "lowStockWarning": null
+    }
+  }
+  ```
+- **Error Responses**:
+  - `400`: Barcode and quantity are required / Quantity must be a positive number / Insufficient stock / No inventory found
+  - `401`: Authentication required
+  - `404`: Product with barcode not found
+  - `500`: Failed to update stock
 
 #### 3. **GET** `/product/barcode/:barcode`
 
@@ -962,22 +1118,96 @@
 
 #### 8. **POST** `/stock-in`
 
-- **Description**: Add stock by product ID
+- **Description**: Add stock by product ID (requires approved stock receipt from shop admin)
 - **Authentication**: Required (JWT)
+- **Headers**:
+  ```json
+  {
+    "Authorization": "Bearer <jwt_token>",
+    "Content-Type": "application/json"
+  }
+  ```
 - **Request Body**:
   ```json
   {
     "productId": 1,
-    "quantity": 50,
-    "costPrice": 80.0,
-    "sellingPrice": 120.0
+    "quantity": 50
   }
   ```
+- **Response** (201 Created OR 200 OK):
+  ```json
+  {
+    "success": true,
+    "message": "Stock-in successful via product ID",
+    "inventory": {
+      "id": 1,
+      "productId": 1,
+      "quantity": 50,
+      "lastUpdated": "2025-10-31T10:30:00.000Z"
+    },
+    "productDetails": {
+      "id": 1,
+      "sku": "RB-AV-001",
+      "barcode": "EYE00011234AB",
+      "name": "Ray-Ban Aviator Classic",
+      "description": "Classic aviator sunglasses",
+      "model": "Aviator",
+      "size": "58mm",
+      "color": "Gold",
+      "material": "Metal",
+      "price": 100.0,
+      "eyewearType": "SUNGLASSES",
+      "frameType": "FULL_RIM",
+      "company": {
+        "id": 1,
+        "name": "Ray-Ban",
+        "description": "American eyewear brand"
+      }
+    },
+    "stockInDetails": {
+      "method": "product_id",
+      "identifier": 1,
+      "productId": 1,
+      "sku": "RB-AV-001",
+      "productName": "Ray-Ban Aviator Classic",
+      "model": "Aviator",
+      "size": "58mm",
+      "color": "Gold",
+      "price": 100.0,
+      "eyewearType": "SUNGLASSES",
+      "frameType": "FULL_RIM",
+      "company": "Ray-Ban",
+      "addedQuantity": 50,
+      "newQuantity": 50,
+      "previousQuantity": 0,
+      "stockOperation": "STOCK_IN",
+      "timestamp": "2025-10-31T10:30:00.000Z"
+    },
+    "inventoryStatus": {
+      "currentStock": 50,
+      "stockLevel": "HIGH",
+      "statusMessage": "In Stock"
+    }
+  }
+  ```
+- **Error Responses**:
+  - `400`: ProductId and quantity are required / No approved stock receipt found
+  - `401`: Authentication required
+  - `403`: Access denied or No approved stock receipt found
+  - `404`: Product not found
+  - `500`: Failed to update stock
 
 #### 9. **POST** `/stock-out`
 
 - **Description**: Remove stock by product ID
 - **Authentication**: Required (JWT)
+- **Headers**:
+  ```json
+  {
+    "Authorization": "Bearer <jwt_token>",
+    "Content-Type": "application/json"
+  }
+  ```
 - **Request Body**:
   ```json
   {
@@ -985,6 +1215,56 @@
     "quantity": 2
   }
   ```
+- **Response** (200 OK):
+  ```json
+  {
+    "id": 1,
+    "shopId": 1,
+    "productId": 1,
+    "quantity": 48,
+    "minStockLevel": 10,
+    "maxStockLevel": 100,
+    "lastRestockedAt": "2025-10-25T14:30:00.000Z",
+    "createdAt": "2025-10-01T08:00:00.000Z",
+    "updatedAt": "2025-10-31T10:30:00.000Z",
+    "product": {
+      "id": 1,
+      "sku": "RB-AV-001",
+      "name": "Ray-Ban Aviator Classic",
+      "description": "Classic aviator sunglasses",
+      "barcode": "EYE00011234AB",
+      "basePrice": 100.0,
+      "eyewearType": "SUNGLASSES",
+      "frameType": "FULL_RIM",
+      "material": "Metal",
+      "color": "Gold",
+      "size": "58mm",
+      "model": "Aviator",
+      "companyId": 1,
+      "company": {
+        "id": 1,
+        "name": "Ray-Ban"
+      }
+    },
+    "stockOutDetails": {
+      "method": "product_id",
+      "identifier": 1,
+      "productName": "Ray-Ban Aviator Classic",
+      "eyewearType": "SUNGLASSES",
+      "frameType": "FULL_RIM",
+      "company": "Ray-Ban",
+      "removedQuantity": 2,
+      "previousQuantity": 50,
+      "newQuantity": 48,
+      "lowStockWarning": null
+    }
+  }
+  ```
+- **Error Responses**:
+  - `400`: ProductId and quantity are required / Insufficient stock / No inventory found
+  - `401`: Authentication required
+  - `404`: Product not found
+  - `500`: Failed to update stock
 
 #### 10. **GET** `/`
 
@@ -1209,9 +1489,11 @@
 - **Query Parameters**:
   - `page` (integer): Page number (default: 1)
   - `limit` (integer): Items per page (default: 10)
-  - `status` (string): Filter by status (UNPAID, PARTIALLY_PAID, PAID, CANCELLED)
+  - `status` (string): Filter by status (UNPAID, PARTIALLY_PAID, PAID, CANCELLED, REFUNDED)
   - `patientId` (integer): Filter by patient
   - `customerId` (integer): Filter by customer
+  - `staffId` (integer): Filter by staff member
+  - `prescriptionId` (integer): Filter by prescription
   - `startDate` (string): Start date filter (YYYY-MM-DD)
   - `endDate` (string): End date filter (YYYY-MM-DD)
 - **Response** (200 OK):
@@ -1222,6 +1504,7 @@
         "id": "clp123abc456",
         "patientId": 1,
         "customerId": null,
+        "prescriptionId": 1,
         "totalAmount": 250.0,
         "paidAmount": 100.0,
         "status": "PARTIALLY_PAID",
@@ -1245,7 +1528,11 @@
             "product": {
               "id": 1,
               "name": "Ray-Ban Aviator Classic",
-              "basePrice": 100.0
+              "basePrice": 100.0,
+              "company": {
+                "id": 1,
+                "name": "Ray-Ban"
+              }
             }
           }
         ],
@@ -1254,15 +1541,39 @@
           "name": "John Patient",
           "phone": "+1234567890"
         },
+        "customer": null,
+        "staff": {
+          "id": 1,
+          "name": "Jane Staff",
+          "email": "jane@shop.com",
+          "role": "SALES_STAFF"
+        },
+        "transactions": [
+          {
+            "id": 1,
+            "invoiceId": "clp123abc456",
+            "amount": 100.0,
+            "paymentMethod": "CASH",
+            "giftCardId": null,
+            "createdAt": "2025-10-31T11:30:00.000Z",
+            "updatedAt": "2025-10-31T11:30:00.000Z"
+          }
+        ],
         "createdAt": "2025-10-31T11:00:00.000Z",
         "updatedAt": "2025-10-31T11:30:00.000Z"
       }
     ],
-    "total": 50,
-    "page": 1,
-    "totalPages": 5
+    "pagination": {
+      "currentPage": 1,
+      "totalPages": 5,
+      "totalItems": 50,
+      "itemsPerPage": 10
+    }
   }
   ```
+- **Error Responses**:
+  - `401`: Authentication required
+  - `500`: Failed to fetch invoices
 
 #### 2. **POST** `/`
 
@@ -1484,6 +1795,13 @@
 - **Authentication**: Required (JWT)
 - **Path Parameters**:
   - `id` (string): Invoice ID
+- **Headers**:
+  ```json
+  {
+    "Authorization": "Bearer <jwt_token>",
+    "Content-Type": "application/json"
+  }
+  ```
 - **Request Body**:
   ```json
   {
@@ -1500,40 +1818,91 @@
     "giftCardId": 5
   }
   ```
-- **Response** (200 OK):
+- **Response** (201 Created):
   ```json
   {
-    "id": "clp123abc456",
-    "patientId": 1,
-    "customerId": null,
-    "subtotal": 500.0,
-    "totalAmount": 590.0,
-    "paidAmount": 100.0,
-    "status": "PARTIALLY_PAID",
-    "totalDiscount": 50.0,
-    "totalCgst": 36.0,
-    "totalSgst": 36.0,
-    "totalIgst": 18.0,
-    "staffId": 1,
-    "transactions": [
-      {
+    "invoice": {
+      "id": "clp123abc456",
+      "patientId": 1,
+      "customerId": null,
+      "prescriptionId": 1,
+      "subtotal": 500.0,
+      "totalAmount": 590.0,
+      "paidAmount": 100.0,
+      "status": "PARTIALLY_PAID",
+      "totalDiscount": 50.0,
+      "totalCgst": 36.0,
+      "totalSgst": 36.0,
+      "totalIgst": 18.0,
+      "staffId": 1,
+      "items": [
+        {
+          "id": 1,
+          "invoiceId": "clp123abc456",
+          "productId": 1,
+          "quantity": 2,
+          "unitPrice": 100.0,
+          "discount": 10.0,
+          "cgst": 18.0,
+          "sgst": 18.0,
+          "totalPrice": 136.0,
+          "product": {
+            "id": 1,
+            "name": "Ray-Ban Aviator Classic",
+            "description": "Premium sunglasses",
+            "basePrice": 100.0,
+            "sku": "RB-AV-001",
+            "barcode": "EYE00011234AB",
+            "company": {
+              "id": 1,
+              "name": "Ray-Ban"
+            }
+          }
+        }
+      ],
+      "patient": {
         "id": 1,
-        "invoiceId": "clp123abc456",
-        "amount": 100.0,
-        "paymentMethod": "CASH",
-        "giftCardId": null,
-        "createdAt": "2025-10-31T10:30:00.000Z",
-        "updatedAt": "2025-10-31T10:30:00.000Z"
-      }
-    ],
-    "createdAt": "2025-10-31T11:00:00.000Z",
-    "updatedAt": "2025-10-31T10:30:00.000Z"
+        "name": "John Patient",
+        "phone": "+1234567890",
+        "isActive": true
+      },
+      "customer": null,
+      "staff": {
+        "id": 1,
+        "name": "Jane Staff",
+        "email": "jane@shop.com",
+        "role": "SALES_STAFF"
+      },
+      "transactions": [
+        {
+          "id": 1,
+          "invoiceId": "clp123abc456",
+          "amount": 100.0,
+          "paymentMethod": "CASH",
+          "giftCardId": null,
+          "createdAt": "2025-10-31T10:30:00.000Z",
+          "updatedAt": "2025-10-31T10:30:00.000Z"
+        }
+      ],
+      "createdAt": "2025-10-31T11:00:00.000Z",
+      "updatedAt": "2025-10-31T10:30:00.000Z"
+    },
+    "transaction": {
+      "id": 1,
+      "invoiceId": "clp123abc456",
+      "amount": 100.0,
+      "paymentMethod": "CASH",
+      "giftCardId": null,
+      "createdAt": "2025-10-31T10:30:00.000Z",
+      "updatedAt": "2025-10-31T10:30:00.000Z"
+    }
   }
   ```
 - **Error Responses**:
-  - `400`: Payment amount exceeds remaining balance / Valid payment amount is required / Payment method is required / Insufficient gift card balance
-  - `404`: Invoice not found / Gift card not found
+  - `400`: Payment amount exceeds remaining balance / Valid payment amount is required / Payment method is required / Insufficient gift card balance / Invalid payment data
+  - `401`: Authentication required
   - `403`: Access denied. Invoice belongs to different shop
+  - `404`: Invoice not found / Gift card not found
   - `500`: Failed to process payment
 
 #### 6. **DELETE** `/:id`
