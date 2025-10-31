@@ -1088,7 +1088,6 @@
   - `size` (string) - Frame size
 - **Response** (201 Created): Product object with all fields including createdAt, updatedAt
 
-
 #### 7. **PUT** `/product/:productId`
 
 - **Description**: Update existing product details
