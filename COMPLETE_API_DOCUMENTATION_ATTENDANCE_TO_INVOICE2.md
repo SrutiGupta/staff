@@ -65,7 +65,17 @@ POST / api / auth / login;
   "isActive": true,
   "shopId": 1,
   "royalty": null,
-  "giftCards": [],
+  "giftCards": [
+    {
+      "id": 1,
+      "patientId": 1,
+      "code": "GC-ABC123XYZ",
+      "balance": 250.0,
+      "status": "ACTIVE",
+      "createdAt": "2025-10-08T10:00:00.000Z",
+      "updatedAt": "2025-10-08T10:00:00.000Z"
+    }
+  ],
   "createdAt": "2025-10-08T10:00:00.000Z",
   "updatedAt": "2025-10-08T10:00:00.000Z"
 }
@@ -162,7 +172,17 @@ POST / api / auth / login;
     }
   ],
   "royalty": null,
-  "giftCards": [],
+  "giftCards": [
+    {
+      "id": 1,
+      "patientId": 1,
+      "code": "GC-ABC123XYZ",
+      "balance": 250.0,
+      "status": "ACTIVE",
+      "createdAt": "2025-10-08T10:00:00.000Z",
+      "updatedAt": "2025-10-08T10:00:00.000Z"
+    }
+  ],
   "createdAt": "2025-10-08T10:00:00.000Z",
   "updatedAt": "2025-10-08T10:00:00.000Z"
 }
@@ -197,16 +217,23 @@ POST / api / auth / login;
 }
 ```
 
-**Response (200):**
+**Response (200 OK):**
 
 ```json
 {
   "id": 1,
   "patientId": 1,
+  "customerId": null,
+  "prescriptionId": null,
   "staffId": 1,
   "totalAmount": 566.4,
   "paidAmount": 566.4,
   "status": "PAID",
+  "subtotal": 566.4,
+  "totalDiscount": 0.0,
+  "totalCgst": 0.0,
+  "totalSgst": 0.0,
+  "totalIgst": 0.0,
   "notes": null,
   "createdAt": "2025-10-08T10:00:00.000Z",
   "updatedAt": "2025-10-08T10:30:00.000Z",
@@ -365,7 +392,9 @@ POST / api / auth / login;
   "prescriptions": [
     {
       "id": 1,
+      "patientId": 1,
       "patient": {
+        "id": 1,
         "name": "John Patient",
         "phone": "+1234567890"
       },
@@ -379,17 +408,12 @@ POST / api / auth / login;
         "cyl": "-0.25",
         "axis": "85"
       },
-      "prescribedBy": "Dr. Smith",
-      "validUntil": "2026-10-08T00:00:00.000Z",
-      "isValid": true,
       "createdAt": "2025-10-08T10:00:00.000Z"
     }
   ],
-  "pagination": {
-    "currentPage": 1,
-    "totalPages": 1,
-    "totalItems": 1
-  }
+  "total": 1,
+  "page": 1,
+  "totalPages": 1
 }
 ```
 
@@ -403,37 +427,47 @@ POST / api / auth / login;
 
 ```json
 {
-  "prescription": {
+  "id": 1,
+  "patientId": 1,
+  "patient": {
     "id": 1,
-    "patient": {
+    "name": "John Patient",
+    "phone": "+1234567890",
+    "email": "patient@example.com"
+  },
+  "rightEye": {
+    "sph": "-2.00",
+    "cyl": "-0.50",
+    "axis": "90",
+    "add": "0.00",
+    "pd": "32",
+    "bc": "8.6"
+  },
+  "leftEye": {
+    "sph": "-1.75",
+    "cyl": "-0.25",
+    "axis": "85",
+    "add": "0.00",
+    "pd": "32",
+    "bc": "8.6"
+  },
+  "notes": "First prescription for patient",
+  "prescribedBy": "Dr. Smith",
+  "validUntil": "2026-10-08T00:00:00.000Z",
+  "isValid": true,
+  "invoices": [
+    {
       "id": 1,
-      "name": "John Patient",
-      "phone": "+1234567890",
-      "email": "patient@example.com"
-    },
-    "rightEye": {
-      "sph": "-2.00",
-      "cyl": "-0.50",
-      "axis": "90",
-      "add": "0.00",
-      "pd": "32",
-      "bc": "8.6"
-    },
-    "leftEye": {
-      "sph": "-1.75",
-      "cyl": "-0.25",
-      "axis": "85",
-      "add": "0.00",
-      "pd": "32",
-      "bc": "8.6"
-    },
-    "notes": "First prescription for patient",
-    "prescribedBy": "Dr. Smith",
-    "validUntil": "2026-10-08T00:00:00.000Z",
-    "isValid": true,
-    "invoices": [],
-    "createdAt": "2025-10-08T10:00:00.000Z"
-  }
+      "patientId": 1,
+      "prescriptionId": 1,
+      "totalAmount": 566.4,
+      "status": "PAID",
+      "createdAt": "2025-10-08T10:00:00.000Z",
+      "updatedAt": "2025-10-08T10:00:00.000Z"
+    }
+  ],
+  "createdAt": "2025-10-08T10:00:00.000Z",
+  "updatedAt": "2025-10-08T10:00:00.000Z"
 }
 ```
 
@@ -479,35 +513,95 @@ Content-Disposition: attachment; filename="prescription-1.pdf"
 **Response (200):**
 
 ```json
-[
-  {
-    "id": 1,
-    "name": "Ray-Ban Aviator Classic",
-    "description": "Classic aviator sunglasses",
-    "basePrice": 200.0,
-    "barcode": "1234567890123",
-    "sku": "RB-AV-001",
-    "eyewearType": "SUNGLASSES",
-    "frameType": "FULL_RIM",
-    "material": "Metal",
-    "color": "Gold",
-    "size": "Medium",
-    "model": "RB3025",
-    "company": {
+{
+  "success": true,
+  "products": [
+    {
       "id": 1,
-      "name": "Ray-Ban",
-      "email": "info@rayban.com"
-    },
-    "shopInventory": [
-      {
-        "shopId": 1,
+      "sku": "RB-AV-001",
+      "name": "Ray-Ban Aviator Classic",
+      "description": "Classic aviator sunglasses",
+      "basePrice": 200.0,
+      "barcode": "1234567890123",
+      "eyewearType": "SUNGLASSES",
+      "frameType": "FULL_RIM",
+      "material": "Metal",
+      "color": "Gold",
+      "size": "Medium",
+      "model": "RB3025",
+      "company": {
+        "id": 1,
+        "name": "Ray-Ban",
+        "description": "Ray-Ban Eyewear Brand"
+      },
+      "inventory": {
         "quantity": 15,
-        "minStockLevel": 5
-      }
-    ],
-    "createdAt": "2025-10-08T10:00:00.000Z"
+        "sellingPrice": 250.0,
+        "lastRestockedAt": "2025-10-01T10:00:00.000Z",
+        "lastUpdated": "2025-10-08T10:00:00.000Z",
+        "stockStatus": {
+          "currentStock": 15,
+          "stockLevel": "ADEQUATE",
+          "statusMessage": "Stock available"
+        }
+      },
+      "createdAt": "2025-10-08T10:00:00.000Z",
+      "updatedAt": "2025-10-08T10:00:00.000Z"
+    }
+  ],
+  "grouped": {
+    "Ray-Ban": {
+      "SUNGLASSES": [
+        {
+          "id": 1,
+          "sku": "RB-AV-001",
+          "name": "Ray-Ban Aviator Classic",
+          "description": "Classic aviator sunglasses",
+          "basePrice": 200.0,
+          "barcode": "1234567890123",
+          "eyewearType": "SUNGLASSES",
+          "frameType": "FULL_RIM",
+          "material": "Metal",
+          "color": "Gold",
+          "size": "Medium",
+          "model": "RB3025",
+          "company": {
+            "id": 1,
+            "name": "Ray-Ban",
+            "description": "Ray-Ban Eyewear Brand"
+          },
+          "inventory": {
+            "quantity": 15,
+            "sellingPrice": 250.0,
+            "lastRestockedAt": "2025-10-01T10:00:00.000Z",
+            "lastUpdated": "2025-10-08T10:00:00.000Z",
+            "stockStatus": {
+              "currentStock": 15,
+              "stockLevel": "ADEQUATE",
+              "statusMessage": "Stock available"
+            }
+          },
+          "createdAt": "2025-10-08T10:00:00.000Z",
+          "updatedAt": "2025-10-08T10:00:00.000Z"
+        }
+      ]
+    }
+  },
+  "pagination": {
+    "currentPage": 1,
+    "totalPages": 1,
+    "totalProducts": 1,
+    "hasNextPage": false,
+    "hasPrevPage": false
+  },
+  "summary": {
+    "totalProducts": 1,
+    "companiesCount": 1,
+    "byEyewearType": {
+      "SUNGLASSES": 1
+    }
   }
-]
+}
 ```
 
 ### 14. Add New Product
@@ -557,7 +651,8 @@ Content-Disposition: attachment; filename="prescription-1.pdf"
     "name": "Oakley",
     "email": "info@oakley.com"
   },
-  "createdAt": "2025-10-08T10:00:00.000Z"
+  "createdAt": "2025-10-08T10:00:00.000Z",
+  "updatedAt": "2025-10-08T10:00:00.000Z"
 }
 ```
 
