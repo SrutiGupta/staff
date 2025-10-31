@@ -258,26 +258,26 @@
 ```javascript
 [
   {
-    "staff": {
-      "id": 1,
-      "name": "John Staff",
-      "email": "john@example.com",
-      "role": "STAFF"
+    staff: {
+      id: 1,
+      name: "John Staff",
+      email: "john@example.com",
+      role: "STAFF",
     },
-    "totalSales": 15000.0,
-    "invoiceCount": 45
+    totalSales: 15000.0,
+    invoiceCount: 45,
   },
   {
-    "staff": {
-      "id": 2,
-      "name": "Jane Staff",
-      "email": "jane@example.com",
-      "role": "STAFF"
+    staff: {
+      id: 2,
+      name: "Jane Staff",
+      email: "jane@example.com",
+      role: "STAFF",
     },
-    "totalSales": 12000.0,
-    "invoiceCount": 38
-  }
-]
+    totalSales: 12000.0,
+    invoiceCount: 38,
+  },
+];
 ```
 
 **Controller Returns (From getStaffSalesReport):**
@@ -286,12 +286,14 @@
 // After mapping salesByStaff with staffMap:
 [
   {
-    "staff": { /* staff object */ },
-    "totalSales": number,
-    "invoiceCount": number
+    staff: {
+      /* staff object */
+    },
+    totalSales: number,
+    invoiceCount: number,
   },
   // ... more entries
-]
+];
 ```
 
 **Issues Found:**
@@ -439,19 +441,19 @@
 
 ## 🔴 SUMMARY OF ISSUES FOUND (Second 50%)
 
-| #   | Endpoint                           | Type | Issue                  | Severity    |
-| --- | ---------------------------------- | ---- | ---------------------- | ----------- |
-| 11  | POST /inventory/product            | 🟡   | Missing `updatedAt`    | 🟡 MINOR    |
-| 12  | POST /stock-receipts               | ✅   | Perfect match          | ✅ OK       |
-| 13  | GET /stock-receipts                | ✅   | Perfect match          | ✅ OK       |
-| 14  | GET /stock-receipts/:id            | ✅   | Perfect match          | ✅ OK       |
-| 15  | GET /reporting/daily               | ✅   | Perfect match          | ✅ OK       |
-| 16  | GET /reporting/monthly             | ✅   | Perfect match          | ✅ OK       |
-| 17  | GET /reporting/staff-sales         | ✅   | Perfect match          | ✅ OK       |
-| 18  | GET /reporting/sales-by-price-tier | ✅   | Perfect match          | ✅ OK       |
-| 19  | GET /reporting/best-sellers-by-price-tier | ✅ | Perfect match      | ✅ OK       |
-| 20  | POST /royalty                      | ✅   | Perfect match          | ✅ OK       |
-| 21  | GET /royalty/:patientId            | ✅   | Perfect match          | ✅ OK       |
+| #   | Endpoint                                  | Type | Issue               | Severity |
+| --- | ----------------------------------------- | ---- | ------------------- | -------- |
+| 11  | POST /inventory/product                   | 🟡   | Missing `updatedAt` | 🟡 MINOR |
+| 12  | POST /stock-receipts                      | ✅   | Perfect match       | ✅ OK    |
+| 13  | GET /stock-receipts                       | ✅   | Perfect match       | ✅ OK    |
+| 14  | GET /stock-receipts/:id                   | ✅   | Perfect match       | ✅ OK    |
+| 15  | GET /reporting/daily                      | ✅   | Perfect match       | ✅ OK    |
+| 16  | GET /reporting/monthly                    | ✅   | Perfect match       | ✅ OK    |
+| 17  | GET /reporting/staff-sales                | ✅   | Perfect match       | ✅ OK    |
+| 18  | GET /reporting/sales-by-price-tier        | ✅   | Perfect match       | ✅ OK    |
+| 19  | GET /reporting/best-sellers-by-price-tier | ✅   | Perfect match       | ✅ OK    |
+| 20  | POST /royalty                             | ✅   | Perfect match       | ✅ OK    |
+| 21  | GET /royalty/:patientId                   | ✅   | Perfect match       | ✅ OK    |
 
 ---
 

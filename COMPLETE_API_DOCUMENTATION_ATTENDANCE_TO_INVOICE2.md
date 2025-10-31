@@ -65,7 +65,17 @@ POST / api / auth / login;
   "isActive": true,
   "shopId": 1,
   "royalty": null,
-  "giftCards": [],
+  "giftCards": [
+    {
+      "id": 1,
+      "patientId": 1,
+      "code": "GC-ABC123XYZ",
+      "balance": 250.0,
+      "status": "ACTIVE",
+      "createdAt": "2025-10-08T10:00:00.000Z",
+      "updatedAt": "2025-10-08T10:00:00.000Z"
+    }
+  ],
   "createdAt": "2025-10-08T10:00:00.000Z",
   "updatedAt": "2025-10-08T10:00:00.000Z"
 }
@@ -162,7 +172,17 @@ POST / api / auth / login;
     }
   ],
   "royalty": null,
-  "giftCards": [],
+  "giftCards": [
+    {
+      "id": 1,
+      "patientId": 1,
+      "code": "GC-ABC123XYZ",
+      "balance": 250.0,
+      "status": "ACTIVE",
+      "createdAt": "2025-10-08T10:00:00.000Z",
+      "updatedAt": "2025-10-08T10:00:00.000Z"
+    }
+  ],
   "createdAt": "2025-10-08T10:00:00.000Z",
   "updatedAt": "2025-10-08T10:00:00.000Z"
 }
@@ -435,7 +455,17 @@ POST / api / auth / login;
   "prescribedBy": "Dr. Smith",
   "validUntil": "2026-10-08T00:00:00.000Z",
   "isValid": true,
-  "invoices": [],
+  "invoices": [
+    {
+      "id": 1,
+      "patientId": 1,
+      "prescriptionId": 1,
+      "totalAmount": 566.4,
+      "status": "PAID",
+      "createdAt": "2025-10-08T10:00:00.000Z",
+      "updatedAt": "2025-10-08T10:00:00.000Z"
+    }
+  ],
   "createdAt": "2025-10-08T10:00:00.000Z",
   "updatedAt": "2025-10-08T10:00:00.000Z"
 }
