@@ -147,12 +147,24 @@ exports.createInvoice = async (req, res) => {
         },
       });
 
-      // Update shop inventory for each item
+      // ✅ FIX: Update shop inventory for each item AND create StockMovement audit records
       for (const item of items) {
+        // Get current inventory before update
+        const currentInventory = await prisma.shopInventory.findFirst({
+          where: {
+            productId: item.productId,
+            shopId: req.user.shopId,
+          },
+        });
+
+        const previousQty = currentInventory ? currentInventory.quantity : 0;
+        const newQty = previousQty - item.quantity;
+
+        // Update inventory
         await prisma.shopInventory.updateMany({
           where: {
             productId: item.productId,
-            shopId: req.user.shopId, // Update shop-specific inventory
+            shopId: req.user.shopId,
           },
           data: {
             quantity: {
@@ -160,6 +172,22 @@ exports.createInvoice = async (req, res) => {
             },
           },
         });
+
+        // ✅ CREATE StockMovement record for audit trail
+        if (currentInventory) {
+          await prisma.stockMovement.create({
+            data: {
+              shopInventoryId: currentInventory.id,
+              type: "STOCK_OUT", // Sale-based stock reduction
+              quantity: item.quantity,
+              previousQty,
+              newQty,
+              staffId: staffId,
+              reason: "SALE",
+              invoiceId: newInvoice.id, // Link to the sale invoice
+            },
+          });
+        }
       }
       return invoice;
     });

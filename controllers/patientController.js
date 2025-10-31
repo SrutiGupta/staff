@@ -14,6 +14,11 @@ exports.createPatient = async (req, res) => {
         address,
         medicalHistory,
         shopId: req.user.shopId, // Use authenticated user's shopId
+        isActive: true, // ✅ FIX: Set active status on creation
+      },
+      include: {
+        royalty: true, // ✅ FIX: Include royalty data
+        giftCards: true, // ✅ FIX: Include gift cards
       },
     });
     res.status(201).json(patient);
@@ -77,6 +82,8 @@ exports.getPatient = async (req, res) => {
             },
           },
         },
+        royalty: true, // ✅ FIX: Include royalty data
+        giftCards: true, // ✅ FIX: Include gift cards
       },
     });
 

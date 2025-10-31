@@ -14,7 +14,10 @@ exports.processPayment = async (req, res) => {
   try {
     const invoice = await prisma.invoice.findUnique({
       where: { id: invoiceId },
-      include: { staff: true },
+      include: {
+        staff: true,
+        transactions: true, // ✅ FIX: Include transactions for accurate calculation
+      },
     });
 
     if (!invoice) {
@@ -34,7 +37,13 @@ exports.processPayment = async (req, res) => {
         .json({ error: "This invoice has already been paid in full." });
     }
 
-    const amountDue = invoice.totalAmount - invoice.paidAmount;
+    // ✅ FIX: Calculate actual paid amount from transactions (single source of truth)
+    const actualPaidAmount = invoice.transactions.reduce(
+      (sum, transaction) => sum + transaction.amount,
+      0
+    );
+    const amountDue = invoice.totalAmount - actualPaidAmount;
+
     if (amount > amountDue) {
       return res.status(400).json({
         error: `Payment amount cannot exceed the amount due of $${amountDue.toFixed(
@@ -87,8 +96,14 @@ exports.processPayment = async (req, res) => {
       },
     });
 
-    // Update invoice status
-    const newPaidAmount = invoice.paidAmount + amount;
+    // ✅ FIX: Recalculate new paid amount from ALL transactions (not just adding to old value)
+    const allTransactions = await prisma.transaction.findMany({
+      where: { invoiceId },
+    });
+    const newPaidAmount = allTransactions.reduce(
+      (sum, t) => sum + t.amount,
+      0
+    );
     const newStatus =
       newPaidAmount >= invoice.totalAmount ? "PAID" : "PARTIALLY_PAID";
 

@@ -103,6 +103,9 @@ exports.getSalesByPriceTier = async (req, res) => {
       where: {
         invoice: {
           createdAt: dateFilter,
+          staff: {
+            shopId: req.user.shopId, // ✅ SECURITY FIX: Shop isolation
+          },
         },
       },
       select: {
