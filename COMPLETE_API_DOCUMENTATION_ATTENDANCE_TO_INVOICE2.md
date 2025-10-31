@@ -621,7 +621,8 @@ Content-Disposition: attachment; filename="prescription-1.pdf"
     "name": "Oakley",
     "email": "info@oakley.com"
   },
-  "createdAt": "2025-10-08T10:00:00.000Z"
+  "createdAt": "2025-10-08T10:00:00.000Z",
+  "updatedAt": "2025-10-08T10:00:00.000Z"
 }
 ```
 
