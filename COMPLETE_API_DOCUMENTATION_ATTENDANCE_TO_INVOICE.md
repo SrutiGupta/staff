@@ -169,7 +169,7 @@
 
 #### 1. **POST** `/label`
 
-- **Description**: Generate barcode label with product details as PNG image
+- **Description**: Generate barcode label with product details as PNG image. Can accept either productId or manual product details.
 - **Authentication**: Required (JWT)
 - **Headers**:
   ```json
@@ -193,7 +193,19 @@
     "data": "EYE00011234"
   }
   ```
-- **Response**: Binary PNG image (barcode label with product info)
+- **Response** (200 OK):
+  - Content-Type: `image/png`
+  - Binary PNG image (400x150 pixels) containing:
+    - Product name (bold, 16px, top-left)
+    - Product description (12px, optional, top-left)
+    - Price in Indian Rupees (bold, 14px, top-right)
+    - Barcode (CODE128 format, center)
+    - Barcode value as text (12px, below barcode)
+    - Company name if available (10px, bottom-left)
+- **Error Responses**:
+  - `400`: Missing required fields (name, price, data) or Product does not have barcode
+  - `404`: Product not found
+  - `500`: Internal server error while generating label
 
 #### 2. **POST** `/generate/:productId`
 
@@ -736,27 +748,55 @@
 - **Description**: Get all invoices with filtering and pagination
 - **Authentication**: Required (JWT)
 - **Query Parameters**:
-  - `page` (integer): Page number
-  - `limit` (integer): Items per page
-  - `status` (string): Filter by status
+  - `page` (integer): Page number (default: 1)
+  - `limit` (integer): Items per page (default: 10)
+  - `status` (string): Filter by status (UNPAID, PARTIALLY_PAID, PAID, CANCELLED)
   - `patientId` (integer): Filter by patient
   - `customerId` (integer): Filter by customer
-  - `startDate` (string): Start date filter
-  - `endDate` (string): End date filter
-- **Response**:
+  - `startDate` (string): Start date filter (YYYY-MM-DD)
+  - `endDate` (string): End date filter (YYYY-MM-DD)
+- **Response** (200 OK):
   ```json
   {
     "invoices": [
       {
-        "id": "INV-001",
+        "id": "clp123abc456",
         "patientId": 1,
         "customerId": null,
         "totalAmount": 250.00,
-        "paidAmount": 250.00,
-        "status": "PAID",
-        "items": [...],
-        "patient": {...},
-        "createdAt": "2023-09-25T10:00:00.000Z"
+        "paidAmount": 100.00,
+        "status": "PARTIALLY_PAID",
+        "subtotal": 200.00,
+        "totalDiscount": 20.00,
+        "totalCgst": 36.00,
+        "totalSgst": 36.00,
+        "totalIgst": 0.00,
+        "staffId": 1,
+        "items": [
+          {
+            "id": 1,
+            "invoiceId": "clp123abc456",
+            "productId": 1,
+            "quantity": 2,
+            "unitPrice": 100.0,
+            "discount": 10.0,
+            "cgst": 18.0,
+            "sgst": 18.0,
+            "totalPrice": 136.0,
+            "product": {
+              "id": 1,
+              "name": "Ray-Ban Aviator Classic",
+              "basePrice": 100.0
+            }
+          }
+        ],
+        "patient": {
+          "id": 1,
+          "name": "John Patient",
+          "phone": "+1234567890"
+        },
+        "createdAt": "2025-10-31T11:00:00.000Z",
+        "updatedAt": "2025-10-31T11:30:00.000Z"
       }
     ],
     "total": 50,
@@ -803,9 +843,10 @@
 - **Response** (201 Created):
   ```json
   {
-    "id": "INV-002",
+    "id": "clp123abc456",
     "patientId": 1,
     "customerId": null,
+    "prescriptionId": 1,
     "totalAmount": 120.0,
     "paidAmount": 0.0,
     "status": "UNPAID",
@@ -814,18 +855,38 @@
     "totalCgst": 18.0,
     "totalSgst": 18.0,
     "totalIgst": 0.0,
+    "staffId": 1,
     "items": [
       {
+        "id": 1,
+        "invoiceId": "clp123abc456",
         "productId": 1,
         "quantity": 2,
         "unitPrice": 50.0,
         "discount": 10.0,
         "cgst": 18.0,
         "sgst": 18.0,
-        "totalPrice": 76.0
+        "totalPrice": 76.0,
+        "product": {
+          "id": 1,
+          "name": "Ray-Ban Aviator Classic",
+          "description": "Premium sunglasses",
+          "basePrice": 50.0,
+          "sku": "RB-AV-001",
+          "barcode": "EYE00011234AB",
+          "company": {
+            "id": 1,
+            "name": "Ray-Ban"
+          }
+        }
       }
     ],
-    "staffId": 1,
+    "patient": {
+      "id": 1,
+      "name": "John Patient",
+      "phone": "+1234567890",
+      "isActive": true
+    },
     "createdAt": "2025-10-31T11:00:00.000Z",
     "updatedAt": "2025-10-31T11:00:00.000Z"
   }
@@ -855,17 +916,94 @@
 - **Authentication**: Required (JWT)
 - **Path Parameters**:
   - `id` (string): Invoice ID
-- **Response**:
+- **Response** (200 OK):
   ```json
   {
-    "id": "INV-001",
+    "id": "clp123abc456",
     "patientId": 1,
+    "customerId": null,
+    "prescriptionId": 1,
     "totalAmount": 250.00,
-    "items": [...],
-    "patient": {...},
-    "prescription": {...}
+    "paidAmount": 100.00,
+    "status": "PARTIALLY_PAID",
+    "subtotal": 200.00,
+    "totalDiscount": 20.00,
+    "totalCgst": 36.00,
+    "totalSgst": 36.00,
+    "totalIgst": 0.00,
+    "staffId": 1,
+    "items": [
+      {
+        "id": 1,
+        "invoiceId": "clp123abc456",
+        "productId": 1,
+        "quantity": 2,
+        "unitPrice": 100.0,
+        "discount": 10.0,
+        "cgst": 18.0,
+        "sgst": 18.0,
+        "totalPrice": 136.0,
+        "product": {
+          "id": 1,
+          "name": "Ray-Ban Aviator Classic",
+          "description": "Premium sunglasses",
+          "basePrice": 100.0,
+          "sku": "RB-AV-001",
+          "barcode": "EYE00011234AB",
+          "company": {
+            "id": 1,
+            "name": "Ray-Ban"
+          }
+        }
+      }
+    ],
+    "patient": {
+      "id": 1,
+      "name": "John Patient",
+      "phone": "+1234567890",
+      "email": "john@example.com",
+      "age": 35,
+      "gender": "MALE",
+      "isActive": true
+    },
+    "staff": {
+      "id": 1,
+      "name": "Jane Staff",
+      "email": "jane@shop.com",
+      "role": "SALES_STAFF"
+    },
+    "transactions": [
+      {
+        "id": 1,
+        "invoiceId": "clp123abc456",
+        "amount": 100.0,
+        "paymentMethod": "CASH",
+        "giftCardId": null,
+        "createdAt": "2025-10-31T11:30:00.000Z",
+        "updatedAt": "2025-10-31T11:30:00.000Z"
+      }
+    ],
+    "prescription": {
+      "id": 1,
+      "patientId": 1,
+      "rightEye": {
+        "sph": "-2.00",
+        "cyl": "-0.50",
+        "axis": "90"
+      },
+      "leftEye": {
+        "sph": "-1.75",
+        "cyl": "-0.25",
+        "axis": "85"
+      }
+    },
+    "createdAt": "2025-10-31T11:00:00.000Z",
+    "updatedAt": "2025-10-31T11:30:00.000Z"
   }
   ```
+- **Error Responses**:
+  - `404`: Invoice not found
+  - `403`: Access denied. Invoice belongs to different shop
 
 #### 4. **PATCH** `/:id/status`
 
@@ -883,40 +1021,59 @@
 
 #### 5. **POST** `/:id/payment`
 
-- **Description**: Add payment to invoice
+- **Description**: Add payment to invoice (invoice ID provided in URL path)
 - **Authentication**: Required (JWT)
 - **Path Parameters**:
   - `id` (string): Invoice ID
 - **Request Body**:
   ```json
   {
-    "invoiceId": "invoiceIdHere",
     "amount": 100.0,
     "paymentMethod": "CASH",
-    "giftCardCode": "OPTIONAL_GIFT_CARD_CODE"
+    "giftCardId": null
+  }
+  ```
+  **OR for Gift Card Payment:**
+  ```json
+  {
+    "amount": 100.0,
+    "paymentMethod": "GIFT_CARD",
+    "giftCardId": 5
   }
   ```
 - **Response** (200 OK):
   ```json
   {
     "id": "clp123abc456",
+    "patientId": 1,
+    "customerId": null,
     "subtotal": 500.0,
     "totalAmount": 590.0,
     "paidAmount": 100.0,
     "status": "PARTIALLY_PAID",
+    "totalDiscount": 50.0,
+    "totalCgst": 36.0,
+    "totalSgst": 36.0,
+    "totalIgst": 18.0,
+    "staffId": 1,
     "transactions": [
       {
         "id": 1,
+        "invoiceId": "clp123abc456",
         "amount": 100.0,
         "paymentMethod": "CASH",
-        "createdAt": "2025-10-31T10:30:00.000Z"
+        "giftCardId": null,
+        "createdAt": "2025-10-31T10:30:00.000Z",
+        "updatedAt": "2025-10-31T10:30:00.000Z"
       }
-    ]
+    ],
+    "createdAt": "2025-10-31T11:00:00.000Z",
+    "updatedAt": "2025-10-31T10:30:00.000Z"
   }
   ```
 - **Error Responses**:
-  - `400`: Missing required fields / Payment amount exceeds amount due / Gift card validation error
-  - `404`: Invoice not found
+  - `400`: Payment amount exceeds remaining balance / Valid payment amount is required / Payment method is required / Insufficient gift card balance
+  - `404`: Invoice not found / Gift card not found
   - `403`: Access denied. Invoice belongs to different shop
   - `500`: Failed to process payment
 
@@ -935,19 +1092,44 @@
 
 #### 7. **GET** `/:id/pdf`
 
-- **Description**: Generate PDF for invoice
+- **Description**: Generate and download invoice as PDF document
 - **Authentication**: Required (JWT)
 - **Path Parameters**:
   - `id` (string): Invoice ID
-- **Response**: PDF file download
+- **Response Headers**:
+  ```
+  Content-Type: application/pdf
+  Content-Disposition: attachment; filename="invoice-{id}.pdf"
+  ```
+- **Response**: Binary PDF file containing:
+  - Invoice header with shop details and invoice ID
+  - Invoice date and staff member name
+  - Customer/Patient details
+  - Itemized product list with quantities, prices, and taxes
+  - Subtotal, discounts, and taxes breakdown
+  - Total amount due and payment status
+  - Barcode representation of invoice ID
+- **Error Responses**:
+  - `404`: Invoice not found
+  - `403`: Access denied. Invoice belongs to different shop
+  - `500`: Failed to generate PDF
 
 #### 8. **GET** `/:id/thermal`
 
-- **Description**: Generate thermal print receipt
+- **Description**: Generate thermal print receipt format for POS thermal printer
 - **Authentication**: Required (JWT)
 - **Path Parameters**:
   - `id` (string): Invoice ID
-- **Response**: Plain text receipt for thermal printing
+- **Response** (200 OK):
+  ```json
+  {
+    "thermalContent": "========================================\n           INVOICE RECEIPT\n========================================\nInvoice ID: clp123abc456\nDate: 2025-10-31 11:00:00\nStaff: Jane Staff\n----------------------------------------\nCUSTOMER DETAILS\n----------------------------------------\nName: John Patient\nPhone: +1234567890\n----------------------------------------\nITEMS\n----------------------------------------\nRay-Ban Aviator Classic\nQty: 2 × ₹100.00 = ₹200.00\nDiscount: -₹10.00\nCGST (18%): ₹18.00\nSGST (18%): ₹18.00\n----------------------------------------\nSubtotal: ₹200.00\nTotal Discount: ₹10.00\nTotal CGST: ₹18.00\nTotal SGST: ₹18.00\n========================================\nTOTAL AMOUNT: ₹250.00\nPaid: ₹100.00\nDue: ₹150.00\nStatus: PARTIALLY_PAID\n========================================\nThank you for your purchase!\n========================================\n"
+  }
+  ```
+- **Error Responses**:
+  - `404`: Invoice not found
+  - `403`: Access denied. Invoice belongs to different shop
+  - `500`: Failed to generate thermal receipt
 
 ---
 
