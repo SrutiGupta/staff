@@ -722,11 +722,35 @@
 - **Request Body**:
   ```json
   {
+    "invoiceId": "invoiceIdHere",
     "amount": 100.0,
-    "method": "CASH",
-    "notes": "Partial payment"
+    "paymentMethod": "CASH",
+    "giftCardCode": "OPTIONAL_GIFT_CARD_CODE"
   }
   ```
+- **Response** (200 OK):
+  ```json
+  {
+    "id": "clp123abc456",
+    "subtotal": 500.0,
+    "totalAmount": 590.0,
+    "paidAmount": 100.0,
+    "status": "PARTIALLY_PAID",
+    "transactions": [
+      {
+        "id": 1,
+        "amount": 100.0,
+        "paymentMethod": "CASH",
+        "createdAt": "2025-10-31T10:30:00.000Z"
+      }
+    ]
+  }
+  ```
+- **Error Responses**:
+  - `400`: Missing required fields / Payment amount exceeds amount due / Gift card validation error
+  - `404`: Invoice not found
+  - `403`: Access denied. Invoice belongs to different shop
+  - `500`: Failed to process payment
 
 #### 6. **DELETE** `/:id`
 
