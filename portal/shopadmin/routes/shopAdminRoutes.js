@@ -118,6 +118,54 @@ router.get(
 router.get("/reports/sales/staff", shopAdminController.getSalesByStaffReport);
 
 /**
+ * @route GET /api/shopadmin/reports/sales/by-tier
+ * @desc Get sales by price tier (Budget/Standard/Premium)
+ * @access Private (Shop Admin)
+ * @query startDate, endDate (optional filters)
+ */
+router.get(
+  "/reports/sales/by-tier",
+  reportSlowDown,
+  shopAdminController.getSalesByPriceTier
+);
+
+/**
+ * @route GET /api/shopadmin/reports/sales/best-sellers
+ * @desc Get best selling products grouped by price tier
+ * @access Private (Shop Admin)
+ * @query startDate, endDate (optional filters), limit (1-50, default 10)
+ */
+router.get(
+  "/reports/sales/best-sellers",
+  reportSlowDown,
+  shopAdminController.getBestSellersReport
+);
+
+/**
+ * @route GET /api/shopadmin/reports/sales/monthly-breakdown
+ * @desc Get monthly/daily sales breakdown with aggregation
+ * @access Private (Shop Admin)
+ * @query startDate, endDate, groupBy ('daily' or 'monthly', default 'daily')
+ */
+router.get(
+  "/reports/sales/monthly-breakdown",
+  reportSlowDown,
+  shopAdminController.getMonthlySalesBreakdown
+);
+
+/**
+ * @route GET /api/shopadmin/reports/sales/daily
+ * @desc Get daily sales report with staff and product breakdown
+ * @access Private (Shop Admin)
+ * @query date (YYYY-MM-DD format, optional - defaults to today)
+ */
+router.get(
+  "/reports/sales/daily",
+  reportSlowDown,
+  shopAdminController.getDailySalesReport
+);
+
+/**
  * @route GET /api/shopadmin/reports/inventory
  * @desc Get inventory movement report
  * @access Private (Shop Admin)

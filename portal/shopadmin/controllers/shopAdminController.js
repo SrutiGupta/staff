@@ -1368,6 +1368,146 @@ exports.getInventoryStatus = async (req, res) => {
   }
 };
 
+// ===== ADDITIONAL SALES REPORTS =====
+
+/**
+ * GET /shop-admin/reports/sales/by-tier
+ * Get Sales by Price Tier Report
+ */
+exports.getSalesByPriceTier = async (req, res) => {
+  try {
+    const { startDate, endDate } = req.query;
+
+    // Validate date format if provided
+    if (startDate && isNaN(Date.parse(startDate))) {
+      return res.status(400).json({ error: "Invalid startDate format" });
+    }
+    if (endDate && isNaN(Date.parse(endDate))) {
+      return res.status(400).json({ error: "Invalid endDate format" });
+    }
+
+    const report = await shopAdminService.getSalesByPriceTier(req.user.shopId, {
+      startDate,
+      endDate,
+    });
+
+    res.json(report);
+  } catch (error) {
+    console.error("Sales by Price Tier Error:", error);
+    res
+      .status(500)
+      .json({ error: "Failed to generate sales by price tier report" });
+  }
+};
+
+/**
+ * GET /shop-admin/reports/sales/best-sellers
+ * Get Best Sellers Report - Top products grouped by price tier
+ */
+exports.getBestSellersReport = async (req, res) => {
+  try {
+    const { startDate, endDate, limit = 10 } = req.query;
+
+    // Validate limit parameter
+    const parsedLimit = parseInt(limit, 10);
+    if (isNaN(parsedLimit) || parsedLimit < 1 || parsedLimit > 50) {
+      return res.status(400).json({
+        error: "limit must be a number between 1 and 50",
+      });
+    }
+
+    // Validate date format if provided
+    if (startDate && isNaN(Date.parse(startDate))) {
+      return res.status(400).json({ error: "Invalid startDate format" });
+    }
+    if (endDate && isNaN(Date.parse(endDate))) {
+      return res.status(400).json({ error: "Invalid endDate format" });
+    }
+
+    const report = await shopAdminService.getBestSellersReport(
+      req.user.shopId,
+      {
+        startDate,
+        endDate,
+        limit: parsedLimit,
+      }
+    );
+
+    res.json(report);
+  } catch (error) {
+    console.error("Best Sellers Report Error:", error);
+    res.status(500).json({ error: "Failed to generate best sellers report" });
+  }
+};
+
+/**
+ * GET /shop-admin/reports/sales/monthly-breakdown
+ * Get Monthly Sales Breakdown (Daily or Monthly Aggregation)
+ */
+exports.getMonthlySalesBreakdown = async (req, res) => {
+  try {
+    const { startDate, endDate, groupBy = "daily" } = req.query;
+
+    // Validate groupBy parameter
+    if (!["daily", "monthly"].includes(groupBy)) {
+      return res
+        .status(400)
+        .json({ error: 'groupBy must be "daily" or "monthly"' });
+    }
+
+    // Validate date format if provided
+    if (startDate && isNaN(Date.parse(startDate))) {
+      return res.status(400).json({ error: "Invalid startDate format" });
+    }
+    if (endDate && isNaN(Date.parse(endDate))) {
+      return res.status(400).json({ error: "Invalid endDate format" });
+    }
+
+    const report = await shopAdminService.getMonthlySalesBreakdown(
+      req.user.shopId,
+      {
+        startDate,
+        endDate,
+        groupBy,
+      }
+    );
+
+    res.json(report);
+  } catch (error) {
+    console.error("Monthly Sales Breakdown Error:", error);
+    res
+      .status(500)
+      .json({ error: "Failed to generate monthly sales breakdown" });
+  }
+};
+
+/**
+ * GET /shop-admin/reports/sales/daily
+ * Get Daily Sales Report
+ */
+exports.getDailySalesReport = async (req, res) => {
+  try {
+    const { date } = req.query; // YYYY-MM-DD format
+
+    // Validate date format if provided
+    if (date && isNaN(Date.parse(date))) {
+      return res
+        .status(400)
+        .json({ error: "Invalid date format (use YYYY-MM-DD)" });
+    }
+
+    const report = await shopAdminService.getDailySalesReport(
+      req.user.shopId,
+      date
+    );
+
+    res.json(report);
+  } catch (error) {
+    console.error("Daily Sales Report Error:", error);
+    res.status(500).json({ error: "Failed to generate daily sales report" });
+  }
+};
+
 // ===== EXPORT FUNCTIONS =====
 
 /**
