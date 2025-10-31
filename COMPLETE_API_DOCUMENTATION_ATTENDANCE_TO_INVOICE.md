@@ -1055,19 +1055,38 @@
 
 - **Description**: Add new product
 - **Authentication**: Required (JWT)
-- **Request Body**:
+- **Request Body** (Required fields: name, basePrice, eyewearType, companyId):
   ```json
   {
-    "name": "New Product",
-    "description": "Product description",
+    "name": "Ray-Ban Aviator Classic",
+    "description": "Premium aviator sunglasses",
     "basePrice": 100.0,
-    "eyewearType": "GLASSES",
+    "eyewearType": "SUNGLASSES",
+    "frameType": "FULL_RIM",
     "companyId": 1,
+    "barcode": "RAY0015678901",
+    "sku": "RB-AV-001",
+    "model": "Aviator",
     "material": "Metal",
     "color": "Black",
-    "size": "Medium"
+    "size": "58mm"
   }
   ```
+- **Required Fields**:
+  - `name` (string)
+  - `basePrice` (number)
+  - `eyewearType` (string: GLASSES, SUNGLASSES, LENSES)
+  - `companyId` (integer)
+- **Optional Fields**:
+  - `barcode` (string) - Unique product barcode
+  - `sku` (string) - Stock keeping unit
+  - `frameType` (string: FULL_RIM, HALF_RIM, RIMLESS - required for GLASSES/SUNGLASSES)
+  - `model` (string) - Product model name
+  - `description` (string) - Product description
+  - `material` (string) - Frame material
+  - `color` (string) - Frame color
+  - `size` (string) - Frame size
+- **Response** (201 Created): Product object with all fields including createdAt, updatedAt
 
 #### 7. **PUT** `/product/:productId`
 
@@ -1118,7 +1137,7 @@
 
 #### 8. **POST** `/stock-in`
 
-- **Description**: Add stock by product ID (requires approved stock receipt from shop admin)
+- **Description**: Add stock by product ID or barcode (requires approved stock receipt from shop admin). Supports both traditional product ID lookup and barcode scanning
 - **Authentication**: Required (JWT)
 - **Headers**:
   ```json
@@ -1127,13 +1146,21 @@
     "Content-Type": "application/json"
   }
   ```
-- **Request Body**:
+- **Request Body** (Option 1 - Product ID):
   ```json
   {
     "productId": 1,
     "quantity": 50
   }
   ```
+- **Request Body** (Option 2 - Barcode Scanning):
+  ```json
+  {
+    "barcode": "RAY0015678901",
+    "quantity": 50
+  }
+  ```
+- **Note**: Either `productId` OR `barcode` is required, but not both
 - **Response** (201 Created OR 200 OK):
   ```json
   {
@@ -1199,7 +1226,7 @@
 
 #### 9. **POST** `/stock-out`
 
-- **Description**: Remove stock by product ID
+- **Description**: Remove stock by product ID or barcode. Supports both traditional product ID lookup and barcode scanning. Creates audit trail for inventory tracking
 - **Authentication**: Required (JWT)
 - **Headers**:
   ```json
@@ -1208,13 +1235,21 @@
     "Content-Type": "application/json"
   }
   ```
-- **Request Body**:
+- **Request Body** (Option 1 - Product ID):
   ```json
   {
     "productId": 1,
     "quantity": 2
   }
   ```
+- **Request Body** (Option 2 - Barcode Scanning):
+  ```json
+  {
+    "barcode": "RAY0015678901",
+    "quantity": 2
+  }
+  ```
+- **Note**: Either `productId` OR `barcode` is required, but not both
 - **Response** (200 OK):
   ```json
   {
@@ -1777,17 +1812,23 @@
 
 #### 4. **PATCH** `/:id/status`
 
-- **Description**: Update invoice status
+- **Description**: Update invoice status. Valid statuses: UNPAID, PAID, PARTIALLY_PAID, CANCELLED, REFUNDED. Restores inventory when cancelling or refunding
 - **Authentication**: Required (JWT)
 - **Path Parameters**:
   - `id` (string): Invoice ID
 - **Request Body**:
   ```json
   {
-    "status": "CANCELLED",
-    "reason": "Customer request"
+    "status": "CANCELLED"
   }
   ```
+- **Valid Status Values**:
+  - `UNPAID` - Invoice created but no payment received
+  - `PAID` - Invoice fully paid
+  - `PARTIALLY_PAID` - Invoice partially paid
+  - `CANCELLED` - Invoice cancelled, inventory restored
+  - `REFUNDED` - Invoice refunded, inventory restored
+- **Note**: When updating status to CANCELLED or REFUNDED, inventory is automatically restored
 
 #### 5. **POST** `/:id/payment`
 
