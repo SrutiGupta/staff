@@ -366,6 +366,184 @@
   ```
 - **Status**: Not Started
 
+### 11.1 **GET /shop-admin/reports/sales/by-price-tier**
+
+- **Description**: Test sales breakdown by product price tier (Low, Medium, High)
+- **Method**: GET
+- **URL**: `{{baseUrl}}/shop-admin/reports/sales/by-price-tier?startDate=2025-09-01&endDate=2025-09-22`
+- **Headers**:
+  ```json
+  {
+    "Authorization": "Bearer {{loginToken}}"
+  }
+  ```
+- **Query Parameters**:
+  - `startDate`: "2025-09-01"
+  - `endDate`: "2025-09-22"
+- **Expected Response (200)**:
+  ```json
+  {
+    "tierDefinitions": {
+      "low": {
+        "max": 50
+      },
+      "medium": {
+        "min": 50,
+        "max": 500
+      },
+      "high": {
+        "min": 500
+      }
+    },
+    "salesByTier": {
+      "low": {
+        "count": 15,
+        "revenue": 500.0,
+        "percentage": 20.5
+      },
+      "medium": {
+        "count": 32,
+        "revenue": 8000.0,
+        "percentage": 65.3
+      },
+      "high": {
+        "count": 8,
+        "revenue": 3000.0,
+        "percentage": 14.2
+      }
+    },
+    "period": {
+      "startDate": "2025-09-01",
+      "endDate": "2025-09-22"
+    }
+  }
+  ```
+- **Status**: Not Started
+
+### 11.2 **GET /shop-admin/reports/sales/by-month**
+
+- **Description**: Test monthly sales breakdown with daily details
+- **Method**: GET
+- **URL**: `{{baseUrl}}/shop-admin/reports/sales/by-month?year=2025&month=9`
+- **Headers**:
+  ```json
+  {
+    "Authorization": "Bearer {{loginToken}}"
+  }
+  ```
+- **Query Parameters**:
+  - `year`: 2025
+  - `month`: 9 (1-12)
+- **Expected Response (200)**:
+  ```json
+  {
+    "monthYear": "September 2025",
+    "summary": {
+      "totalSales": 24500.0,
+      "totalOrders": 55,
+      "totalCustomers": 32,
+      "averageOrderValue": 445.45,
+      "totalDiscount": 2450.0,
+      "totalTax": 3675.0,
+      "netRevenue": 22050.0
+    },
+    "dailyBreakdown": [
+      {
+        "date": "2025-09-01",
+        "sales": 1500.0,
+        "orders": 5,
+        "customers": 4
+      },
+      {
+        "date": "2025-09-02",
+        "sales": 2100.0,
+        "orders": 8,
+        "customers": 6
+      }
+    ],
+    "topProducts": [
+      {
+        "productId": 15,
+        "productName": "Premium Sunglasses",
+        "unitsSold": 12,
+        "revenue": 6000.0
+      }
+    ],
+    "period": {
+      "month": 9,
+      "year": 2025
+    }
+  }
+  ```
+- **Status**: Not Started
+
+### 11.3 **GET /shop-admin/reports/sales/best-sellers**
+
+- **Description**: Test best sellers report with price tier breakdown
+- **Method**: GET
+- **URL**: `{{baseUrl}}/shop-admin/reports/sales/best-sellers?startDate=2025-09-01&endDate=2025-09-22&limit=10`
+- **Headers**:
+  ```json
+  {
+    "Authorization": "Bearer {{loginToken}}"
+  }
+  ```
+- **Query Parameters**:
+  - `startDate`: "2025-09-01"
+  - `endDate`: "2025-09-22"
+  - `limit`: 10 (number of top sellers per tier)
+- **Expected Response (200)**:
+  ```json
+  {
+    "tierDefinitions": {
+      "low": {
+        "max": 50
+      },
+      "medium": {
+        "min": 50,
+        "max": 500
+      },
+      "high": {
+        "min": 500
+      }
+    },
+    "bestSellers": {
+      "low": [
+        {
+          "productName": "Basic Frames",
+          "unitPrice": 35.0,
+          "totalQuantity": 42,
+          "totalRevenue": 1470.0,
+          "rank": 1
+        }
+      ],
+      "medium": [
+        {
+          "productName": "Standard Lenses",
+          "unitPrice": 150.0,
+          "totalQuantity": 28,
+          "totalRevenue": 4200.0,
+          "rank": 1
+        }
+      ],
+      "high": [
+        {
+          "productName": "Premium Sunglasses",
+          "unitPrice": 650.0,
+          "totalQuantity": 8,
+          "totalRevenue": 5200.0,
+          "rank": 1
+        }
+      ]
+    },
+    "period": {
+      "startDate": "2025-09-01",
+      "endDate": "2025-09-22"
+    }
+  }
+  ```
+- **Status**: Not Started
+
 ### 12. **GET /shop-admin/reports/inventory**
 
 - **Description**: Test inventory movement report
@@ -951,6 +1129,7 @@
 - **Status**: Not Started
 
 =====================
+
 ### 31 . Staff Performance Report
 
 **GET** `/reports/staff-performance`
@@ -986,7 +1165,6 @@ it is for shop admin ==>>.
   }
 }
 ```
-
 
 ---
 
@@ -1086,15 +1264,15 @@ it is for shop admin ==>>.
 
 ## 📊 **SUMMARY**
 
-**Total Endpoints to Test**: 27
+**Total Endpoints to Test**: 30 (27 + 3 new sales reports)
 **Authentication Endpoints**: 2
-**Dashboard Endpoints**: 3  
-**Report Endpoints**: 10
+**Dashboard Endpoints**: 3
+**Report Endpoints**: 13 (10 + 3 new sales reports)
 **Staff Management Endpoints**: 3
 **Doctor Management Endpoints**: 3
 **Inventory Management Endpoints**: 3
 **Export Endpoints**: 2
 **Error Testing Scenarios**: 3
 
-**Expected Testing Time**: 4-6 hours for complete coverage
+**Expected Testing Time**: 5-7 hours for complete coverage
 **Tools Required**: Postman, Running Server, Valid Test Data

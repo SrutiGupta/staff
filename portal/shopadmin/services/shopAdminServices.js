@@ -1374,6 +1374,432 @@ exports.getInventoryStatus = async (shopId) => {
   }
 };
 
+// ===== SALES REPORTS BY TIER & PERIOD =====
+
+/**
+ * Get Sales by Price Tier
+ * Groups invoice items by price tiers (Low, Medium, High)
+ */
+exports.getSalesByPriceTier = async (shopId, options = {}) => {
+  try {
+    const { startDate, endDate } = options;
+
+    // Build date filter
+    const dateFilter = {};
+    if (startDate) dateFilter.gte = new Date(startDate);
+    if (endDate) dateFilter.lte = new Date(endDate);
+
+    // Fetch all invoice items for the shop within date range
+    const items = await prisma.invoiceItem.findMany({
+      where: {
+        invoice: {
+          createdAt: dateFilter,
+          staff: { shopId }, // ✅ SECURITY: Shop isolation
+        },
+      },
+      include: {
+        product: {
+          select: {
+            id: true,
+            name: true,
+            company: { select: { name: true } },
+          },
+        },
+      },
+    });
+
+    // Define price tiers
+    const PRICE_TIERS = {
+      low: { max: 1000, label: "Budget (₹0 - ₹1000)" },
+      medium: { min: 1000, max: 5000, label: "Standard (₹1000 - ₹5000)" },
+      high: { min: 5000, label: "Premium (₹5000+)" },
+    };
+
+    // Aggregate sales by tier
+    const salesByTier = {
+      low: { count: 0, quantity: 0, revenue: 0, items: [] },
+      medium: { count: 0, quantity: 0, revenue: 0, items: [] },
+      high: { count: 0, quantity: 0, revenue: 0, items: [] },
+    };
+
+    items.forEach((item) => {
+      const tier =
+        item.unitPrice < PRICE_TIERS.low.max
+          ? "low"
+          : item.unitPrice < PRICE_TIERS.medium.max
+          ? "medium"
+          : "high";
+
+      salesByTier[tier].count += 1;
+      salesByTier[tier].quantity += item.quantity;
+      salesByTier[tier].revenue += item.totalPrice;
+
+      // Track individual products for trending
+      const existingItem = salesByTier[tier].items.find(
+        (p) => p.id === item.productId
+      );
+      if (existingItem) {
+        existingItem.quantity += item.quantity;
+        existingItem.revenue += item.totalPrice;
+      } else {
+        salesByTier[tier].items.push({
+          id: item.productId,
+          name: item.product.name,
+          company: item.product.company?.name || "N/A",
+          quantity: item.quantity,
+          revenue: item.totalPrice,
+        });
+      }
+    });
+
+    return {
+      tierDefinitions: PRICE_TIERS,
+      salesByTier,
+      totalItems: items.length,
+      totalQuantity: Object.values(salesByTier).reduce(
+        (sum, tier) => sum + tier.quantity,
+        0
+      ),
+      totalRevenue: Object.values(salesByTier).reduce(
+        (sum, tier) => sum + tier.revenue,
+        0
+      ),
+      dateRange: {
+        startDate: startDate || "Beginning",
+        endDate: endDate || "Now",
+      },
+    };
+  } catch (error) {
+    console.error("Sales by Price Tier Error:", error);
+    throw new Error("Failed to generate sales by price tier report");
+  }
+};
+
+/**
+ * Get Best Sellers Report
+ * Shows top selling products grouped by price tier
+ */
+exports.getBestSellersReport = async (shopId, options = {}) => {
+  try {
+    const { startDate, endDate, limit = 10 } = options;
+    const take = parseInt(limit, 10);
+
+    // Build date filter
+    const dateFilter = {};
+    if (startDate) dateFilter.gte = new Date(startDate);
+    if (endDate) dateFilter.lte = new Date(endDate);
+
+    // Fetch all invoice items for the shop
+    const items = await prisma.invoiceItem.findMany({
+      where: {
+        invoice: {
+          createdAt: dateFilter,
+          staff: { shopId }, // ✅ SECURITY: Shop isolation
+        },
+      },
+      include: {
+        product: {
+          select: {
+            id: true,
+            name: true,
+            company: { select: { name: true } },
+          },
+        },
+      },
+    });
+
+    // Define price tiers
+    const PRICE_TIERS = {
+      low: { max: 1000, label: "Budget (₹0 - ₹1000)" },
+      medium: { min: 1000, max: 5000, label: "Standard (₹1000 - ₹5000)" },
+      high: { min: 5000, label: "Premium (₹5000+)" },
+    };
+
+    // Group products by tier
+    const productsByTier = {
+      low: {},
+      medium: {},
+      high: {},
+    };
+
+    items.forEach((item) => {
+      const tier =
+        item.unitPrice < PRICE_TIERS.low.max
+          ? "low"
+          : item.unitPrice < PRICE_TIERS.medium.max
+          ? "medium"
+          : "high";
+
+      const productKey = item.productId;
+
+      if (!productsByTier[tier][productKey]) {
+        productsByTier[tier][productKey] = {
+          productId: item.productId,
+          productName: item.product.name,
+          company: item.product.company?.name || "Unknown",
+          unitPrice: item.unitPrice,
+          quantity: 0,
+          revenue: 0,
+        };
+      }
+
+      productsByTier[tier][productKey].quantity += item.quantity;
+      productsByTier[tier][productKey].revenue += item.totalPrice;
+    });
+
+    // Sort and get top products for each tier
+    const bestSellers = {
+      low: [],
+      medium: [],
+      high: [],
+    };
+
+    Object.keys(productsByTier).forEach((tier) => {
+      const products = Object.values(productsByTier[tier])
+        .sort((a, b) => b.quantity - a.quantity)
+        .slice(0, take)
+        .map((p, idx) => ({
+          ...p,
+          rank: idx + 1,
+          tierLabel: PRICE_TIERS[tier].label,
+        }));
+      bestSellers[tier] = products;
+    });
+
+    return {
+      tierDefinitions: PRICE_TIERS,
+      bestSellers,
+      period: {
+        startDate: startDate || "All Time",
+        endDate: endDate || "Present",
+      },
+    };
+  } catch (error) {
+    console.error("Best Sellers Report Error:", error);
+    throw new Error("Failed to generate best sellers report");
+  }
+};
+
+/**
+ * Get Monthly Sales Breakdown
+ * Shows daily or aggregated monthly sales data
+ */
+exports.getMonthlySalesBreakdown = async (shopId, options = {}) => {
+  try {
+    const { startDate, endDate, groupBy = "daily" } = options;
+
+    // Build date filter - default to current month if not provided
+    let start =
+      startDate && new Date(startDate).getFullYear() > 1970
+        ? new Date(startDate)
+        : new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+    let end =
+      endDate && new Date(endDate).getFullYear() > 1970
+        ? new Date(endDate)
+        : new Date();
+
+    // Fetch invoices for the period
+    const invoices = await prisma.invoice.findMany({
+      where: {
+        createdAt: {
+          gte: start,
+          lte: end,
+        },
+        staff: { shopId }, // ✅ SECURITY: Shop isolation
+      },
+      include: {
+        items: {
+          select: {
+            quantity: true,
+            totalPrice: true,
+          },
+        },
+      },
+    });
+
+    // Group by date
+    const groupedData = {};
+
+    invoices.forEach((invoice) => {
+      const dateKey =
+        groupBy === "daily"
+          ? invoice.createdAt.toISOString().split("T")[0]
+          : `${invoice.createdAt.getFullYear()}-${String(
+              invoice.createdAt.getMonth() + 1
+            ).padStart(2, "0")}`;
+
+      if (!groupedData[dateKey]) {
+        groupedData[dateKey] = {
+          date: dateKey,
+          invoiceCount: 0,
+          totalSales: 0,
+          totalQuantity: 0,
+          avgInvoiceValue: 0,
+        };
+      }
+
+      groupedData[dateKey].invoiceCount += 1;
+      groupedData[dateKey].totalSales += invoice.totalAmount;
+      groupedData[dateKey].totalQuantity += invoice.items.reduce(
+        (sum, item) => sum + item.quantity,
+        0
+      );
+    });
+
+    // Calculate averages
+    Object.keys(groupedData).forEach((key) => {
+      groupedData[key].avgInvoiceValue =
+        groupedData[key].totalSales / groupedData[key].invoiceCount;
+    });
+
+    const data = Object.values(groupedData).sort(
+      (a, b) => new Date(a.date) - new Date(b.date)
+    );
+
+    return {
+      groupBy,
+      dateRange: {
+        startDate: start.toISOString().split("T")[0],
+        endDate: end.toISOString().split("T")[0],
+      },
+      data,
+      totals: {
+        totalInvoices: invoices.length,
+        totalRevenue: invoices.reduce((sum, inv) => sum + inv.totalAmount, 0),
+        totalQuantitySold: invoices.reduce(
+          (sum, inv) =>
+            sum +
+            inv.items.reduce((itemSum, item) => itemSum + item.quantity, 0),
+          0
+        ),
+        averageInvoiceValue:
+          invoices.length > 0
+            ? invoices.reduce((sum, inv) => sum + inv.totalAmount, 0) /
+              invoices.length
+            : 0,
+      },
+    };
+  } catch (error) {
+    console.error("Monthly Sales Breakdown Error:", error);
+    throw new Error("Failed to generate monthly sales breakdown");
+  }
+};
+
+/**
+ * Get Daily Sales Report (Today's Performance)
+ */
+exports.getDailySalesReport = async (shopId, dateStr = null) => {
+  try {
+    const targetDate = dateStr ? new Date(dateStr) : new Date();
+    const startOfDay = new Date(
+      targetDate.getFullYear(),
+      targetDate.getMonth(),
+      targetDate.getDate()
+    );
+    const endOfDay = new Date(startOfDay);
+    endOfDay.setDate(endOfDay.getDate() + 1);
+
+    const invoices = await prisma.invoice.findMany({
+      where: {
+        createdAt: {
+          gte: startOfDay,
+          lt: endOfDay,
+        },
+        staff: { shopId }, // ✅ SECURITY: Shop isolation
+      },
+      include: {
+        items: {
+          include: {
+            product: {
+              select: {
+                name: true,
+                company: { select: { name: true } },
+              },
+            },
+          },
+        },
+        staff: { select: { name: true, role: true } },
+        patient: { select: { name: true } },
+        customer: { select: { name: true } },
+      },
+    });
+
+    // Aggregate by staff
+    const byStaff = {};
+    invoices.forEach((invoice) => {
+      const staffName = invoice.staff.name;
+      if (!byStaff[staffName]) {
+        byStaff[staffName] = {
+          name: staffName,
+          role: invoice.staff.role,
+          invoiceCount: 0,
+          totalSales: 0,
+          quantity: 0,
+        };
+      }
+      byStaff[staffName].invoiceCount += 1;
+      byStaff[staffName].totalSales += invoice.totalAmount;
+      byStaff[staffName].quantity += invoice.items.reduce(
+        (sum, item) => sum + item.quantity,
+        0
+      );
+    });
+
+    // Get top selling products
+    const productSales = {};
+    invoices.forEach((invoice) => {
+      invoice.items.forEach((item) => {
+        const key = `${item.product.name} (${
+          item.product.company?.name || "N/A"
+        })`;
+        if (!productSales[key]) {
+          productSales[key] = {
+            name: item.product.name,
+            company: item.product.company?.name || "N/A",
+            quantity: 0,
+            revenue: 0,
+            invoiceCount: 0,
+          };
+        }
+        productSales[key].quantity += item.quantity;
+        productSales[key].revenue += item.totalPrice;
+        productSales[key].invoiceCount += 1;
+      });
+    });
+
+    const topProducts = Object.values(productSales)
+      .sort((a, b) => b.revenue - a.revenue)
+      .slice(0, 10);
+
+    return {
+      date: startOfDay.toISOString().split("T")[0],
+      summary: {
+        totalInvoices: invoices.length,
+        totalRevenue: invoices.reduce((sum, inv) => sum + inv.totalAmount, 0),
+        totalQuantity: invoices.reduce(
+          (sum, inv) =>
+            sum +
+            inv.items.reduce((itemSum, item) => itemSum + item.quantity, 0),
+          0
+        ),
+        averageInvoiceValue:
+          invoices.length > 0
+            ? invoices.reduce((sum, inv) => sum + inv.totalAmount, 0) /
+              invoices.length
+            : 0,
+      },
+      byStaff: Object.values(byStaff).sort(
+        (a, b) => b.totalSales - a.totalSales
+      ),
+      topProducts,
+      transactions: invoices,
+    };
+  } catch (error) {
+    console.error("Daily Sales Report Error:", error);
+    throw new Error("Failed to generate daily sales report");
+  }
+};
+
 // ===== EXPORT FUNCTIONS =====
 
 /**
