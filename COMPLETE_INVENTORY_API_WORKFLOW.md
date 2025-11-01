@@ -26,6 +26,15 @@ Admin creates a new product and optionally generates a barcode. Products can be 
 
 **POST** `/api/inventory/company`
 
+### ⚙️ Authentication & Authorization:
+
+- **Required:** JWT Token (staff or admin)
+- **Who can access:** Any authenticated user (Staff or Shop Admin)
+- **Token types accepted:**
+  - ✅ Staff Token (from `/api/auth/login`)
+  - ✅ Shop Admin Token (from shop admin portal)
+  - ❌ Public (no token)
+
 ### Request Headers:
 
 ```json
@@ -34,6 +43,11 @@ Admin creates a new product and optionally generates a barcode. Products can be 
   "Content-Type": "application/json"
 }
 ```
+
+**Examples:**
+
+- Staff token: `Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...` (from staff login)
+- Shop Admin token: `Authorization: Bearer <admin_jwt_token>` (from admin portal login)
 
 ### Request Body:
 
@@ -52,7 +66,10 @@ Admin creates a new product and optionally generates a barcode. Products can be 
   "name": "Oakley",
   "description": "Premium eyewear brand from USA",
   "createdAt": "2025-11-01T10:00:00.000Z",
-  "updatedAt": "2025-11-01T10:00:00.000Z"
+  "updatedAt": "2025-11-01T10:00:00.000Z",
+  "_count": {
+    "products": 0
+  }
 }
 ```
 
@@ -60,7 +77,19 @@ Admin creates a new product and optionally generates a barcode. Products can be 
 
 ```json
 {
+  "error": "Company name is required."
+}
+```
+
+```json
+{
   "error": "Company already exists."
+}
+```
+
+```json
+{
+  "error": "Unauthorized - Invalid or missing token"
 }
 ```
 
