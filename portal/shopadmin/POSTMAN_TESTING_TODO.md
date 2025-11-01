@@ -1006,9 +1006,189 @@
 
 ---
 
-## 📤 **EXPORT ENDPOINTS (PROTECTED)**
+## � **STOCK RECEIPT MANAGEMENT ENDPOINTS (PROTECTED)**
 
-### 26. **GET /shop-admin/export/pdf**
+### 26. **GET /shop-admin/stock/receipts**
+
+- **Description**: Test list all stock receipts with pagination and filtering
+- **Method**: GET
+- **URL**: `{{baseUrl}}/shop-admin/stock/receipts?page=1&limit=10&sortBy=createdAt&sortOrder=desc`
+- **Headers**:
+  ```json
+  {
+    "Authorization": "Bearer {{loginToken}}"
+  }
+  ```
+- **Query Parameters**:
+  - `page`: 1
+  - `limit`: 10
+  - `sortBy`: "createdAt", "status"
+  - `sortOrder`: "asc", "desc"
+- **Expected Response (200)**:
+  ```json
+  {
+    "receipts": [
+      {
+        "id": 1,
+        "shopId": 1,
+        "productId": 15,
+        "quantity": 50,
+        "status": "PENDING",
+        "createdAt": "2025-09-22T08:00:00.000Z",
+        "product": {
+          "id": 15,
+          "name": "Premium Sunglasses",
+          "sku": "SUNGLASS-001",
+          "basePrice": 500.0
+        },
+        "receivedByStaff": {
+          "id": 5,
+          "name": "John Staff"
+        },
+        "verifiedByAdmin": null
+      }
+    ],
+    "pagination": {
+      "currentPage": 1,
+      "totalPages": 5,
+      "totalItems": 45,
+      "itemsPerPage": 10,
+      "hasNextPage": true,
+      "hasPrevPage": false
+    },
+    "summary": {
+      "pending": 20,
+      "approved": 15,
+      "rejected": 10
+    }
+  }
+  ```
+- **Status**: Not Started
+
+### 27. **PUT /shop-admin/stock/receipts/:id/verify**
+
+- **Description**: Test approve or reject a stock receipt with optional verification
+- **Method**: PUT
+- **URL**: `{{baseUrl}}/shop-admin/stock/receipts/1/verify`
+- **Headers**:
+  ```json
+  {
+    "Authorization": "Bearer {{loginToken}}",
+    "Content-Type": "application/json"
+  }
+  ```
+- **Request Body (APPROVE)**:
+  ```json
+  {
+    "decision": "APPROVED",
+    "verifiedQuantity": 50,
+    "adminNotes": "Stock verified and received in good condition",
+    "discrepancyReason": null
+  }
+  ```
+- **Request Body (REJECT)**:
+  ```json
+  {
+    "decision": "REJECTED",
+    "verifiedQuantity": null,
+    "adminNotes": "Damaged items found during inspection",
+    "discrepancyReason": "DAMAGED_GOODS"
+  }
+  ```
+- **Expected Response (200) - APPROVED**:
+  ```json
+  {
+    "message": "Stock receipt has been approved successfully.",
+    "receipt": {
+      "id": 1,
+      "shopId": 1,
+      "productId": 15,
+      "quantity": 50,
+      "status": "APPROVED",
+      "verifiedQuantity": 50,
+      "adminNotes": "Stock verified and received in good condition",
+      "discrepancyReason": null,
+      "verifiedAt": "2025-09-22T10:30:00.000Z",
+      "createdAt": "2025-09-22T08:00:00.000Z",
+      "product": {
+        "id": 15,
+        "name": "Premium Sunglasses",
+        "sku": "SUNGLASS-001"
+      },
+      "verifiedByAdmin": {
+        "id": 1,
+        "name": "Shop Admin"
+      }
+    },
+    "updatedInventory": {
+      "productId": 15,
+      "quantityAdded": 50
+    }
+  }
+  ```
+- **Expected Response (200) - REJECTED**:
+  ```json
+  {
+    "message": "Stock receipt has been rejected successfully.",
+    "receipt": {
+      "id": 1,
+      "shopId": 1,
+      "productId": 15,
+      "quantity": 50,
+      "status": "REJECTED",
+      "verifiedQuantity": null,
+      "adminNotes": "Damaged items found during inspection",
+      "discrepancyReason": "DAMAGED_GOODS",
+      "verifiedAt": "2025-09-22T10:30:00.000Z",
+      "createdAt": "2025-09-22T08:00:00.000Z",
+      "product": {
+        "id": 15,
+        "name": "Premium Sunglasses",
+        "sku": "SUNGLASS-001"
+      },
+      "verifiedByAdmin": {
+        "id": 1,
+        "name": "Shop Admin"
+      }
+    },
+    "updatedInventory": null
+  }
+  ```
+- **Error Response (404)**:
+  ```json
+  {
+    "error": "RECEIPT_NOT_FOUND",
+    "message": "Stock receipt not found."
+  }
+  ```
+- **Error Response (400) - Invalid Receipt ID**:
+  ```json
+  {
+    "error": "INVALID_RECEIPT_ID",
+    "message": "Invalid receipt ID provided."
+  }
+  ```
+- **Error Response (400) - Already Processed**:
+  ```json
+  {
+    "error": "RECEIPT_ALREADY_PROCESSED",
+    "message": "Receipt has already been processed with status: APPROVED"
+  }
+  ```
+- **Error Response (403) - Different Shop**:
+  ```json
+  {
+    "error": "FORBIDDEN_ACCESS",
+    "message": "You can only manage receipts for your own shop."
+  }
+  ```
+- **Status**: Not Started
+
+---
+
+## �📤 **EXPORT ENDPOINTS (PROTECTED)**
+
+### 28. **GET /shop-admin/export/pdf**
 
 - **Description**: Test export any report as PDF
 - **Method**: GET
@@ -1038,7 +1218,7 @@
   ```
 - **Status**: Not Started
 
-### 27. **GET /shop-admin/export/excel**
+### 29. **GET /shop-admin/export/excel**
 
 - **Description**: Test export any report as Excel
 - **Method**: GET
@@ -1071,7 +1251,7 @@
 
 ## 🔧 **ERROR HANDLING & EDGE CASES**
 
-### 28. **Test Invalid Authentication**
+### 30. **Test Invalid Authentication**
 
 - **Description**: Test endpoints with invalid/expired tokens
 - **Method**: GET
@@ -1091,7 +1271,7 @@
   ```
 - **Status**: Not Started
 
-### 29. **Test Rate Limiting**
+### 31. **Test Rate Limiting**
 
 - **Description**: Test rate limiting on authentication endpoints
 - **Method**: POST (Multiple rapid requests)
@@ -1130,7 +1310,7 @@
 
 =====================
 
-### 31 . Staff Performance Report
+### 33. **Staff Performance Report**
 
 **GET** `/reports/staff-performance`
 
@@ -1170,7 +1350,7 @@ it is for shop admin ==>>.
 
 ## 📋 **POSTMAN COLLECTION STRUCTURE**
 
-### 31. **Create Postman Collection**
+### 34. **Create Postman Collection**
 
 - **Description**: Organize all requests into a structured Postman collection
 - **Structure**:
@@ -1200,7 +1380,10 @@ it is for shop admin ==>>.
   │   ├── Stock In
   │   ├── Adjust Stock
   │   └── Inventory Status
-  ├── 📤 Export
+  ├── � Stock Receipt Management
+  │   ├── List Stock Receipts
+  │   └── Approve/Reject Stock Receipt
+  ├── �📤 Export
   │   ├── PDF Export
   │   └── Excel Export
   └── 🧪 Error Testing
@@ -1210,7 +1393,7 @@ it is for shop admin ==>>.
   ```
 - **Status**: Not Started
 
-### 32. **Setup Pre-request Scripts**
+### 35. **Setup Pre-request Scripts**
 
 - **Description**: Add collection-level pre-request scripts for token management
 - **Pre-request Script**:
@@ -1248,7 +1431,7 @@ it is for shop admin ==>>.
 ## ✅ **COMPLETION CHECKLIST**
 
 - [ ] Environment setup with variables
-- [ ] All 27 API endpoints tested
+- [ ] All 29 API endpoints tested
 - [ ] Request bodies validated
 - [ ] Response schemas verified
 - [ ] Authentication flow tested
@@ -1264,15 +1447,16 @@ it is for shop admin ==>>.
 
 ## 📊 **SUMMARY**
 
-**Total Endpoints to Test**: 30 (27 + 3 new sales reports)
+**Total Endpoints to Test**: 32 (29 main + 1 staff performance + 2 collection/setup)
 **Authentication Endpoints**: 2
 **Dashboard Endpoints**: 3
 **Report Endpoints**: 13 (10 + 3 new sales reports)
 **Staff Management Endpoints**: 3
 **Doctor Management Endpoints**: 3
 **Inventory Management Endpoints**: 3
+**Stock Receipt Management Endpoints**: 2 ✅ **NEW**
 **Export Endpoints**: 2
 **Error Testing Scenarios**: 3
 
-**Expected Testing Time**: 5-7 hours for complete coverage
+**Expected Testing Time**: 6-8 hours for complete coverage
 **Tools Required**: Postman, Running Server, Valid Test Data
