@@ -174,6 +174,23 @@ Admin creates a new product and optionally generates a barcode. Products can be 
 }
 ```
 
+### Frontend Field Guide for Barcode Scanning:
+
+| Field | Source | How? |
+|-------|--------|------|
+| **barcode** | 🔴 Scanner | Scan the physical barcode on product |
+| **name** | 👤 Manual | Type manually |
+| **description** | 👤 Manual | Type description |
+| **eyewearType** | 👤 Manual | Select from dropdown (SUNGLASSES, READING, COMPUTER_GLASSES, etc.) |
+| **frameType** | 👤 Manual | Select from dropdown (AVIATOR, FULL_RIM, HALF_RIM, RIMLESS, etc.) |
+| **material** | 👤 Manual | Type/select (Metal, Plastic, etc.) |
+| **color** | 👤 Manual | Type/select (Gold, Black, Silver, etc.) |
+| **size** | 👤 Manual | Type/select (Small, Medium, Large) |
+| **model** | 👤 Manual | Type manually (RB3025, etc.) |
+| **basePrice** | 👤 Manual | Type manually (numeric value) |
+| **companyId** | 👤 Manual | Select from existing companies dropdown |
+| **sku** | 👤 Optional | Auto-generate or type manually |
+
 ### Request Body (Include barcode directly):
 
 ```json
