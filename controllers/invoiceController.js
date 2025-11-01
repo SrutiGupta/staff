@@ -357,15 +357,22 @@ exports.generateInvoicePdf = async (req, res) => {
       // left shift by giving x instead of align:center
       .text("CLEAR EYES OPTICAL", 60, 50, { characterSpacing: 1.5 });
 
-    // Barcode (right side, aligned properly)
-    const barcodePng = await bwipjs.toBuffer({
-      bcid: "code128",
-      text: invoice.invoiceNo,
-      scale: 2,
-      height: 15,
-      includetext: false,
-    });
-    doc.image(barcodePng, 400, 40, { width: 150, height: 50 });
+    // Barcode (right side, aligned properly) - with error handling
+    try {
+      const barcodePng = await bwipjs.toBuffer({
+        bcid: "code128",
+        text: invoice.invoiceNo,
+        scale: 2,
+        height: 15,
+        includetext: false,
+      });
+      doc.image(barcodePng, 400, 40, { width: 150, height: 50 });
+    } catch (barcodeError) {
+      console.error("Barcode generation failed:", barcodeError);
+      // Fallback: Show text representation of barcode
+      doc.fontSize(11).fillColor("#cc0000").text("Barcode Error", 430, 60);
+    }
+
     doc.fontSize(9).fillColor("#000").text(invoice.invoiceNo, 430, 90);
 
     // === MIDDLE ROW: Address + Contact ===
