@@ -26,6 +26,15 @@ Admin creates a new product and optionally generates a barcode. Products can be 
 
 **POST** `/api/inventory/company`
 
+### ⚙️ Authentication & Authorization:
+
+- **Required:** JWT Token (staff or admin)
+- **Who can access:** Any authenticated user (Staff or Shop Admin)
+- **Token types accepted:**
+  - ✅ Staff Token (from `/api/auth/login`)
+  - ✅ Shop Admin Token (from shop admin portal)
+  - ❌ Public (no token)
+
 ### Request Headers:
 
 ```json
@@ -34,6 +43,11 @@ Admin creates a new product and optionally generates a barcode. Products can be 
   "Content-Type": "application/json"
 }
 ```
+
+**Examples:**
+
+- Staff token: `Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...` (from staff login)
+- Shop Admin token: `Authorization: Bearer <admin_jwt_token>` (from admin portal login)
 
 ### Request Body:
 
@@ -52,7 +66,10 @@ Admin creates a new product and optionally generates a barcode. Products can be 
   "name": "Oakley",
   "description": "Premium eyewear brand from USA",
   "createdAt": "2025-11-01T10:00:00.000Z",
-  "updatedAt": "2025-11-01T10:00:00.000Z"
+  "updatedAt": "2025-11-01T10:00:00.000Z",
+  "_count": {
+    "products": 0
+  }
 }
 ```
 
@@ -60,7 +77,19 @@ Admin creates a new product and optionally generates a barcode. Products can be 
 
 ```json
 {
+  "error": "Company name is required."
+}
+```
+
+```json
+{
   "error": "Company already exists."
+}
+```
+
+```json
+{
+  "error": "Unauthorized - Invalid or missing token"
 }
 ```
 
@@ -144,6 +173,23 @@ Admin creates a new product and optionally generates a barcode. Products can be 
   "Content-Type": "application/json"
 }
 ```
+
+### Frontend Field Guide for Barcode Scanning:
+
+| Field           | Source      | How?                                                               |
+| --------------- | ----------- | ------------------------------------------------------------------ |
+| **barcode**     | 🔴 Scanner  | Scan the physical barcode on product                               |
+| **name**        | 👤 Manual   | Type manually                                                      |
+| **description** | 👤 Manual   | Type description                                                   |
+| **eyewearType** | 👤 Manual   | Select from dropdown (SUNGLASSES, READING, COMPUTER_GLASSES, etc.) |
+| **frameType**   | 👤 Manual   | Select from dropdown (AVIATOR, FULL_RIM, HALF_RIM, RIMLESS, etc.)  |
+| **material**    | 👤 Manual   | Type/select (Metal, Plastic, etc.)                                 |
+| **color**       | 👤 Manual   | Type/select (Gold, Black, Silver, etc.)                            |
+| **size**        | 👤 Manual   | Type/select (Small, Medium, Large)                                 |
+| **model**       | 👤 Manual   | Type manually (RB3025, etc.)                                       |
+| **basePrice**   | 👤 Manual   | Type manually (numeric value)                                      |
+| **companyId**   | 👤 Manual   | Select from existing companies dropdown                            |
+| **sku**         | 👤 Optional | Auto-generate or type manually                                     |
 
 ### Request Body (Include barcode directly):
 
@@ -238,7 +284,378 @@ OPTION 2 (Add Immediately):
 
 ---
 
-## 1.3: Generate Barcode for Product
+## 1.3: Search Product by Barcode (Before Adding to Receipt)
+
+**GET** `/api/inventory/product/barcode/:barcode`
+
+### Path Parameters:
+
+- `barcode` (string): Barcode to search (scanned from product)
+
+### Request Headers:
+
+```json
+{
+  "Authorization": "Bearer <staff_or_admin_token>"
+}
+```
+
+### Response (200 OK - Product Found):
+
+```json
+{
+  "success": true,
+  "message": "Product found successfully",
+  "product": {
+    "id": 2,
+    "sku": "RAY-SUN-AVI-0002-2025",
+    "name": "Ray-Ban Aviator",
+    "description": "Classic metal frame sunglasses",
+    "price": 3000,
+    "barcode": "RAY0002456789CD",
+    "eyewearType": "SUNGLASSES",
+    "frameType": "AVIATOR",
+    "company": {
+      "id": 2,
+      "name": "Ray-Ban",
+      "description": "American eyewear brand"
+    },
+    "material": "Metal",
+    "color": "Gold",
+    "size": "Medium",
+    "model": "RB3025",
+    "inventory": {
+      "quantity": 15,
+      "lastUpdated": "2025-11-01T09:30:00.000Z",
+      "stockStatus": "In Stock"
+    },
+    "createdAt": "2025-11-01T10:05:00.000Z",
+    "updatedAt": "2025-11-01T10:05:00.000Z"
+  },
+  "scanResult": {
+    "scannedBarcode": "RAY0002456789CD",
+    "productFound": true,
+    "quickInfo": "Ray-Ban SUNGLASSES - Ray-Ban Aviator ($3000)"
+  }
+}
+```
+
+### Response (404 Not Found - Product NOT in system):
+
+```json
+{
+  "error": "Product with barcode RAY0002456789CD not found.",
+  "suggestion": "Check if the barcode is correct or if the product needs to be added to the system.",
+  "canCreateNew": true,
+  "scannedBarcode": "RAY0002456789CD",
+  "nextAction": "Use POST /api/inventory/product/scan-to-add to create a new product with this barcode"
+}
+```
+
+### Error Responses:
+
+```json
+{
+  "error": "Barcode is required."
+}
+```
+
+```json
+{
+  "error": "Unauthorized - Invalid or missing token"
+}
+```
+
+---
+
+## 1.4: Get Product by ID (Alternative Search)
+
+**GET** `/api/inventory/product/:productId`
+
+### Path Parameters:
+
+- `productId` (integer): Product ID
+
+### Request Headers:
+
+```json
+{
+  "Authorization": "Bearer <staff_or_admin_token>"
+}
+```
+
+### Response (200 OK):
+
+```json
+{
+  "id": 1,
+  "sku": "OKL-SUN-AVI-0001-2025",
+  "name": "Oakley Sunglasses - Model A",
+  "description": "Premium plastic frame sunglasses",
+  "basePrice": 2500,
+  "barcode": "OKL0001378956AB",
+  "eyewearType": "SUNGLASSES",
+  "frameType": "AVIATOR",
+  "company": {
+    "id": 1,
+    "name": "Oakley",
+    "description": "Premium eyewear brand from USA"
+  },
+  "material": "Plastic",
+  "color": "Black",
+  "size": "Medium",
+  "model": "Style123",
+  "inventory": {
+    "quantity": 25,
+    "lastUpdated": "2025-11-01T09:00:00.000Z",
+    "stockStatus": "In Stock"
+  },
+  "createdAt": "2025-11-01T10:00:00.000Z",
+  "updatedAt": "2025-11-01T10:15:00.000Z"
+}
+```
+
+### Error Responses:
+
+```json
+{
+  "error": "Product ID is required."
+}
+```
+
+```json
+{
+  "error": "Product with ID 999 not found."
+}
+```
+
+---
+
+## 1.5: Get All Products (View Inventory Catalog)
+
+**GET** `/api/inventory/products`
+
+### Request Headers:
+
+```json
+{
+  "Authorization": "Bearer <staff_or_admin_token>"
+}
+```
+
+### Query Parameters (Optional):
+
+- `company` (string): Filter by company name
+- `eyewearType` (string): Filter by eyewear type (SUNGLASSES, READING, COMPUTER_GLASSES)
+- `frameType` (string): Filter by frame type (AVIATOR, FULL_RIM, RIMLESS)
+- `material` (string): Filter by material (Metal, Plastic)
+- `search` (string): Search by product name or description
+
+### Response (200 OK):
+
+```json
+{
+  "products": [
+    {
+      "id": 1,
+      "sku": "OKL-SUN-AVI-0001-2025",
+      "name": "Oakley Sunglasses - Model A",
+      "description": "Premium plastic frame sunglasses",
+      "basePrice": 2500,
+      "barcode": "OKL0001378956AB",
+      "eyewearType": "SUNGLASSES",
+      "frameType": "AVIATOR",
+      "company": {
+        "id": 1,
+        "name": "Oakley"
+      },
+      "material": "Plastic",
+      "color": "Black",
+      "inventory": {
+        "quantity": 25,
+        "stockStatus": "In Stock"
+      }
+    },
+    {
+      "id": 2,
+      "sku": "RAY-SUN-AVI-0002-2025",
+      "name": "Ray-Ban Aviator",
+      "description": "Classic metal frame sunglasses",
+      "basePrice": 3000,
+      "barcode": "RAY0002456789CD",
+      "eyewearType": "SUNGLASSES",
+      "frameType": "AVIATOR",
+      "company": {
+        "id": 2,
+        "name": "Ray-Ban"
+      },
+      "material": "Metal",
+      "color": "Gold",
+      "inventory": {
+        "quantity": 15,
+        "stockStatus": "In Stock"
+      }
+    }
+  ],
+  "total": 2,
+  "timestamp": "2025-11-01T10:30:00.000Z"
+}
+```
+
+---
+
+## 1.6: Get Products by Company (Filter by Brand)
+
+**GET** `/api/inventory/company/:companyId/products`
+
+### Path Parameters:
+
+- `companyId` (integer): Company ID
+
+### Request Headers:
+
+```json
+{
+  "Authorization": "Bearer <staff_or_admin_token>"
+}
+```
+
+### Query Parameters (Optional):
+
+- `eyewearType` (string): Filter by eyewear type
+- `frameType` (string): Filter by frame type
+
+### Response (200 OK):
+
+```json
+{
+  "company": {
+    "id": 1,
+    "name": "Oakley",
+    "description": "Premium eyewear brand from USA"
+  },
+  "products": [
+    {
+      "id": 1,
+      "sku": "OKL-SUN-AVI-0001-2025",
+      "name": "Oakley Sunglasses - Model A",
+      "description": "Premium plastic frame sunglasses",
+      "basePrice": 2500,
+      "barcode": "OKL0001378956AB",
+      "eyewearType": "SUNGLASSES",
+      "frameType": "AVIATOR",
+      "material": "Plastic",
+      "color": "Black",
+      "size": "Medium",
+      "model": "Style123",
+      "inventory": {
+        "quantity": 25,
+        "stockStatus": "In Stock"
+      }
+    }
+  ],
+  "total": 1
+}
+```
+
+### Error Responses:
+
+```json
+{
+  "error": "Company not found."
+}
+```
+
+---
+
+## 1.7: Add Product by Barcode Scanning (Smart Auto-Fill)
+
+**POST** `/api/inventory/product/scan-to-add`
+
+This endpoint intelligently parses barcode data to auto-fill product fields.
+
+### Request Headers:
+
+```json
+{
+  "Authorization": "Bearer <staff_or_admin_token>",
+  "Content-Type": "application/json"
+}
+```
+
+### Request Body (Only barcode required, system extracts details):
+
+```json
+{
+  "barcode": "OKL-SUN-METAL-001-2025",
+  "companyId": 1,
+  "basePrice": 2500
+}
+```
+
+**Note:** The barcode format can contain embedded information that the system parses:
+
+- `OKL` = Company code (Oakley)
+- `SUN` = Eyewear type (SUNGLASSES)
+- `METAL` = Material (Metal)
+- `001` = Product sequence number
+
+### Response (201 Created):
+
+```json
+{
+  "success": true,
+  "message": "Product created from barcode scan",
+  "product": {
+    "id": 3,
+    "name": "Oakley Metal Sunglasses",
+    "description": "Auto-generated from barcode scan",
+    "basePrice": 2500,
+    "barcode": "OKL-SUN-METAL-001-2025",
+    "sku": "OKL-SUN-MTL-0003-2025",
+    "eyewearType": "SUNGLASSES",
+    "frameType": "FULL_RIM",
+    "material": "Metal",
+    "color": "Auto-detected",
+    "companyId": 1,
+    "company": {
+      "id": 1,
+      "name": "Oakley"
+    },
+    "createdAt": "2025-11-01T10:20:00.000Z"
+  },
+  "parsedFromBarcode": {
+    "company": "Oakley",
+    "eyewearType": "SUNGLASSES",
+    "material": "Metal",
+    "productSequence": "001"
+  }
+}
+```
+
+### Error Responses:
+
+```json
+{
+  "error": "Barcode is required."
+}
+```
+
+```json
+{
+  "error": "Company with ID 1 not found."
+}
+```
+
+```json
+{
+  "error": "Barcode already exists in the system."
+}
+```
+
+---
+
+## 1.8: Generate Barcode for Product
 
 **POST** `/api/barcode/generate/:productId`
 
@@ -314,7 +731,7 @@ OPTION 2 (Add Immediately):
 
 ---
 
-## 1.4: Validate Barcode Uniqueness
+## 1.9: Validate Barcode Uniqueness
 
 **GET** `/api/barcode/validate/:barcode`
 
@@ -359,7 +776,7 @@ OPTION 2 (Add Immediately):
 
 ---
 
-## 1.5: Generate SKU for Product
+## 1.10: Generate SKU for Product
 
 **POST** `/api/barcode/sku/generate/:productId`
 
@@ -411,7 +828,7 @@ OPTION 2 (Add Immediately):
 
 ---
 
-## 1.6: Generate Barcode Label (PNG Image)
+## 1.11: Generate Barcode Label (PNG Image)
 
 **POST** `/api/barcode/label`
 

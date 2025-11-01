@@ -1356,7 +1356,11 @@
 #### 11. **POST** `/company`
 
 - **Description**: Add new company/brand
-- **Authentication**: Required (JWT)
+- **Authentication**: Required (JWT) - Staff or Shop Admin
+- **Who can access**: Any authenticated user (Staff token or Shop Admin token)
+- **Token types accepted**:
+  - ✅ Staff Token (from `/api/auth/login`)
+  - ✅ Shop Admin Token (from shop admin portal)
 - **Request Body**:
   ```json
   {
@@ -1371,7 +1375,16 @@
     "name": "Ray-Ban",
     "description": "American eyewear brand known for sunglasses",
     "createdAt": "2024-09-01T10:30:00Z",
-    "updatedAt": "2024-09-01T10:30:00Z"
+    "updatedAt": "2024-09-01T10:30:00Z",
+    "_count": {
+      "products": 0
+    }
+  }
+  ```
+- **Error Response** (400 Bad Request):
+  ```json
+  {
+    "error": "Company name is required."
   }
   ```
 
