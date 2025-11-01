@@ -132,6 +132,112 @@ Admin creates a new product and optionally generates a barcode. Products can be 
 
 ---
 
+## 1.2.1: Add Product (WITH Barcode) - Option 2
+
+**POST** `/api/inventory/product`
+
+### Request Headers:
+
+```json
+{
+  "Authorization": "Bearer <staff_or_admin_token>",
+  "Content-Type": "application/json"
+}
+```
+
+### Request Body (Include barcode directly):
+
+```json
+{
+  "name": "Ray-Ban Aviator",
+  "description": "Classic metal frame sunglasses",
+  "basePrice": 3000,
+  "barcode": "RAY0002456789CD",
+  "sku": "RAY-SUN-AVI-0002-2025",
+  "eyewearType": "SUNGLASSES",
+  "frameType": "AVIATOR",
+  "companyId": 2,
+  "material": "Metal",
+  "color": "Gold",
+  "size": "Medium",
+  "model": "RB3025"
+}
+```
+
+### Response (201 Created):
+
+```json
+{
+  "id": 2,
+  "name": "Ray-Ban Aviator",
+  "description": "Classic metal frame sunglasses",
+  "barcode": "RAY0002456789CD",
+  "sku": "RAY-SUN-AVI-0002-2025",
+  "basePrice": 3000,
+  "eyewearType": "SUNGLASSES",
+  "frameType": "AVIATOR",
+  "companyId": 2,
+  "material": "Metal",
+  "color": "Gold",
+  "size": "Medium",
+  "model": "RB3025",
+  "createdAt": "2025-11-01T10:05:00.000Z",
+  "updatedAt": "2025-11-01T10:05:00.000Z",
+  "company": {
+    "id": 2,
+    "name": "Ray-Ban"
+  }
+}
+```
+
+### Error Responses:
+
+```json
+{
+  "error": "Name, basePrice, eyewearType, and companyId are required fields."
+}
+```
+
+```json
+{
+  "error": "Barcode already exists."
+}
+```
+
+```json
+{
+  "error": "SKU already exists."
+}
+```
+
+---
+
+## Comparison: Option 1 vs Option 2
+
+| Aspect        | Option 1 (WITHOUT Barcode)        | Option 2 (WITH Barcode)          |
+| ------------- | --------------------------------- | -------------------------------- |
+| When to use   | Admin will generate barcode later | Already have barcode ready       |
+| Barcode field | Optional/Null                     | Required                         |
+| SKU field     | Optional/Null                     | Can include                      |
+| Next step     | POST /barcode/generate/:id        | Use barcode immediately          |
+| Use case      | Fresh products                    | Scanned barcodes or manual entry |
+
+**Examples:**
+
+```
+OPTION 1 (Generate Later):
+① Create product without barcode → Product ID 1, barcode: null
+② POST /barcode/generate/1 → Generate barcode "OKL0001378956AB"
+③ Use barcode for stock-in
+
+OPTION 2 (Add Immediately):
+① Create product with barcode "RAY0002456789CD"
+② Use barcode immediately for stock-in
+③ No need for separate barcode generation
+```
+
+---
+
 ## 1.3: Generate Barcode for Product
 
 **POST** `/api/barcode/generate/:productId`
