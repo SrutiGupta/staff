@@ -113,8 +113,9 @@ const approveStockReceipt = async (req, res) => {
   }
 
   try {
-    // Use transaction for data consistency
-    const result = await prisma.$transaction(async (prisma) => {
+    // Use transaction for data consistency with increased timeout
+    const result = await prisma.$transaction(
+      async (prisma) => {
       // Get receipt with lock for update
       const receipt = await prisma.stockReceipt.findUnique({
         where: { id: receiptId },
@@ -174,7 +175,21 @@ const approveStockReceipt = async (req, res) => {
 
       // If approved, update shop inventory
       if (decision === "APPROVED" && quantity > 0) {
-        await prisma.shopInventory.upsert({
+        // Get current inventory quantity
+        let currentShopInventory = await prisma.shopInventory.findUnique({
+          where: {
+            shopId_productId: {
+              shopId: shopId,
+              productId: receipt.productId,
+            },
+          },
+        });
+
+        const previousQty = currentShopInventory?.quantity || 0;
+        const newQty = previousQty + quantity;
+
+        // Upsert inventory with current quantity
+        const updatedInventory = await prisma.shopInventory.upsert({
           where: {
             shopId_productId: {
               shopId: shopId,
@@ -182,32 +197,42 @@ const approveStockReceipt = async (req, res) => {
             },
           },
           update: {
-            quantity: {
-              increment: quantity,
-            },
+            quantity: newQty,
+            lastRestockedAt: new Date(),
           },
           create: {
             shopId: shopId,
             productId: receipt.productId,
-            quantity: quantity,
+            quantity: newQty,
+            lastRestockedAt: new Date(),
           },
         });
 
-        // Log stock movement
+        // Log stock movement with proper fields
         await prisma.stockMovement.create({
           data: {
-            shopId: shopId,
-            productId: receipt.productId,
+            shopInventoryId: updatedInventory.id,
             type: "STOCK_IN",
             quantity: quantity,
-            notes: `Stock receipt ${decision.toLowerCase()} - Receipt #${receiptId}`,
-            createdBy: adminId,
+            previousQty: previousQty,
+            newQty: newQty,
+            adminId: adminId,
+            stockReceiptId: receiptId,
+            reason: "STOCK_IN",
+            supplierName: receipt.supplierName,
+            batchNo: receipt.batchNumber,
+            expiryDate: receipt.expiryDate,
+            notes: `Stock receipt approved - Receipt #${receiptId}`,
           },
         });
       }
 
       return updatedReceipt;
-    });
+    },
+    {
+      timeout: 10000, // 10 seconds timeout for transaction
+    }
+    );
 
     res.status(200).json({
       message: `Stock receipt has been ${decision.toLowerCase()} successfully.`,
