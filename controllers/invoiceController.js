@@ -444,6 +444,7 @@ exports.generateInvoicePdf = async (req, res) => {
     // --- PRODUCT DETAILS TABLE ---
     doc.moveDown(2).font("Helvetica-Bold").fontSize(11).text("Product Details");
 
+    const rowHeight = 25; // ✅ DEFINE rowHeight here for Product Details table
     startY = doc.y + 10;
     const prodCols = [40, 250, 300, 370, 450];
     const prodWidths = [210, 50, 70, 80, 90];
@@ -461,37 +462,41 @@ exports.generateInvoicePdf = async (req, res) => {
     });
 
     // Rows
-    invoice.products.forEach((p, idx) => {
-      let y = startY + rowHeight * (idx + 1);
-      doc.rect(40, y, 500, rowHeight).stroke();
-      const values = [p.name, p.qty, p.rate, `${p.discount}%`, p.total];
-      values.forEach((v, i) => {
-        doc.text(v.toString(), prodCols[i] + 5, y + 7, {
-          width: prodWidths[i] - 10,
+    // ✅ FIX: Use invoice.products (which is mapped from invoiceData.items)
+    if (invoice.products && invoice.products.length > 0) {
+      invoice.products.forEach((p, idx) => {
+        let y = startY + rowHeight * (idx + 1);
+        doc.rect(40, y, 500, rowHeight).stroke();
+        const values = [p.name, p.qty, p.rate, `${p.discount}%`, p.total];
+        values.forEach((v, i) => {
+          doc.text(v.toString(), prodCols[i] + 5, y + 7, {
+            width: prodWidths[i] - 10,
+          });
+          if (i < prodCols.length - 1) {
+            doc
+              .moveTo(prodCols[i + 1], y)
+              .lineTo(prodCols[i + 1], y + rowHeight)
+              .stroke();
+          }
         });
-        if (i < prodCols.length - 1) {
-          doc
-            .moveTo(prodCols[i + 1], y)
-            .lineTo(prodCols[i + 1], y + rowHeight)
-            .stroke();
-        }
       });
-    });
+    }
 
     // --- SUMMARY BOX ---
-    let summaryY = startY + rowHeight * (invoice.products.length + 2);
+    // ✅ FIX: Use invoice.products.length instead of undefined variable
+    let summaryY = startY + rowHeight * ((invoice.products?.length || 0) + 2);
     doc.rect(320, summaryY, 220, 100).stroke();
 
     doc
       .font("Helvetica")
       .fontSize(10)
-      .text(`Subtotal: ${invoice.subtotal}`, 330, summaryY + 10);
-    doc.text(`GST (Included): ${invoice.gst}`, 330, summaryY + 30);
-    doc.text(`Advance Paid: ${invoice.advancePaid}`, 330, summaryY + 50);
+      .text(`Subtotal: ₹${invoice.subtotal}`, 330, summaryY + 10);
+    doc.text(`GST (Included): ₹${invoice.gst}`, 330, summaryY + 30);
+    doc.text(`Advance Paid: ₹${invoice.advancePaid}`, 330, summaryY + 50);
     doc
       .font("Helvetica-Bold")
       .fontSize(12)
-      .text(`Balance: ${invoice.balance}`, 330, summaryY + 75);
+      .text(`Balance: ₹${invoice.balance}`, 330, summaryY + 75);
 
     // --- FOOTER ---
     doc.moveDown(4);
@@ -509,7 +514,13 @@ exports.generateInvoicePdf = async (req, res) => {
     doc.end();
   } catch (err) {
     console.error("Error generating PDF:", err);
-    res.status(500).json({ error: "Failed to generate PDF" });
+    // Only send error response if headers haven't been sent yet
+    if (!res.headersSent) {
+      res.status(500).json({ error: "Failed to generate PDF" });
+    } else {
+      // If headers were already sent, just end the response
+      res.end();
+    }
   }
 };
 
