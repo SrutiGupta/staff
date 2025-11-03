@@ -14,6 +14,7 @@
 
 ---
 
+
 ## 📊 Attendance Controller
 
 ### Base URL: `/api/attendance`
