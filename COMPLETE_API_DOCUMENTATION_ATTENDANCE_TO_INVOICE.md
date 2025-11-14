@@ -14,7 +14,6 @@
 
 ---
 
-
 ## 📊 Attendance Controller
 
 ### Base URL: `/api/attendance`
@@ -2013,6 +2012,295 @@
   - `404`: Invoice not found
   - `403`: Access denied. Invoice belongs to different shop
   - `500`: Failed to generate thermal receipt
+
+---
+
+## 📋 Complete Flow: Prescription → Invoice → PDF/Thermal
+
+### Overview
+
+To generate a PDF or thermal print from a prescription, you MUST follow this sequence:
+
+```
+Step 1: Create Prescription
+        ↓
+Step 2: Create Invoice (linking to prescription)
+        ↓
+Step 3: Generate PDF or Thermal from Invoice
+```
+
+**Why?** The prescription PDF/Thermal endpoints look for an associated invoice. Without an invoice, the PDF generation will fail.
+
+---
+
+### **Step 1: Create Prescription**
+
+**Endpoint:** `POST /api/prescription`
+
+**Authentication:** Required (JWT)
+
+**Headers:**
+
+```json
+{
+  "Authorization": "Bearer <jwt_token>",
+  "Content-Type": "application/json"
+}
+```
+
+**Request:**
+
+```json
+{
+  "patientId": 1,
+  "rightEye": {
+    "sph": -1.5,
+    "cyl": -0.75,
+    "axis": 180,
+    "add": 2.0
+  },
+  "leftEye": {
+    "sph": -1.25,
+    "cyl": -0.5,
+    "axis": 175,
+    "add": 1.75
+  }
+}
+```
+
+**Response (201 Created):**
+
+```json
+{
+  "id": 1,
+  "patientId": 1,
+  "rightEye": {
+    "sph": -1.5,
+    "cyl": -0.75,
+    "axis": 180,
+    "add": 2.0
+  },
+  "leftEye": {
+    "sph": -1.25,
+    "cyl": -0.5,
+    "axis": 175,
+    "add": 1.75
+  },
+  "createdAt": "2024-10-31T10:00:00Z",
+  "updatedAt": "2024-10-31T10:00:00Z"
+}
+```
+
+**Save This:** `prescriptionId = 1` (you'll need this for Step 2)
+
+---
+
+### **Step 2: Create Invoice with Prescription**
+
+**Endpoint:** `POST /api/invoice`
+
+**Authentication:** Required (JWT)
+
+**Headers:**
+
+```json
+{
+  "Authorization": "Bearer <jwt_token>",
+  "Content-Type": "application/json"
+}
+```
+
+**Important:** Include `prescriptionId` in the request to link the invoice to the prescription!
+
+**Request:**
+
+```json
+{
+  "patientId": 1,
+  "prescriptionId": 1,
+  "staffId": 1,
+  "items": [
+    {
+      "productId": 1,
+      "quantity": 2,
+      "unitPrice": 100.0,
+      "discount": 10.0
+    }
+  ],
+  "totalDiscount": 10.0,
+  "totalIgst": 0.0,
+  "totalCgst": 18.0,
+  "totalSgst": 18.0,
+  "totalAmount": 250.0
+}
+```
+
+**Response (201 Created):**
+
+```json
+{
+  "id": "clp123abc456",
+  "patientId": 1,
+  "customerId": null,
+  "staffId": 1,
+  "subtotal": 200.0,
+  "totalDiscount": 10.0,
+  "totalIgst": 0.0,
+  "totalCgst": 18.0,
+  "totalSgst": 18.0,
+  "totalAmount": 250.0,
+  "paidAmount": 0.0,
+  "status": "UNPAID",
+  "prescriptionId": 1,
+  "patient": {
+    "id": 1,
+    "name": "John Patient",
+    "phone": "+1234567890"
+  },
+  "items": [
+    {
+      "id": 1,
+      "productId": 1,
+      "quantity": 2,
+      "unitPrice": 100.0,
+      "discount": 10.0,
+      "totalPrice": 190.0,
+      "product": {
+        "id": 1,
+        "name": "Ray-Ban Aviator Classic",
+        "sku": "RB-AV-001"
+      }
+    }
+  ],
+  "createdAt": "2024-10-31T11:00:00Z",
+  "updatedAt": "2024-10-31T11:00:00Z"
+}
+```
+
+**Save This:** `invoiceId = "clp123abc456"` (you'll need this for Step 3)
+
+---
+
+### **Step 3: Generate PDF or Thermal**
+
+#### **Option A: Generate PDF from Invoice**
+
+**Endpoint:** `GET /api/invoice/:id/pdf`
+
+**Authentication:** Required (JWT)
+
+**Path Parameter:**
+
+- `id` = invoiceId from Step 2 (e.g., `clp123abc456`)
+
+**Response (200 OK):**
+
+- Returns **Binary PDF File**
+- Content-Type: `application/pdf`
+- Can be downloaded or saved
+
+**Example Request:**
+
+```
+GET /api/invoice/clp123abc456/pdf
+Authorization: Bearer <your_jwt_token>
+```
+
+---
+
+#### **Option B: Generate Thermal Print from Invoice**
+
+**Endpoint:** `GET /api/invoice/:id/thermal`
+
+**Authentication:** Required (JWT)
+
+**Path Parameter:**
+
+- `id` = invoiceId from Step 2 (e.g., `clp123abc456`)
+
+**Response (200 OK):**
+
+```json
+{
+  "thermalContent": "========================================\n           INVOICE RECEIPT\n========================================\nInvoice ID: clp123abc456\nDate: 2024-10-31 11:00:00\n----------------------------------------\nCUSTOMER DETAILS\n----------------------------------------\nName: John Patient\nPhone: +1234567890\n----------------------------------------\nITEMS\n----------------------------------------\nRay-Ban Aviator Classic\nQty: 2 × ₹100.00 = ₹200.00\nDiscount: -₹10.00\nCGST (18%): ₹18.00\nSGST (18%): ₹18.00\n----------------------------------------\nSubtotal: ₹200.00\nTotal Discount: ₹10.00\nTotal Tax: ₹36.00\n========================================\nTOTAL AMOUNT: ₹250.00\nPaid: ₹0.00\nDue: ₹250.00\nStatus: UNPAID\n========================================\nThank you for your purchase!\n========================================\n"
+}
+```
+
+---
+
+### **Alternative: Direct Prescription PDF/Thermal (Requires Invoice)**
+
+If you already have a prescription ID, you can also use:
+
+**Prescription PDF Endpoint:** `GET /api/prescription/:id/pdf`
+
+- Will look for associated invoice automatically
+- Returns the same invoice PDF
+
+**Prescription Thermal Endpoint:** `GET /api/prescription/:id/thermal`
+
+- Will look for associated invoice automatically
+- Returns the same thermal content
+
+---
+
+### **⚠️ Important Notes**
+
+1. **Invoice is REQUIRED** for PDF/Thermal generation
+
+   - Cannot generate PDF without creating an invoice first
+   - The prescription PDF endpoints look for a linked invoice
+
+2. **Prescription ID is OPTIONAL** in invoice creation
+
+   - You can create invoices without prescriptions
+   - But if you want to use prescription PDF endpoints, include prescriptionId
+
+3. **Each Step Requires Authentication**
+
+   - All endpoints require JWT token in Authorization header
+
+4. **Shop Isolation**
+   - Invoice belongs to the staff member's shop
+   - Cannot access invoices from different shops
+
+---
+
+### **Complete Example Workflow**
+
+```bash
+# Step 1: Create Prescription
+curl -X POST http://localhost:3000/api/prescription \
+  -H "Authorization: Bearer <jwt_token>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "patientId": 1,
+    "rightEye": {"sph": -1.50},
+    "leftEye": {"sph": -1.25}
+  }'
+# Response: prescriptionId = 1
+
+# Step 2: Create Invoice with Prescription
+curl -X POST http://localhost:3000/api/invoice \
+  -H "Authorization: Bearer <jwt_token>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "patientId": 1,
+    "prescriptionId": 1,
+    "items": [...],
+    "totalAmount": 250.00
+  }'
+# Response: invoiceId = "clp123abc456"
+
+# Step 3: Generate PDF
+curl -X GET http://localhost:3000/api/invoice/clp123abc456/pdf \
+  -H "Authorization: Bearer <jwt_token>" \
+  --output invoice.pdf
+
+# OR Generate Thermal
+curl -X GET http://localhost:3000/api/invoice/clp123abc456/thermal \
+  -H "Authorization: Bearer <jwt_token>"
+```
 
 ---
 
