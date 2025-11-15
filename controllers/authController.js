@@ -9,8 +9,7 @@ exports.logout = (req, res) => {
   return attendanceController.logout(req, res);
 };
 
-const { PrismaClient } = require("@prisma/client");
-const prisma = new PrismaClient();
+const prisma = require("../lib/prisma");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 

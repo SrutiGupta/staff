@@ -1,10 +1,8 @@
-const { PrismaClient } = require("@prisma/client");
 const PDFDocument = require("pdfkit");
 const bwipjs = require("bwip-js");
 const whatsappService = require("../shared/services/whatsappService");
+const prisma = require("../lib/prisma");
 require("dotenv").config();
-
-const prisma = new PrismaClient();
 
 // Create a new invoice
 exports.createInvoice = async (req, res) => {
@@ -58,22 +56,33 @@ exports.createInvoice = async (req, res) => {
     let totalSgst = 0;
     const invoiceItems = [];
 
+    // ✅ OPTIMIZATION: Fetch ALL products and inventories in ONE query instead of looping
+    const productIds = items.map((item) => item.productId);
+    const products = await prisma.product.findMany({
+      where: { id: { in: productIds } },
+    });
+    const productMap = new Map(products.map((p) => [p.id, p]));
+
+    const inventories = await prisma.shopInventory.findMany({
+      where: {
+        productId: { in: productIds },
+        shopId: req.user.shopId,
+      },
+    });
+    const inventoryMap = new Map(
+      inventories.map((inv) => [inv.productId, inv])
+    );
+
+    // Now process items with already-loaded data (no more DB queries)
     for (const item of items) {
-      const product = await prisma.product.findUnique({
-        where: { id: item.productId },
-      });
+      const product = productMap.get(item.productId);
       if (!product) {
         return res
           .status(404)
           .json({ error: `Product with ID ${item.productId} not found.` });
       }
 
-      const inventory = await prisma.shopInventory.findFirst({
-        where: {
-          productId: item.productId,
-          shopId: req.user.shopId, // Use shop-specific inventory
-        },
-      });
+      const inventory = inventoryMap.get(item.productId);
       if (!inventory || inventory.quantity < item.quantity) {
         return res
           .status(400)
@@ -111,7 +120,7 @@ exports.createInvoice = async (req, res) => {
     const totalAmount =
       subtotal - totalDiscount + totalIgst + totalCgst + totalSgst;
 
-    // Create the invoice and its items in a transaction
+    // Create the invoice and its items in a transaction (MINIMAL work only)
     const newInvoice = await prisma.$transaction(async (prisma) => {
       const invoiceData = {
         staffId,
@@ -134,21 +143,31 @@ exports.createInvoice = async (req, res) => {
         invoiceData.customerId = customerId;
       }
 
+      // Don't include relations in transaction - just create the invoice
       const invoice = await prisma.invoice.create({
         data: invoiceData,
-        include: {
-          items: {
-            include: {
-              product: true,
-            },
-          },
-          patient: true,
-          customer: true,
-        },
       });
 
-      // ✅ FIX: Update shop inventory for each item AND create StockMovement audit records
-      for (const item of items) {
+      return invoice;
+    });
+
+    // Fetch the full invoice with relations AFTER transaction completes
+    const fullInvoice = await prisma.invoice.findUnique({
+      where: { id: newInvoice.id },
+      include: {
+        items: {
+          include: {
+            product: true,
+          },
+        },
+        patient: true,
+        customer: true,
+      },
+    });
+
+    // ✅ UPDATE INVENTORY OUTSIDE TRANSACTION (avoid timeout)
+    for (const item of items) {
+      try {
         // Get current inventory before update
         const currentInventory = await prisma.shopInventory.findFirst({
           where: {
@@ -157,42 +176,47 @@ exports.createInvoice = async (req, res) => {
           },
         });
 
-        const previousQty = currentInventory ? currentInventory.quantity : 0;
-        const newQty = previousQty - item.quantity;
-
-        // Update inventory
-        await prisma.shopInventory.updateMany({
-          where: {
-            productId: item.productId,
-            shopId: req.user.shopId,
-          },
-          data: {
-            quantity: {
-              decrement: item.quantity,
-            },
-          },
-        });
-
-        // ✅ CREATE StockMovement record for audit trail
         if (currentInventory) {
+          const previousQty = currentInventory.quantity;
+          const newQty = previousQty - item.quantity;
+
+          // Update inventory
+          await prisma.shopInventory.updateMany({
+            where: {
+              productId: item.productId,
+              shopId: req.user.shopId,
+            },
+            data: {
+              quantity: {
+                decrement: item.quantity,
+              },
+            },
+          });
+
+          // Create StockMovement record for audit trail
           await prisma.stockMovement.create({
             data: {
               shopInventoryId: currentInventory.id,
-              type: "STOCK_OUT", // Sale-based stock reduction
+              type: "STOCK_OUT",
               quantity: item.quantity,
               previousQty,
               newQty,
               staffId: staffId,
               reason: "SALE",
-              invoiceId: newInvoice.id, // Link to the sale invoice
+              invoiceId: newInvoice.id,
             },
           });
         }
+      } catch (inventoryError) {
+        console.error(
+          `Warning: Failed to update inventory for product ${item.productId}:`,
+          inventoryError
+        );
+        // Don't fail the entire request if inventory update fails
       }
-      return invoice;
-    });
+    }
 
-    res.status(201).json(newInvoice);
+    res.status(201).json(fullInvoice);
   } catch (error) {
     console.error("Error creating invoice:", error);
     res.status(500).json({ error: "Failed to create invoice." });
