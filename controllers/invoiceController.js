@@ -818,7 +818,7 @@ exports.updateInvoiceStatus = async (req, res) => {
 
   try {
     const invoice = await prisma.invoice.findUnique({
-      where: { id: parseInt(id) },
+      where: { id: id },
       include: {
         staff: true,
         items: {
@@ -866,7 +866,7 @@ exports.updateInvoiceStatus = async (req, res) => {
 
       // Update the invoice status
       return await prisma.invoice.update({
-        where: { id: parseInt(id) },
+        where: { id: id },
         data: { status },
         include: {
           patient: true,
@@ -909,7 +909,7 @@ exports.addPayment = async (req, res) => {
     const result = await prisma.$transaction(async (prisma) => {
       // Get current invoice with staff information for shop validation
       const invoice = await prisma.invoice.findUnique({
-        where: { id: parseInt(id) },
+        where: { id: id },
         include: {
           transactions: true,
           staff: true,
@@ -965,7 +965,7 @@ exports.addPayment = async (req, res) => {
       // Create transaction
       const transaction = await prisma.transaction.create({
         data: {
-          invoiceId: parseInt(id),
+          invoiceId: id,
           amount: parseFloat(amount),
           paymentMethod,
           giftCardId: giftCardId ? parseInt(giftCardId) : null,
@@ -984,7 +984,7 @@ exports.addPayment = async (req, res) => {
 
       // Update only the invoice status (not paidAmount since it's calculated from transactions)
       const updatedInvoice = await prisma.invoice.update({
-        where: { id: parseInt(id) },
+        where: { id: id },
         data: {
           status: newStatus,
         },
