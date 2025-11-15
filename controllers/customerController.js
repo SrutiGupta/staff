@@ -1,5 +1,4 @@
-const { PrismaClient } = require("@prisma/client");
-const prisma = new PrismaClient();
+const prisma = require("../lib/prisma");
 
 const createCustomerAndInvoice = async (req, res) => {
   const { customer, items, staffId, paidAmount, paymentMethod } = req.body;
