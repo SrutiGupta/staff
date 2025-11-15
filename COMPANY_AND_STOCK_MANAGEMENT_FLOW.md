@@ -694,6 +694,14 @@ STEP 1: LOGIN (Get JWT) → STEP 2: Setup → STEP 3: Create Product → STEP 4:
 
 ### **Phase 2B: Barcode Management** 🏷️
 
+**Barcode Format Used:** CODE128 (1D Linear Barcode)
+
+- High-density encoding suitable for retail/inventory
+- Readable by standard barcode scanners
+- Supports alphanumeric characters
+
+---
+
 #### **Step 2B.1: Generate Unique Barcode for Product**
 
 **Endpoint:** `POST /api/barcode/generate/:productId`
@@ -1862,12 +1870,29 @@ A: Yes. Use `POST /api/inventory/stock-by-barcode` for quick stock addition.
 A: Yes. Use `POST /api/barcode/label` to get PNG image for printing.
 
 **Q: What's the barcode format?**
-A: Format is `EYE` + category + sequence (e.g., EYE00011234AB)
+A: System uses **CODE128** barcode format (1D linear barcode)
 
-- Position 1-3: `EYE` (fixed)
-- Position 4-6: Category code (001=SUNGLASSES, 002=GLASSES, etc.)
-- Position 7-13: Sequence number
-- Position 14-15: Check digits
+**Barcode Data Format:**
+
+- Format: `EYE` + category + sequence (e.g., EYE00011234AB)
+- Position 1-3: `EYE` (fixed company prefix)
+- Position 4-7: Product ID (4 digits, padded)
+- Position 8-13: Timestamp (last 6 digits)
+- Position 14-15: Random suffix (2 digits)
+
+**Example:** `EYE00011234AB`
+
+- EYE = Company prefix
+- 0001 = Product ID #1
+- 123456 = Timestamp
+- AB = Random suffix
+
+**Barcode Type:** CODE128 (via bwip-js library)
+
+- Supports alphanumeric characters
+- High-density encoding
+- Commonly used for retail/inventory
+- Readable by standard barcode scanners
 
 ---
 
