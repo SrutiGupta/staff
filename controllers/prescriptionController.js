@@ -68,11 +68,9 @@ exports.getPrescription = async (req, res) => {
 
     // Verify prescription's patient belongs to the staff member's shop
     if (prescription.patient.shopId !== req.user.shopId) {
-      return res
-        .status(403)
-        .json({
-          error: "Access denied. Prescription belongs to different shop.",
-        });
+      return res.status(403).json({
+        error: "Access denied. Prescription belongs to different shop.",
+      });
     }
 
     res.status(200).json(prescription);
@@ -133,112 +131,280 @@ exports.getAllPrescriptions = async (req, res) => {
   }
 };
 
-// Generate PDF for prescription's invoice
+// Generate PDF for prescription (using EXACT invoice format, NO invoice required)
 exports.generatePrescriptionPdf = async (req, res) => {
+  const PDFDocument = require("pdfkit");
+  const bwipjs = require("bwip-js");
+
   try {
     const { id } = req.params;
     const prescriptionId = parseInt(id);
 
-    // Find the invoice that uses this prescription
-    const invoice = await prisma.invoice.findFirst({
-      where: { prescriptionId },
-      include: {
-        patient: true,
-        customer: true,
-        staff: true,
-        items: {
-          include: {
-            product: {
-              include: {
-                company: true,
-              },
-            },
-          },
-        },
-        prescription: true,
-      },
+    // Fetch prescription with patient details
+    const prescription = await prisma.prescription.findUnique({
+      where: { id: prescriptionId },
+      include: { patient: true },
     });
 
-    if (!invoice) {
-      return res.status(404).json({
-        error:
-          "No invoice found for this prescription ID. Please create an invoice that uses prescriptionId: " +
-          prescriptionId +
-          " first.",
+    if (!prescription) {
+      return res.status(404).json({ error: "Prescription not found." });
+    }
+
+    // Verify prescription's patient belongs to the staff member's shop
+    if (prescription.patient.shopId !== req.user.shopId) {
+      return res.status(403).json({
+        error: "Access denied. Prescription belongs to different shop.",
       });
     }
 
-    // Verify invoice belongs to the same shop as the staff member
-    if (invoice.staff.shopId !== req.user.shopId) {
-      return res
-        .status(403)
-        .json({
-          error: "Access denied. Prescription belongs to different shop.",
-        });
+    const patientInfo = prescription.patient;
+
+    // Create PDF document (EXACT SAME FORMAT as invoice)
+    const doc = new PDFDocument({ margin: 40, size: "A4" });
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename=prescription-${prescriptionId}.pdf`
+    );
+    doc.pipe(res);
+
+    // --- HEADER (EXACT SAME as invoice) ---
+    doc.save();
+    doc.rect(40, 30, 520, 120).fillAndStroke("#f2f2f2", "#000");
+    doc.restore();
+
+    doc
+      .fillColor("#000")
+      .font("Helvetica-Bold")
+      .fontSize(22)
+      .text("CLEAR EYES OPTICAL", 60, 50, { characterSpacing: 1.5 });
+
+    // Barcode with prescription ID
+    try {
+      const barcodePng = await bwipjs.toBuffer({
+        bcid: "code128",
+        text: `RX${prescriptionId}`,
+        scale: 2,
+        height: 15,
+        includetext: false,
+      });
+      doc.image(barcodePng, 400, 40, { width: 150, height: 50 });
+    } catch (barcodeError) {
+      console.error("Barcode generation failed:", barcodeError);
+      doc.fontSize(11).fillColor("#cc0000").text("Barcode Error", 430, 60);
     }
 
-    // Use the existing invoice PDF generation logic
-    const invoiceController = require("./invoiceController");
+    doc.fontSize(9).fillColor("#000").text(`RX${prescriptionId}`, 430, 90);
 
-    // Temporarily set the invoice ID in params and call the existing function
-    req.params.id = invoice.id;
-    return await invoiceController.generateInvoicePdf(req, res);
-  } catch (error) {
-    console.error("Error generating prescription PDF:", error);
-    res.status(500).json({ error: "Failed to generate prescription PDF" });
+    // === MIDDLE ROW: Address + Contact (EXACT SAME) ===
+    doc
+      .font("Helvetica")
+      .fontSize(10)
+      .fillColor("#333")
+      .text("68 Jessore Road, Diamond Plaza", 0, 100, { align: "center" })
+      .text("Kolkata | +91-96765 43210", { align: "center" })
+      .text("Follow us on Instagram @cleareyes_optical", { align: "center" });
+
+    // === PRESCRIPTION INFO ===
+    let infoY = 160;
+    doc.font("Helvetica-Bold").fontSize(11).text(`Prescription No:`, 40, infoY);
+    doc.font("Helvetica").text(prescriptionId.toString(), 120, infoY);
+
+    doc.font("Helvetica-Bold").text(`Date:`, 400, infoY);
+    doc
+      .font("Helvetica")
+      .text(prescription.createdAt.toLocaleDateString(), 450, infoY);
+
+    // Customer Info
+    doc.moveDown(1);
+    doc.font("Helvetica-Bold").text(`Patient Name:`, 40, doc.y);
+    doc.font("Helvetica").text(patientInfo.name, 150, doc.y - 12);
+
+    if (patientInfo.phone) {
+      doc.font("Helvetica-Bold").text(`Mobile:`, 40, doc.y + 10);
+      doc.font("Helvetica").text(patientInfo.phone, 150, doc.y - 12);
+    }
+
+    // --- EYE POWER TABLE (EXACT SAME format as invoice) ---
+    doc
+      .moveDown(2)
+      .font("Helvetica-Bold")
+      .fontSize(11)
+      .text("Customer Eye Power");
+
+    let startY = doc.y + 10;
+    const colWidthsEye = [80, 100, 100, 100, 100];
+    const colXEye = [40, 120, 220, 320, 420];
+    const rowHeight = 25;
+
+    // Draw header row
+    doc.rect(40, startY, 480, rowHeight).stroke();
+    ["Eye", "Sphere", "Cylinder", "Axis", "GST"].forEach((h, i) => {
+      doc.text(h, colXEye[i] + 5, startY + 7);
+      if (i < colXEye.length - 1) {
+        doc
+          .moveTo(colXEye[i + 1], startY)
+          .lineTo(colXEye[i + 1], startY + rowHeight)
+          .stroke();
+      }
+    });
+
+    // Draw RE row
+    let y = startY + rowHeight;
+    doc.rect(40, y, 480, rowHeight).stroke();
+    const reValues = [
+      "RE",
+      prescription.rightEye?.sph || "0.00",
+      prescription.rightEye?.cyl || "0.00",
+      prescription.rightEye?.axis || "0",
+      "18%",
+    ];
+    reValues.forEach((v, i) => {
+      doc.text(v.toString(), colXEye[i] + 5, y + 7);
+      if (i < colXEye.length - 1) {
+        doc
+          .moveTo(colXEye[i + 1], y)
+          .lineTo(colXEye[i + 1], y + rowHeight)
+          .stroke();
+      }
+    });
+
+    // Draw LE row
+    y = startY + rowHeight * 2;
+    doc.rect(40, y, 480, rowHeight).stroke();
+    const leValues = [
+      "LE",
+      prescription.leftEye?.sph || "0.00",
+      prescription.leftEye?.cyl || "0.00",
+      prescription.leftEye?.axis || "0",
+      "12%",
+    ];
+    leValues.forEach((v, i) => {
+      doc.text(v.toString(), colXEye[i] + 5, y + 7);
+      if (i < colXEye.length - 1) {
+        doc
+          .moveTo(colXEye[i + 1], y)
+          .lineTo(colXEye[i + 1], y + rowHeight)
+          .stroke();
+      }
+    });
+
+    // --- FOOTER (EXACT SAME) ---
+    doc.moveDown(4);
+    doc
+      .font("Helvetica-Bold")
+      .fontSize(11)
+      .text("Thank You for Shopping with Us!", { align: "center" });
+    doc
+      .font("Helvetica")
+      .fontSize(9)
+      .text("Visit again. Follow us on Instagram @cleareyes_optical", {
+        align: "center",
+      });
+
+    doc.end();
+  } catch (err) {
+    console.error("Error generating prescription PDF:", err);
+    if (!res.headersSent) {
+      res.status(500).json({ error: "Failed to generate prescription PDF" });
+    } else {
+      res.end();
+    }
   }
 };
 
-// Generate thermal print for prescription's invoice
+// Generate thermal print for prescription (using EXACT invoice format, NO invoice required)
 exports.generatePrescriptionThermal = async (req, res) => {
   try {
     const { id } = req.params;
     const prescriptionId = parseInt(id);
+    const printerWidth = parseInt(process.env.THERMAL_PRINTER_WIDTH, 10) || 48;
 
-    // Find the invoice that uses this prescription
-    const invoice = await prisma.invoice.findFirst({
-      where: { prescriptionId },
-      include: {
-        patient: true,
-        customer: true,
-        staff: true,
-        items: {
-          include: {
-            product: {
-              include: {
-                company: true,
-              },
-            },
-          },
-        },
-        prescription: true,
-      },
+    // Fetch prescription with patient details
+    const prescription = await prisma.prescription.findUnique({
+      where: { id: prescriptionId },
+      include: { patient: true },
     });
 
-    if (!invoice) {
-      return res.status(404).json({
-        error:
-          "No invoice found for this prescription ID. Please create an invoice that uses prescriptionId: " +
-          prescriptionId +
-          " first.",
+    if (!prescription) {
+      return res.status(404).json({ error: "Prescription not found." });
+    }
+
+    // Verify prescription's patient belongs to the staff member's shop
+    if (prescription.patient.shopId !== req.user.shopId) {
+      return res.status(403).json({
+        error: "Access denied. Prescription belongs to different shop.",
       });
     }
 
-    // Verify invoice belongs to the same shop as the staff member
-    if (invoice.staff.shopId !== req.user.shopId) {
-      return res
-        .status(403)
-        .json({
-          error: "Access denied. Prescription belongs to different shop.",
-        });
+    const patientInfo = prescription.patient;
+
+    const center = (text) =>
+      text
+        .padStart(Math.floor((printerWidth + text.length) / 2), " ")
+        .padEnd(printerWidth, " ");
+    const line = (left, right) =>
+      `${left.padEnd(printerWidth / 2)}${right.padStart(printerWidth / 2)}`;
+    const separator = "-".repeat(printerWidth);
+
+    let receipt = [];
+
+    // (EXACT SAME FORMAT as invoice thermal)
+    receipt.push(center("Tax Invoice"));
+    receipt.push(center("Clear Eyes Optical"));
+    receipt.push(center("68 Jessore Road, Diamond Plaza"));
+    receipt.push(center("Kolkata +91-96765 43210"));
+    receipt.push(separator);
+
+    receipt.push(
+      line(
+        `Rx #: RX${prescriptionId}`,
+        `Date: ${prescription.createdAt.toLocaleDateString()}`
+      )
+    );
+    receipt.push(separator);
+
+    receipt.push("Bill To & Delivery Address:");
+    receipt.push(patientInfo.name);
+    if (patientInfo.address) receipt.push(patientInfo.address);
+    if (patientInfo.phone) receipt.push(patientInfo.phone);
+    receipt.push(separator);
+
+    // Show prescription eye power (EXACT SAME format)
+    receipt.push("Prescription Details:");
+    receipt.push("Eye   SPH     CYL     Axis    Add     PD      BC");
+    receipt.push("-".repeat(48));
+
+    if (prescription.rightEye) {
+      const { sph, cyl, axis, add, pd, bc } = prescription.rightEye;
+      const rightEyeLine = `R     ${(sph || "-").padEnd(7)} ${(
+        cyl || "-"
+      ).padEnd(7)} ${(axis || "-").padEnd(7)} ${(add || "-").padEnd(7)} ${(
+        pd || "-"
+      ).padEnd(7)} ${bc || "-"}`;
+      receipt.push(rightEyeLine);
     }
 
-    // Use the existing invoice thermal generation logic
-    const invoiceController = require("./invoiceController");
+    if (prescription.leftEye) {
+      const { sph, cyl, axis, add, pd, bc } = prescription.leftEye;
+      const leftEyeLine = `L     ${(sph || "-").padEnd(7)} ${(
+        cyl || "-"
+      ).padEnd(7)} ${(axis || "-").padEnd(7)} ${(add || "-").padEnd(7)} ${(
+        pd || "-"
+      ).padEnd(7)} ${bc || "-"}`;
+      receipt.push(leftEyeLine);
+    }
 
-    // Temporarily set the invoice ID in params and call the existing function
-    req.params.id = invoice.id;
-    return await invoiceController.generateInvoiceThermal(req, res);
+    receipt.push(separator);
+    receipt.push(center("Thank You for Shopping with Us!"));
+    receipt.push(center("Visit again. Follow us on Instagram"));
+    receipt.push(center("@cleareyes_optical"));
+    receipt.push(separator);
+
+    const receiptText = receipt.join("\n");
+
+    res.setHeader("Content-Type", "text/plain");
+    res.status(200).send(receiptText);
   } catch (error) {
     console.error("Error generating prescription thermal:", error);
     res
