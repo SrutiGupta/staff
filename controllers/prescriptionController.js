@@ -189,12 +189,12 @@ exports.generatePrescriptionPdf = async (req, res) => {
         height: 15,
         includetext: false,
       });
-      doc.image(barcodePng, 400, 45, { width: 140, height: 45 });
+      doc.image(barcodePng, 400, 40, { width: 140, height: 45 });
     } catch (barcodeError) {
       console.error("Barcode generation failed:", barcodeError);
     }
 
-    doc.fontSize(10).fillColor("#000").text(`RX${prescriptionId}`, 430, 95);
+    doc.fontSize(9).fillColor("#000").text(`RX${prescriptionId}`, 430, 95);
 
     // Address + Contact
     doc
@@ -395,8 +395,9 @@ exports.generatePrescriptionThermal = async (req, res) => {
     // Header
     receipt.push(center("PRESCRIPTION RECEIPT"));
     receipt.push(center("Clear Eyes Optical"));
-    receipt.push(center("68 Jessore Road, Diamond Plaza"));
-    receipt.push(center("Kolkata +91-96765 43210"));
+    receipt.push(center("68 Jessore Road"));
+    receipt.push(center("Diamond Plaza, Kolkata"));
+    receipt.push(center("+91-96765 43210"));
     receipt.push(separator);
 
     // Prescription Details
@@ -465,7 +466,7 @@ exports.generatePrescriptionThermal = async (req, res) => {
     // Footer
     receipt.push(center("Thank You!"));
     receipt.push(center("Visit Again"));
-    receipt.push(center("Follow @cleareyes_optical"));
+    receipt.push(center("@cleareyes_optical"));
     receipt.push(separator);
     receipt.push(center(new Date().toLocaleString()));
     receipt.push("");

@@ -507,6 +507,7 @@ model Prescription {
   patientId Int
   rightEye  Json
   leftEye   Json
+  notes     String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   invoice   Invoice?
