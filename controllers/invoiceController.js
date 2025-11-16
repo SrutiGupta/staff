@@ -379,7 +379,7 @@ exports.generateInvoicePdf = async (req, res) => {
       .font("Helvetica-Bold")
       .fontSize(22)
       // left shift by giving x instead of align:center
-      .text("CLEAR EYES OPTICAL", 60, 50, { characterSpacing: 1.5 });
+      .text("Roy & Roy Opticals", 60, 50, { characterSpacing: 1.5 });
 
     // Barcode (right side, aligned properly) - with error handling
     try {
@@ -404,9 +404,13 @@ exports.generateInvoicePdf = async (req, res) => {
       .font("Helvetica")
       .fontSize(10)
       .fillColor("#333")
-      .text("68 Jessore Road, Diamond Plaza", 0, 100, { align: "center" })
-      .text("Kolkata | +91-96765 43210", { align: "center" })
-      .text("Follow us on Instagram @cleareyes_optical", { align: "center" });
+      .text(
+        "Chari Chara Bazar Rd, near water tank, Nabadwip, West Bengal 741302",
+        0,
+        100,
+        { align: "center" }
+      )
+      .text("Nabadwip | 098512 17089", { align: "center" });
 
     // === BOTTOM ROW: Invoice Info ===
     let infoY = 160;
@@ -531,9 +535,7 @@ exports.generateInvoicePdf = async (req, res) => {
     doc
       .font("Helvetica")
       .fontSize(9)
-      .text("Visit again. Follow us on Instagram @cleareyes_optical", {
-        align: "center",
-      });
+      .text("Thank You for your patronage!", { align: "center" });
 
     doc.end();
   } catch (err) {
@@ -596,9 +598,13 @@ exports.generateInvoiceThermal = async (req, res) => {
     let receipt = [];
 
     receipt.push(center("Tax Invoice"));
-    receipt.push(center("Clear Eyes Optical"));
-    receipt.push(center("68 Jessore Road, Diamond Plaza"));
-    receipt.push(center("Kolkata +91-96765 43210"));
+    receipt.push(center("Roy & Roy Opticals"));
+    receipt.push(
+      center(
+        "Chari Chara Bazar Rd, near water tank, Nabadwip, West Bengal 741302"
+      )
+    );
+    receipt.push(center("Nabadwip 098512 17089"));
     receipt.push(separator);
 
     receipt.push(
@@ -707,14 +713,14 @@ exports.generateInvoiceThermal = async (req, res) => {
     receipt.push(separator);
 
     receipt.push(center("Thank You for Shopping with Us!"));
-    receipt.push(center("Visit again. Follow us on Instagram"));
-    receipt.push(center("@cleareyes_optical"));
+    receipt.push(center("Visit Again"));
     receipt.push(separator);
 
     const receiptText = receipt.join("\n");
 
-    res.setHeader("Content-Type", "text/plain");
-    res.status(200).send(receiptText);
+    res.status(200).json({
+      thermalContent: receiptText,
+    });
   } catch (error) {
     console.error("Error generating thermal receipt:", error);
     res.status(500).json({ error: "Failed to generate thermal receipt" });

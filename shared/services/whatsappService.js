@@ -94,7 +94,7 @@ class WhatsAppService {
       const itemCount = invoiceData.itemCount || 0;
 
       const messageText = `
-🧿 *CLEAR EYES OPTICAL*
+🧿 *Roy & Roy Opticals*
 
 Dear ${clientName},
 
@@ -114,10 +114,10 @@ Click the button below to view your invoice PDF:
 💳 Cash, Card, UPI, Gift Card
 
 For any queries, please contact us:
-📱 +91-96765 43210
+📱 098512 17089
 📧 contact@cleareyes.com
 
-Thank you for choosing Clear Eyes Optical!
+Thank you for choosing Roy & Roy Opticals!
 Follow us: Instagram @cleareyes_optical
 
 Visit us again soon! 😊
@@ -217,7 +217,7 @@ Visit us again soon! 😊
       const formattedPhoneNumber = this.formatPhoneNumber(phoneNumber);
 
       const reminderMessage = `
-🧿 *CLEAR EYES OPTICAL*
+🧿 *Roy & Roy Opticals*
 
 Hi ${invoiceData.clientName},
 
@@ -231,7 +231,7 @@ Please settle the payment at your earliest convenience.
 
 *Payment Options:*
 💳 Cash, Card, UPI
-📱 +91-96765 43210
+📱 098512 17089
 
 Thank you!
       `.trim();
@@ -273,7 +273,7 @@ Thank you!
     try {
       const formattedPhoneNumber = this.formatPhoneNumber(phoneNumber);
 
-      const otpMessage = `🧿 *CLEAR EYES OPTICAL*\n\nYour OTP is: *${otp}*\n\nValid for 10 minutes.\nDo not share with anyone.`;
+      const otpMessage = `🧿 *Roy & Roy Opticals*\n\nYour OTP is: *${otp}*\n\nValid for 10 minutes.\nDo not share with anyone.`;
 
       return await this.sendMessage(formattedPhoneNumber, otpMessage);
     } catch (error) {

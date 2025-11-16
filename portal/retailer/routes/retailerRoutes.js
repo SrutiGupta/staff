@@ -7,6 +7,7 @@ const dashboardController = require("../controller/dashboardController");
 const reportsController = require("../controller/reportsController");
 const inventoryController = require("../controller/inventoryController");
 const shopDistributionController = require("../controller/shopDistributionController");
+const bulkProductController = require("../controller/bulkProductController");
 
 // Import middleware
 const {
@@ -237,6 +238,45 @@ router.put(
   "/distributions/:distributionId/payment-status",
   authenticateRetailer,
   shopDistributionController.updatePaymentStatus
+);
+
+// ================================
+// BULK OPERATIONS ROUTES
+// ================================
+
+// Get bulk upload template
+router.get(
+  "/bulk/template",
+  authenticateRetailer,
+  bulkProductController.getUploadTemplate
+);
+
+// Bulk upload products from JSON
+router.post(
+  "/bulk/products/upload",
+  authenticateRetailer,
+  bulkProductController.bulkUploadProducts
+);
+
+// Bulk update inventory
+router.post(
+  "/bulk/inventory/update",
+  authenticateRetailer,
+  bulkProductController.bulkUpdateInventory
+);
+
+// Bulk distribute to shops
+router.post(
+  "/bulk/distributions/create",
+  authenticateRetailer,
+  bulkProductController.bulkDistributeToShops
+);
+
+// Export retailer products as JSON
+router.get(
+  "/bulk/products/export",
+  authenticateRetailer,
+  bulkProductController.exportRetailerProducts
 );
 
 module.exports = router;

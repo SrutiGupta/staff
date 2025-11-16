@@ -286,7 +286,7 @@ const sendInvoiceViaWhatsApp = async (invoiceId, token) => {
 ### Invoice Message Format
 
 ```
-🧿 *CLEAR EYES OPTICAL*
+🧿 *Roy & Roy Opticals*
 
 Dear John Doe,
 
@@ -306,10 +306,10 @@ Click the button below to view your invoice PDF:
 💳 Cash, Card, UPI, Gift Card
 
 For any queries, please contact us:
-📱 +91-96765 43210
+📱 098512 17089
 📧 contact@cleareyes.com
 
-Thank you for choosing Clear Eyes Optical!
+Thank you for choosing Roy & Roy Opticals!
 Follow us: Instagram @cleareyes_optical
 
 Visit us again soon! 😊
@@ -318,7 +318,7 @@ Visit us again soon! 😊
 ### Payment Reminder Format
 
 ```
-🧿 *CLEAR EYES OPTICAL*
+🧿 *Roy & Roy Opticals*
 
 Hi John Doe,
 
@@ -332,7 +332,7 @@ Please settle the payment at your earliest convenience.
 
 *Payment Options:*
 💳 Cash, Card, UPI
-📱 +91-96765 43210
+📱 098512 17089
 
 Thank you!
 ```
