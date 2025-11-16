@@ -53,7 +53,7 @@ model Shop {
   // Business settings
   lowStockThreshold Int @default(10)
   currency          String @default("INR")
-  timezone          String @default("Asia/Nabadwip")
+  timezone          String @default("Asia/Kolkata")
 }
 
 enum AdminRole {
