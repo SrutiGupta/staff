@@ -3,7 +3,7 @@ const prisma = require("../lib/prisma");
 // ✅ Create a new prescription
 exports.createPrescription = async (req, res) => {
   try {
-    const { patientId, rightEye, leftEye } = req.body;
+    const { patientId, rightEye, leftEye, notes } = req.body;
 
     // Validate required fields
     if (!patientId) {
@@ -41,6 +41,7 @@ exports.createPrescription = async (req, res) => {
         patientId,
         rightEye, // Prisma will accept JSON object if the column is JSON
         leftEye,
+        notes: notes || null,
       },
     });
 
