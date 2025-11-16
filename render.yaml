@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: staff-optical
+    runtime: node
+    buildCommand: npm install && npx prisma migrate deploy
+    startCommand: node index.js
+    envVars:
+      - key: NODE_ENV
+        value: production
