@@ -1,2 +1,1 @@
--- AlterTable
-ALTER TABLE "public"."Prescription" ADD COLUMN     "notes" TEXT;
+ALTER TABLE "public"."Prescription" ADD COLUMN "notes" TEXT;
