@@ -279,7 +279,7 @@ model DailySummary {
   topProductSales Float    @default(0)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
-  
+
   @@unique([shopId, date])
 }
 
@@ -296,7 +296,7 @@ model ProductPerformance {
   returnCount   Int      @default(0)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
-  
+
   @@unique([productId, shopId, month])
 }
 
@@ -326,7 +326,7 @@ model Patient {
   lastVisit      DateTime?
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
-  
+
   royalty        Royalty?
   giftCards      GiftCard[]
   invoices       Invoice[]
@@ -507,6 +507,7 @@ model Prescription {
   patientId Int
   rightEye  Json
   leftEye   Json
+  notes     String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   invoice   Invoice?
@@ -545,13 +546,13 @@ model RetailerShop {
   retailer    Retailer @relation(fields: [retailerId], references: [id])
   shopId      Int
   shop        Shop     @relation(fields: [shopId], references: [id])
-  
+
   // Shop relationship details
   partnershipType String?  // "FRANCHISE", "DEALER", "DISTRIBUTOR"
   commissionRate  Float?   // Commission percentage
   creditLimit     Float?   // Credit limit for this shop
   paymentTerms    String?  // "NET_30", "COD", etc.
-  
+
   isActive    Boolean  @default(true)
   joinedAt    DateTime @default(now())
   createdAt   DateTime @default(now())
@@ -569,18 +570,18 @@ model RetailerProduct {
   retailer          Retailer @relation(fields: [retailerId], references: [id])
   productId         Int
   product           Product  @relation(fields: [productId], references: [id])
-  
+
   // Retailer-specific pricing
   wholesalePrice    Float    // Price retailer sells to shops
   mrp               Float?   // Maximum retail price
   minSellingPrice   Float?   // Minimum price shops can sell
-  
+
   // Stock management
   totalStock        Int      @default(0)
   allocatedStock    Int      @default(0)  // Stock allocated to shops
   availableStock    Int      @default(0)  // Stock available for allocation
   reorderLevel      Int      @default(50)
-  
+
   isActive          Boolean  @default(true)
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
@@ -598,23 +599,23 @@ model RetailerInventory {
   retailer            Retailer        @relation(fields: [retailerId], references: [id])
   retailerProductId   Int
   retailerProduct     RetailerProduct @relation(fields: [retailerProductId], references: [id])
-  
+
   // Inventory tracking
   currentStock        Int             @default(0)
   reservedStock       Int             @default(0)  // Stock reserved for orders
   inTransitStock      Int             @default(0)  // Stock being shipped to shops
-  
+
   // Location details
   warehouseLocation   String?
   batchNumber         String?
   expiryDate          DateTime?
-  
+
   // Cost tracking
   averageCostPrice    Float?
   lastPurchasePrice   Float?
   lastPurchaseDate    DateTime?
   supplier            String?
-  
+
   createdAt           DateTime        @default(now())
   updatedAt           DateTime        @updatedAt
 
@@ -629,23 +630,23 @@ model ShopDistribution {
   retailerShop        RetailerShop    @relation(fields: [retailerShopId], references: [id])
   retailerProductId   Int
   retailerProduct     RetailerProduct @relation(fields: [retailerProductId], references: [id])
-  
+
   // Distribution details
   quantity            Int
   unitPrice           Float           // Price charged to shop
   totalAmount         Float
-  
+
   // Tracking
   distributionDate    DateTime        @default(now())
   deliveryStatus      DeliveryStatus  @default(PENDING)
   deliveryDate        DateTime?
   trackingNumber      String?
-  
+
   // Payment tracking
   paymentStatus       PaymentStatus   @default(PENDING)
   paymentDueDate      DateTime?
   paidDate            DateTime?
-  
+
   notes               String?
   createdAt           DateTime        @default(now())
   updatedAt           DateTime        @updatedAt
@@ -672,17 +673,17 @@ model RetailerTransaction {
   id            Int               @id @default(autoincrement())
   retailerId    Int
   retailer      Retailer          @relation(fields: [retailerId], references: [id])
-  
+
   // Transaction details
   type          TransactionType
   amount        Float
   description   String?
   referenceNo   String?
-  
+
   // Related entities
   shopId        Int?              // If transaction is shop-specific
   productId     Int?              // If transaction is product-specific
-  
+
   transactionDate DateTime        @default(now())
   createdAt     DateTime          @default(now())
   updatedAt     DateTime          @updatedAt
@@ -701,14 +702,14 @@ model RetailerReport {
   id          Int        @id @default(autoincrement())
   retailerId  Int
   retailer    Retailer   @relation(fields: [retailerId], references: [id])
-  
+
   reportType  RetailerReportType
   title       String
   description String?
   filters     Json?      // Report filters used
   data        Json       // Report data
   filePath    String?    // If PDF was generated
-  
+
   generatedAt DateTime   @default(now())
   expiresAt   DateTime?
 }

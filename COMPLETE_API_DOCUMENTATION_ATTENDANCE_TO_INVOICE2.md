@@ -307,21 +307,26 @@ POST / api / auth / login;
 {
   "patientId": 1,
   "rightEye": {
-    "sph": "-2.00",
-    "cyl": "-0.50",
+    "type": "Progressive",
+    "sph": "+1.50",
+    "cyl": "-0.75",
     "axis": "90",
-    "add": "0.00",
-    "pd": "32",
-    "bc": "8.6"
+    "add": "+2.00",
+    "pd": "62",
+    "bc": "8.4",
+    "remarks": "For reading"
   },
   "leftEye": {
-    "sph": "-1.75",
-    "cyl": "-0.25",
-    "axis": "85",
-    "add": "0.00",
-    "pd": "32",
-    "bc": "8.6"
-  }
+    "type": "Progressive",
+    "sph": "+1.25",
+    "cyl": "-0.50",
+    "axis": "180",
+    "add": "+2.00",
+    "pd": "62",
+    "bc": "8.4",
+    "remarks": "For reading"
+  },
+  "notes": "Patient prefers progressive lenses"
 }
 ```
 
@@ -332,23 +337,28 @@ POST / api / auth / login;
   "id": 1,
   "patientId": 1,
   "rightEye": {
-    "sph": "-2.00",
-    "cyl": "-0.50",
+    "type": "Progressive",
+    "sph": "+1.50",
+    "cyl": "-0.75",
     "axis": "90",
-    "add": "0.00",
-    "pd": "32",
-    "bc": "8.6"
+    "add": "+2.00",
+    "pd": "62",
+    "bc": "8.4",
+    "remarks": "For reading"
   },
   "leftEye": {
-    "sph": "-1.75",
-    "cyl": "-0.25",
-    "axis": "85",
-    "add": "0.00",
-    "pd": "32",
-    "bc": "8.6"
+    "type": "Progressive",
+    "sph": "+1.25",
+    "cyl": "-0.50",
+    "axis": "180",
+    "add": "+2.00",
+    "pd": "62",
+    "bc": "8.4",
+    "remarks": "For reading"
   },
-  "createdAt": "2025-10-08T10:00:00.000Z",
-  "updatedAt": "2025-10-08T10:00:00.000Z"
+  "notes": "Patient prefers progressive lenses",
+  "createdAt": "2025-11-16T10:30:00.000Z",
+  "updatedAt": "2025-11-16T10:30:00.000Z"
 }
 ```
 
@@ -380,10 +390,9 @@ POST / api / auth / login;
 
 **Query Parameters:**
 
+- `page` (optional): Page number (default: 1)
+- `limit` (optional): Items per page (default: 10)
 - `patientId` (optional): Filter by patient ID
-- `valid` (optional): Filter by validity (true/false)
-- `page` (optional): Page number
-- `limit` (optional): Items per page
 
 **Response (200):**
 
@@ -396,19 +405,33 @@ POST / api / auth / login;
       "patient": {
         "id": 1,
         "name": "John Patient",
-        "phone": "+1234567890"
+        "phone": "+1234567890",
+        "address": "123 Patient Street",
+        "shopId": 1
       },
       "rightEye": {
-        "sph": "-2.00",
-        "cyl": "-0.50",
-        "axis": "90"
+        "type": "Progressive",
+        "sph": "+1.50",
+        "cyl": "-0.75",
+        "axis": "90",
+        "add": "+2.00",
+        "pd": "62",
+        "bc": "8.4",
+        "remarks": "For reading"
       },
       "leftEye": {
-        "sph": "-1.75",
-        "cyl": "-0.25",
-        "axis": "85"
+        "type": "Progressive",
+        "sph": "+1.25",
+        "cyl": "-0.50",
+        "axis": "180",
+        "add": "+2.00",
+        "pd": "62",
+        "bc": "8.4",
+        "remarks": "For reading"
       },
-      "createdAt": "2025-10-08T10:00:00.000Z"
+      "notes": "Patient prefers progressive lenses",
+      "createdAt": "2025-11-16T10:30:00.000Z",
+      "updatedAt": "2025-11-16T10:30:00.000Z"
     }
   ],
   "total": 1,
@@ -433,41 +456,46 @@ POST / api / auth / login;
     "id": 1,
     "name": "John Patient",
     "phone": "+1234567890",
-    "email": "patient@example.com"
+    "address": "123 Patient Street",
+    "shopId": 1
   },
   "rightEye": {
-    "sph": "-2.00",
-    "cyl": "-0.50",
+    "type": "Progressive",
+    "sph": "+1.50",
+    "cyl": "-0.75",
     "axis": "90",
-    "add": "0.00",
-    "pd": "32",
-    "bc": "8.6"
+    "add": "+2.00",
+    "pd": "62",
+    "bc": "8.4",
+    "remarks": "For reading"
   },
   "leftEye": {
-    "sph": "-1.75",
-    "cyl": "-0.25",
-    "axis": "85",
-    "add": "0.00",
-    "pd": "32",
-    "bc": "8.6"
+    "type": "Progressive",
+    "sph": "+1.25",
+    "cyl": "-0.50",
+    "axis": "180",
+    "add": "+2.00",
+    "pd": "62",
+    "bc": "8.4",
+    "remarks": "For reading"
   },
-  "notes": "First prescription for patient",
-  "prescribedBy": "Dr. Smith",
-  "validUntil": "2026-10-08T00:00:00.000Z",
-  "isValid": true,
-  "invoices": [
-    {
-      "id": 1,
-      "patientId": 1,
-      "prescriptionId": 1,
-      "totalAmount": 566.4,
-      "status": "PAID",
-      "createdAt": "2025-10-08T10:00:00.000Z",
-      "updatedAt": "2025-10-08T10:00:00.000Z"
-    }
-  ],
-  "createdAt": "2025-10-08T10:00:00.000Z",
-  "updatedAt": "2025-10-08T10:00:00.000Z"
+  "notes": "Patient prefers progressive lenses",
+  "createdAt": "2025-11-16T10:30:00.000Z",
+  "updatedAt": "2025-11-16T10:30:00.000Z"
+}
+```
+
+**Error Responses:**
+
+```json
+{
+  "error": "Prescription not found."
+}
+```
+
+```json
+{
+  "error": "Access denied. Prescription belongs to different shop."
 }
 ```
 
@@ -477,13 +505,49 @@ POST / api / auth / login;
 
 **Headers:** `Authorization: Bearer <token>`
 
-**Response (200):** PDF file download
+**Response (200):** PDF file download with prescription details including:
+
+- Header with shop branding (Clear Eyes Optical)
+- Barcode with format `RX{prescriptionId}` (Code128)
+- Prescription metadata (RX No, Date, Patient Name, Mobile, Type)
+- Prescription details table with 8 columns:
+  - Eye (RE/LE)
+  - Sph (Sphere)
+  - Cyl (Cylinder)
+  - Axis
+  - Add (Add Power)
+  - PD (Pupil Distance)
+  - BC (Base Curve)
+  - Remarks
+- Two rows: one for Right Eye (RE) and one for Left Eye (LE)
+- Doctor's Notes section
+- Footer with shop details and Instagram handle
 
 **Response Headers:**
 
 ```
 Content-Type: application/pdf
-Content-Disposition: attachment; filename="prescription-1.pdf"
+Content-Disposition: attachment; filename="prescription-RX{id}.pdf"
+```
+
+**Error Responses:**
+
+```json
+{
+  "error": "Prescription not found."
+}
+```
+
+```json
+{
+  "error": "Access denied. Prescription belongs to different shop."
+}
+```
+
+```json
+{
+  "error": "Failed to generate prescription PDF"
+}
 ```
 
 ### 12. Generate Prescription Thermal Print
@@ -496,7 +560,7 @@ Content-Disposition: attachment; filename="prescription-1.pdf"
 
 ```json
 {
-  "thermalContent": "===========================\n        PRESCRIPTION\n===========================\nPatient: John Patient\nPhone: +1234567890\nDate: 2025-10-08\n\nRIGHT EYE:\nSPH: -2.00  CYL: -0.50\nAXIS: 90    ADD: 0.00\nPD: 32      BC: 8.6\n\nLEFT EYE:\nSPH: -1.75  CYL: -0.25\nAXIS: 85    ADD: 0.00\nPD: 32      BC: 8.6\n\nPrescribed by: Dr. Smith\nValid until: 2026-10-08\n==========================="
+  "thermalContent": "PRESCRIPTION RECEIPT\nClear Eyes Optical\n68 Jessore Road, Diamond Plaza\nKolkata +91-96765 43210\n------------------------------------------------\nRx No: RX1                   Date: 11/16/2025\nType: Progressive\n------------------------------------------------\nBill To & Delivery Address:\nJohn Patient\n123 Patient Street\nPhone: +1234567890\n------------------------------------------------\nPRESCRIPTION DETAILS\n------------------------------------------------\nEye  SPH    CYL    AXS   ADD   PD    BC\n------------------------------------------------\nRE   +1.50  -0.75 90    +2.00 62    8.4\nLE   +1.25  -0.50 180   +2.00 62    8.4\n------------------------------------------------\nThank You!\nVisit Again\nFollow @cleareyes_optical\n------------------------------------------------\n11/16/2025, 10:30:45 AM"
 }
 ```
 
