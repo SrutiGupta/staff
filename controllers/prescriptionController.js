@@ -131,7 +131,7 @@ exports.getAllPrescriptions = async (req, res) => {
   }
 };
 
-// Generate PDF for prescription (using EXACT invoice format, NO invoice required)
+// Generate PDF for prescription (Production-Ready - No GST, includes Progressive/Bifocal, PD & Add Power)
 exports.generatePrescriptionPdf = async (req, res) => {
   const PDFDocument = require("pdfkit");
   const bwipjs = require("bwip-js");
@@ -159,18 +159,18 @@ exports.generatePrescriptionPdf = async (req, res) => {
 
     const patientInfo = prescription.patient;
 
-    // Create PDF document (EXACT SAME FORMAT as invoice)
+    // Create PDF document
     const doc = new PDFDocument({ margin: 40, size: "A4" });
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader(
       "Content-Disposition",
-      `attachment; filename=prescription-${prescriptionId}.pdf`
+      `attachment; filename=prescription-RX${prescriptionId}.pdf`
     );
     doc.pipe(res);
 
-    // --- HEADER (EXACT SAME as invoice) ---
+    // --- HEADER ---
     doc.save();
-    doc.rect(40, 30, 520, 120).fillAndStroke("#f2f2f2", "#000");
+    doc.rect(40, 30, 520, 100).fillAndStroke("#f2f2f2", "#000");
     doc.restore();
 
     doc
@@ -188,34 +188,33 @@ exports.generatePrescriptionPdf = async (req, res) => {
         height: 15,
         includetext: false,
       });
-      doc.image(barcodePng, 400, 40, { width: 150, height: 50 });
+      doc.image(barcodePng, 400, 45, { width: 140, height: 45 });
     } catch (barcodeError) {
       console.error("Barcode generation failed:", barcodeError);
-      doc.fontSize(11).fillColor("#cc0000").text("Barcode Error", 430, 60);
     }
 
-    doc.fontSize(9).fillColor("#000").text(`RX${prescriptionId}`, 430, 90);
+    doc.fontSize(10).fillColor("#000").text(`RX${prescriptionId}`, 430, 95);
 
-    // === MIDDLE ROW: Address + Contact (EXACT SAME) ===
+    // Address + Contact
     doc
       .font("Helvetica")
-      .fontSize(10)
+      .fontSize(9)
       .fillColor("#333")
-      .text("68 Jessore Road, Diamond Plaza", 0, 100, { align: "center" })
+      .text("68 Jessore Road, Diamond Plaza", 0, 110, { align: "center" })
       .text("Kolkata | +91-96765 43210", { align: "center" })
       .text("Follow us on Instagram @cleareyes_optical", { align: "center" });
 
-    // === PRESCRIPTION INFO ===
-    let infoY = 160;
+    // --- PRESCRIPTION INFO ---
+    let infoY = 150;
     doc.font("Helvetica-Bold").fontSize(11).text(`Prescription No:`, 40, infoY);
-    doc.font("Helvetica").text(prescriptionId.toString(), 120, infoY);
+    doc.font("Helvetica").text(prescriptionId.toString(), 140, infoY);
 
     doc.font("Helvetica-Bold").text(`Date:`, 400, infoY);
     doc
       .font("Helvetica")
       .text(prescription.createdAt.toLocaleDateString(), 450, infoY);
 
-    // Customer Info
+    // Patient Info
     doc.moveDown(1);
     doc.font("Helvetica-Bold").text(`Patient Name:`, 40, doc.y);
     doc.font("Helvetica").text(patientInfo.name, 150, doc.y - 12);
@@ -225,72 +224,112 @@ exports.generatePrescriptionPdf = async (req, res) => {
       doc.font("Helvetica").text(patientInfo.phone, 150, doc.y - 12);
     }
 
-    // --- EYE POWER TABLE (EXACT SAME format as invoice) ---
+    // Prescription Type
+    const prescriptionType = prescription.rightEye?.type || "Progressive";
+    doc.font("Helvetica-Bold").text(`Type:`, 40, doc.y + 15);
+    doc.font("Helvetica").text(prescriptionType, 150, doc.y - 12);
+
+    // --- EYE POWER TABLE (Production-Ready Format) ---
     doc
       .moveDown(2)
       .font("Helvetica-Bold")
       .fontSize(11)
-      .text("Customer Eye Power");
+      .text("Prescription Details");
 
     let startY = doc.y + 10;
-    const colWidthsEye = [80, 100, 100, 100, 100];
-    const colXEye = [40, 120, 220, 320, 420];
-    const rowHeight = 25;
+    const colX = [40, 80, 150, 220, 290, 360, 430, 480];
+    const colLabels = [
+      "Eye",
+      "Sph",
+      "Cyl",
+      "Axis",
+      "Add",
+      "PD",
+      "BC",
+      "Remarks",
+    ];
+    const rowHeight = 22;
 
-    // Draw header row
-    doc.rect(40, startY, 480, rowHeight).stroke();
-    ["Eye", "Sphere", "Cylinder", "Axis", "GST"].forEach((h, i) => {
-      doc.text(h, colXEye[i] + 5, startY + 7);
-      if (i < colXEye.length - 1) {
+    // Header row
+    doc.rect(40, startY, 460, rowHeight).stroke();
+    colLabels.forEach((label, i) => {
+      if (i < colX.length - 1) {
         doc
-          .moveTo(colXEye[i + 1], startY)
-          .lineTo(colXEye[i + 1], startY + rowHeight)
+          .font("Helvetica-Bold")
+          .fontSize(9)
+          .text(label, colX[i] + 3, startY + 6);
+        doc
+          .moveTo(colX[i + 1], startY)
+          .lineTo(colX[i + 1], startY + rowHeight)
           .stroke();
       }
     });
 
-    // Draw RE row
+    // RE (Right Eye) row
     let y = startY + rowHeight;
-    doc.rect(40, y, 480, rowHeight).stroke();
-    const reValues = [
+    doc.rect(40, y, 460, rowHeight).stroke();
+    const reData = [
       "RE",
-      prescription.rightEye?.sph || "0.00",
-      prescription.rightEye?.cyl || "0.00",
-      prescription.rightEye?.axis || "0",
-      "18%",
+      prescription.rightEye?.sph || "-",
+      prescription.rightEye?.cyl || "-",
+      prescription.rightEye?.axis || "-",
+      prescription.rightEye?.add || "-",
+      prescription.rightEye?.pd || "-",
+      prescription.rightEye?.bc || "-",
+      prescription.rightEye?.remarks || "",
     ];
-    reValues.forEach((v, i) => {
-      doc.text(v.toString(), colXEye[i] + 5, y + 7);
-      if (i < colXEye.length - 1) {
+    reData.forEach((val, i) => {
+      if (i < colX.length - 1) {
         doc
-          .moveTo(colXEye[i + 1], y)
-          .lineTo(colXEye[i + 1], y + rowHeight)
+          .font("Helvetica")
+          .fontSize(9)
+          .text(val.toString(), colX[i] + 3, y + 6);
+        doc
+          .moveTo(colX[i + 1], y)
+          .lineTo(colX[i + 1], y + rowHeight)
           .stroke();
       }
     });
 
-    // Draw LE row
+    // LE (Left Eye) row
     y = startY + rowHeight * 2;
-    doc.rect(40, y, 480, rowHeight).stroke();
-    const leValues = [
+    doc.rect(40, y, 460, rowHeight).stroke();
+    const leData = [
       "LE",
-      prescription.leftEye?.sph || "0.00",
-      prescription.leftEye?.cyl || "0.00",
-      prescription.leftEye?.axis || "0",
-      "12%",
+      prescription.leftEye?.sph || "-",
+      prescription.leftEye?.cyl || "-",
+      prescription.leftEye?.axis || "-",
+      prescription.leftEye?.add || "-",
+      prescription.leftEye?.pd || "-",
+      prescription.leftEye?.bc || "-",
+      prescription.leftEye?.remarks || "",
     ];
-    leValues.forEach((v, i) => {
-      doc.text(v.toString(), colXEye[i] + 5, y + 7);
-      if (i < colXEye.length - 1) {
+    leData.forEach((val, i) => {
+      if (i < colX.length - 1) {
         doc
-          .moveTo(colXEye[i + 1], y)
-          .lineTo(colXEye[i + 1], y + rowHeight)
+          .font("Helvetica")
+          .fontSize(9)
+          .text(val.toString(), colX[i] + 3, y + 6);
+        doc
+          .moveTo(colX[i + 1], y)
+          .lineTo(colX[i + 1], y + rowHeight)
           .stroke();
       }
     });
 
-    // --- FOOTER (EXACT SAME) ---
-    doc.moveDown(4);
+    // Notes section
+    doc.moveDown(3);
+    doc.font("Helvetica-Bold").fontSize(10).text("Doctor's Notes:");
+    doc
+      .font("Helvetica")
+      .fontSize(9)
+      .text(prescription.notes || "No additional notes", {
+        width: 460,
+        height: 40,
+      });
+
+    // --- FOOTER ---
+    doc.moveDown(2);
     doc
       .font("Helvetica-Bold")
       .fontSize(11)
@@ -313,7 +352,7 @@ exports.generatePrescriptionPdf = async (req, res) => {
   }
 };
 
-// Generate thermal print for prescription (using EXACT invoice format, NO invoice required)
+// Generate thermal print for prescription (Production-Ready - No GST, includes Progressive/Bifocal, PD & Add Power)
 exports.generatePrescriptionThermal = async (req, res) => {
   try {
     const { id } = req.params;
@@ -338,72 +377,105 @@ exports.generatePrescriptionThermal = async (req, res) => {
     }
 
     const patientInfo = prescription.patient;
+    const prescriptionType = prescription.rightEye?.type || "Progressive";
 
     const center = (text) =>
       text
         .padStart(Math.floor((printerWidth + text.length) / 2), " ")
         .padEnd(printerWidth, " ");
     const line = (left, right) =>
-      `${left.padEnd(printerWidth / 2)}${right.padStart(printerWidth / 2)}`;
+      `${left.padEnd(Math.floor(printerWidth / 2))}${right.padStart(
+        Math.ceil(printerWidth / 2)
+      )}`;
     const separator = "-".repeat(printerWidth);
 
     let receipt = [];
 
-    // (EXACT SAME FORMAT as invoice thermal)
-    receipt.push(center("Tax Invoice"));
+    // Header
+    receipt.push(center("PRESCRIPTION RECEIPT"));
     receipt.push(center("Clear Eyes Optical"));
     receipt.push(center("68 Jessore Road, Diamond Plaza"));
     receipt.push(center("Kolkata +91-96765 43210"));
     receipt.push(separator);
 
+    // Prescription Details
     receipt.push(
       line(
-        `Rx #: RX${prescriptionId}`,
+        `Rx No: RX${prescriptionId}`,
         `Date: ${prescription.createdAt.toLocaleDateString()}`
       )
     );
+    receipt.push(line(`Type: ${prescriptionType}`, ""));
     receipt.push(separator);
 
+    // Patient Information
     receipt.push("Bill To & Delivery Address:");
-    receipt.push(patientInfo.name);
-    if (patientInfo.address) receipt.push(patientInfo.address);
-    if (patientInfo.phone) receipt.push(patientInfo.phone);
+    receipt.push(patientInfo.name.substring(0, printerWidth));
+    if (patientInfo.address)
+      receipt.push(patientInfo.address.substring(0, printerWidth));
+    if (patientInfo.phone)
+      receipt.push(
+        `Phone: ${patientInfo.phone.substring(0, printerWidth - 7)}`
+      );
     receipt.push(separator);
 
-    // Show prescription eye power (EXACT SAME format)
-    receipt.push("Prescription Details:");
-    receipt.push("Eye   SPH     CYL     Axis    Add     PD      BC");
-    receipt.push("-".repeat(48));
+    // Prescription Details Header
+    receipt.push("PRESCRIPTION DETAILS");
+    receipt.push("-".repeat(printerWidth));
 
+    // Column headers - adjusted for thermal width
+    const headerLine = "Eye  SPH    CYL    AXS   ADD   PD    BC";
+    receipt.push(headerLine.substring(0, printerWidth));
+    receipt.push("-".repeat(printerWidth));
+
+    // Right Eye data
     if (prescription.rightEye) {
       const { sph, cyl, axis, add, pd, bc } = prescription.rightEye;
-      const rightEyeLine = `R     ${(sph || "-").padEnd(7)} ${(
-        cyl || "-"
-      ).padEnd(7)} ${(axis || "-").padEnd(7)} ${(add || "-").padEnd(7)} ${(
+      const reLine = `RE   ${(sph || "-").padEnd(6)} ${(cyl || "-").padEnd(
+        6
+      )} ${(axis || "-").padEnd(5)} ${(add || "-").padEnd(5)} ${(
         pd || "-"
-      ).padEnd(7)} ${bc || "-"}`;
-      receipt.push(rightEyeLine);
+      ).padEnd(5)} ${bc || "-"}`;
+      receipt.push(reLine.substring(0, printerWidth));
     }
 
+    // Left Eye data
     if (prescription.leftEye) {
       const { sph, cyl, axis, add, pd, bc } = prescription.leftEye;
-      const leftEyeLine = `L     ${(sph || "-").padEnd(7)} ${(
-        cyl || "-"
-      ).padEnd(7)} ${(axis || "-").padEnd(7)} ${(add || "-").padEnd(7)} ${(
+      const leLine = `LE   ${(sph || "-").padEnd(6)} ${(cyl || "-").padEnd(
+        6
+      )} ${(axis || "-").padEnd(5)} ${(add || "-").padEnd(5)} ${(
         pd || "-"
-      ).padEnd(7)} ${bc || "-"}`;
-      receipt.push(leftEyeLine);
+      ).padEnd(5)} ${bc || "-"}`;
+      receipt.push(leLine.substring(0, printerWidth));
     }
 
     receipt.push(separator);
-    receipt.push(center("Thank You for Shopping with Us!"));
-    receipt.push(center("Visit again. Follow us on Instagram"));
-    receipt.push(center("@cleareyes_optical"));
+
+    // Doctor's Notes
+    if (prescription.notes) {
+      receipt.push("Doctor's Notes:");
+      const notes = prescription.notes.substring(0, printerWidth - 1);
+      receipt.push(notes);
+    }
+
     receipt.push(separator);
+
+    // Footer
+    receipt.push(center("Thank You!"));
+    receipt.push(center("Visit Again"));
+    receipt.push(center("Follow @cleareyes_optical"));
+    receipt.push(separator);
+    receipt.push(center(new Date().toLocaleString()));
+    receipt.push("");
 
     const receiptText = receipt.join("\n");
 
-    res.setHeader("Content-Type", "text/plain");
+    res.setHeader("Content-Type", "text/plain; charset=utf-8");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename=RX${prescriptionId}-thermal.txt`
+    );
     res.status(200).send(receiptText);
   } catch (error) {
     console.error("Error generating prescription thermal:", error);
