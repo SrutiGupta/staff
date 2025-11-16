@@ -171,7 +171,7 @@ exports.generatePrescriptionPdf = async (req, res) => {
 
     // --- HEADER ---
     doc.save();
-    doc.rect(40, 30, 520, 100).fillAndStroke("#f2f2f2", "#000");
+    doc.rect(40, 30, 520, 120).fillAndStroke("#f2f2f2", "#000");
     doc.restore();
 
     doc
@@ -189,19 +189,19 @@ exports.generatePrescriptionPdf = async (req, res) => {
         height: 15,
         includetext: false,
       });
-      doc.image(barcodePng, 400, 40, { width: 140, height: 45 });
+      doc.image(barcodePng, 400, 40, { width: 150, height: 50 });
     } catch (barcodeError) {
       console.error("Barcode generation failed:", barcodeError);
     }
 
-    doc.fontSize(9).fillColor("#000").text(`RX${prescriptionId}`, 430, 95);
+    doc.fontSize(9).fillColor("#000").text(`RX${prescriptionId}`, 430, 90);
 
-    // Address + Contact
+    // === MIDDLE ROW: Address + Contact ===
     doc
       .font("Helvetica")
-      .fontSize(9)
+      .fontSize(10)
       .fillColor("#333")
-      .text("68 Jessore Road, Diamond Plaza", 0, 110, { align: "center" })
+      .text("68 Jessore Road, Diamond Plaza", 0, 100, { align: "center" })
       .text("Kolkata | +91-96765 43210", { align: "center" })
       .text("Follow us on Instagram @cleareyes_optical", { align: "center" });
 
@@ -330,7 +330,7 @@ exports.generatePrescriptionPdf = async (req, res) => {
       });
 
     // --- FOOTER ---
-    doc.moveDown(2);
+    doc.moveDown(4);
     doc
       .font("Helvetica-Bold")
       .fontSize(11)
