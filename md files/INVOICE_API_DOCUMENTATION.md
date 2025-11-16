@@ -681,7 +681,7 @@ curl -X GET "http://localhost:8080/api/prescription/1/thermal" \
             Tax Invoice
           Roy & Roy Opticals
       Chari Chara Bazar Rd, near water tank, Nabadwip, West Bengal 741302
-        Kolkata +91-96765 43210
+        Nabadwip 098512 17089
 ------------------------------------------------
 Order #: cmf47cx1r0001uswopqybr7e4
 Date: 9/4/2025

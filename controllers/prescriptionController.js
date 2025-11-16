@@ -189,14 +189,22 @@ exports.generatePrescriptionPdf = async (req, res) => {
         height: 15,
         includetext: false,
       });
-      doc.image(barcodePng, 400, 40, { width: 150, height: 50 });
+      doc.image(barcodePng, 400, 55, { width: 150, height: 50 });
     } catch (barcodeError) {
       console.error("Barcode generation failed:", barcodeError);
     }
 
-    doc.fontSize(9).fillColor("#000").text(`RX${prescriptionId}`, 430, 90);
+    doc.fontSize(9).fillColor("#000").text(`RX${prescriptionId}`, 430, 110);
 
-    // === MIDDLE ROW: Address + Contact ===
+    // === MIDDLE ROW: Address + Contact (FIXED — no overlap now) ===
+    const headerX = 40;
+    const headerY = 30;
+    const headerWidth = 520;
+
+    const headerCenterX = headerX + headerWidth / 2;
+    const addressWidth = headerWidth - 180; // gives space away from barcode
+
+    // Address now moved below barcode cleanly
     doc
       .font("Helvetica")
       .fontSize(10)
@@ -204,13 +212,13 @@ exports.generatePrescriptionPdf = async (req, res) => {
       .text(
         "Chari Chara Bazar Rd, near water tank, Nabadwip, West Bengal 741302",
         0,
-        100,
+        125, // <-- shifted down
         { align: "center" }
       )
-      .text("Kolkata | +91-96765 43210", { align: "center" });
+      .text("Nabadwip | 098512 17089", { align: "center" });
 
     // --- PRESCRIPTION INFO ---
-    let infoY = 150;
+    let infoY = headerY + 120 + 20;
     doc.font("Helvetica-Bold").fontSize(11).text(`Prescription No:`, 40, infoY);
     doc.font("Helvetica").text(prescriptionId.toString(), 140, infoY);
 
@@ -339,12 +347,9 @@ exports.generatePrescriptionPdf = async (req, res) => {
       .font("Helvetica-Bold")
       .fontSize(11)
       .text("Thank You for Shopping with Us!", { align: "center" });
-    doc
-      .font("Helvetica")
-      .fontSize(9)
-      .text("Thank You for your patronage!", {
-        align: "center",
-      });
+    doc.font("Helvetica").fontSize(9).text("Thank You for your patronage!", {
+      align: "center",
+    });
 
     doc.end();
   } catch (err) {
@@ -400,8 +405,8 @@ exports.generatePrescriptionThermal = async (req, res) => {
     receipt.push(center("PRESCRIPTION RECEIPT"));
     receipt.push(center("Roy & Roy Opticals"));
     receipt.push(center("68 Jessore Road"));
-    receipt.push(center("Diamond Plaza, Kolkata"));
-    receipt.push(center("+91-96765 43210"));
+    receipt.push(center("Diamond Plaza, Nabadwip"));
+    receipt.push(center("098512 17089"));
     receipt.push(separator);
 
     // Prescription Details

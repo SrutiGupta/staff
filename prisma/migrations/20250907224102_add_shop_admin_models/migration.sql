@@ -61,7 +61,7 @@ CREATE TABLE "public"."Shop" (
     "updatedAt" TIMESTAMP(3) NOT NULL,
     "lowStockThreshold" INTEGER NOT NULL DEFAULT 10,
     "currency" TEXT NOT NULL DEFAULT 'INR',
-    "timezone" TEXT NOT NULL DEFAULT 'Asia/Kolkata',
+    "timezone" TEXT NOT NULL DEFAULT 'Asia/Nabadwip',
 
     CONSTRAINT "Shop_pkey" PRIMARY KEY ("id")
 );

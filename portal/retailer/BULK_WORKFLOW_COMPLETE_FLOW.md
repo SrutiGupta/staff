@@ -534,7 +534,7 @@ Authorization: Bearer <token>
 **Query Parameters:**
 
 ```
-?search=optical&city=kolkata&page=1&limit=10
+?search=optical&city=Nabadwip&page=1&limit=10
 ```
 
 **Response (200):**
@@ -545,8 +545,8 @@ Authorization: Bearer <token>
     {
       "id": 1,
       "name": "Test Optical Shop",
-      "address": "456 Shop Street, Kolkata",
-      "city": "Kolkata",
+      "address": "456 Shop Street, Nabadwip",
+      "city": "Nabadwip",
       "phone": "+1234567891",
       "email": "shop1@opticalworld.com",
       "status": "ACTIVE",
@@ -565,8 +565,8 @@ Authorization: Bearer <token>
     {
       "id": 5,
       "name": "City Eyes Optical",
-      "address": "789 Vision Ave, Kolkata",
-      "city": "Kolkata",
+      "address": "789 Vision Ave, Nabadwip",
+      "city": "Nabadwip",
       "phone": "+1234567892",
       "email": "cityeyes@optical.com",
       "status": "ACTIVE",

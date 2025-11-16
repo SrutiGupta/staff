@@ -1180,7 +1180,7 @@ receipt.push(center("Roy & Roy Opticals"));
 receipt.push(
   center("Chari Chara Bazar Rd, near water tank, Nabadwip, West Bengal 741302")
 );
-receipt.push(center("Kolkata +91-96765 43210"));
+receipt.push(center("Nabadwip 098512 17089"));
 receipt.push(separator);
 receipt.push(
   line(

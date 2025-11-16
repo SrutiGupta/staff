@@ -68,7 +68,7 @@ async function setupTestData() {
       shop = await prisma.shop.create({
         data: {
           name: "Test Roy & Roy Opticals",
-          address: "68 Jessore Road, Kolkata",
+          address: "68 Jessore Road, Nabadwip",
           phone: "+91-96765-43210",
           email: "test@cleareyes.com",
         },

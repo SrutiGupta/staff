@@ -212,7 +212,7 @@ exports.register = async (req, res) => {
             email: shop.email.toLowerCase().trim(),
             lowStockThreshold: 10, // Default threshold
             currency: "INR",
-            timezone: "Asia/Kolkata",
+            timezone: "Asia/Nabadwip",
           },
         });
 

@@ -114,7 +114,7 @@ Click the button below to view your invoice PDF:
 💳 Cash, Card, UPI, Gift Card
 
 For any queries, please contact us:
-📱 +91-96765 43210
+📱 098512 17089
 📧 contact@cleareyes.com
 
 Thank you for choosing Roy & Roy Opticals!
@@ -231,7 +231,7 @@ Please settle the payment at your earliest convenience.
 
 *Payment Options:*
 💳 Cash, Card, UPI
-📱 +91-96765 43210
+📱 098512 17089
 
 Thank you!
       `.trim();

@@ -410,7 +410,7 @@ exports.generateInvoicePdf = async (req, res) => {
         100,
         { align: "center" }
       )
-      .text("Kolkata | +91-96765 43210", { align: "center" });
+      .text("Nabadwip | 098512 17089", { align: "center" });
 
     // === BOTTOM ROW: Invoice Info ===
     let infoY = 160;
@@ -604,7 +604,7 @@ exports.generateInvoiceThermal = async (req, res) => {
         "Chari Chara Bazar Rd, near water tank, Nabadwip, West Bengal 741302"
       )
     );
-    receipt.push(center("Kolkata +91-96765 43210"));
+    receipt.push(center("Nabadwip 098512 17089"));
     receipt.push(separator);
 
     receipt.push(
