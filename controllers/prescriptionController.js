@@ -473,12 +473,9 @@ exports.generatePrescriptionThermal = async (req, res) => {
 
     const receiptText = receipt.join("\n");
 
-    res.setHeader("Content-Type", "text/plain; charset=utf-8");
-    res.setHeader(
-      "Content-Disposition",
-      `attachment; filename=RX${prescriptionId}-thermal.txt`
-    );
-    res.status(200).send(receiptText);
+    res.status(200).json({
+      thermalContent: receiptText,
+    });
   } catch (error) {
     console.error("Error generating prescription thermal:", error);
     res
