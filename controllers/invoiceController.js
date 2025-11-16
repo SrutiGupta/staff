@@ -713,8 +713,9 @@ exports.generateInvoiceThermal = async (req, res) => {
 
     const receiptText = receipt.join("\n");
 
-    res.setHeader("Content-Type", "text/plain");
-    res.status(200).send(receiptText);
+    res.status(200).json({
+      thermalContent: receiptText,
+    });
   } catch (error) {
     console.error("Error generating thermal receipt:", error);
     res.status(500).json({ error: "Failed to generate thermal receipt" });
