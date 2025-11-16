@@ -178,7 +178,7 @@ exports.generatePrescriptionPdf = async (req, res) => {
       .fillColor("#000")
       .font("Helvetica-Bold")
       .fontSize(22)
-      .text("CLEAR EYES OPTICAL", 60, 50, { characterSpacing: 1.5 });
+      .text("Roy & Roy Opticals", 60, 50, { characterSpacing: 1.5 });
 
     // Barcode with prescription ID
     try {
@@ -201,9 +201,13 @@ exports.generatePrescriptionPdf = async (req, res) => {
       .font("Helvetica")
       .fontSize(10)
       .fillColor("#333")
-      .text("68 Jessore Road, Diamond Plaza", 0, 100, { align: "center" })
-      .text("Kolkata | +91-96765 43210", { align: "center" })
-      .text("Follow us on Instagram @cleareyes_optical", { align: "center" });
+      .text(
+        "Chari Chara Bazar Rd, near water tank, Nabadwip, West Bengal 741302",
+        0,
+        100,
+        { align: "center" }
+      )
+      .text("Kolkata | +91-96765 43210", { align: "center" });
 
     // --- PRESCRIPTION INFO ---
     let infoY = 150;
@@ -338,7 +342,7 @@ exports.generatePrescriptionPdf = async (req, res) => {
     doc
       .font("Helvetica")
       .fontSize(9)
-      .text("Visit again. Follow us on Instagram @cleareyes_optical", {
+      .text("Thank You for your patronage!", {
         align: "center",
       });
 
@@ -394,7 +398,7 @@ exports.generatePrescriptionThermal = async (req, res) => {
 
     // Header
     receipt.push(center("PRESCRIPTION RECEIPT"));
-    receipt.push(center("Clear Eyes Optical"));
+    receipt.push(center("Roy & Roy Opticals"));
     receipt.push(center("68 Jessore Road"));
     receipt.push(center("Diamond Plaza, Kolkata"));
     receipt.push(center("+91-96765 43210"));
@@ -466,7 +470,6 @@ exports.generatePrescriptionThermal = async (req, res) => {
     // Footer
     receipt.push(center("Thank You!"));
     receipt.push(center("Visit Again"));
-    receipt.push(center("@cleareyes_optical"));
     receipt.push(separator);
     receipt.push(center(new Date().toLocaleString()));
     receipt.push("");
