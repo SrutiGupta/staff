@@ -1,6 +1,4 @@
-const { PrismaClient } = require("@prisma/client");
-const prisma = new PrismaClient();
-
+const prisma = require("../../../lib/prisma");
 // Get all companies
 exports.getAllCompanies = async (req, res) => {
   try {
