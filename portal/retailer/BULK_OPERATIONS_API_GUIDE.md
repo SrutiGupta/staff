@@ -364,6 +364,22 @@ Distribute multiple products to multiple shops in one request.
 }
 ```
 
+**For Your Case (Versace Oversized - retailerProductId 9):**
+
+```json
+{
+  "distributions": [
+    {
+      "retailerShopId": 1,
+      "productId": 9,
+      "quantity": 10,
+      "unitPrice": 420.0,
+      "totalPrice": 4200.0
+    }
+  ]
+}
+```
+
 **Response (201):**
 
 ```json
