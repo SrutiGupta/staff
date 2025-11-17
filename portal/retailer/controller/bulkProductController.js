@@ -346,17 +346,16 @@ exports.bulkUpdateInventory = async (req, res) => {
           continue;
         }
 
-        // Update inventory
+        // Update inventory with correct field names
         await prisma.retailerProduct.update({
           where: { id: retailerProduct.id },
           data: {
-            quantity:
+            totalStock:
               update.quantity !== undefined ? update.quantity : undefined,
-            sellingPrice: update.sellingPrice
+            mrp: update.sellingPrice
               ? parseFloat(update.sellingPrice)
               : undefined,
-            minStockLevel: update.minStockLevel || undefined,
-            maxStockLevel: update.maxStockLevel || undefined,
+            reorderLevel: update.minStockLevel || undefined,
           },
         });
 
@@ -457,24 +456,26 @@ exports.bulkDistributeToShops = async (req, res) => {
           continue;
         }
 
-        // Create distribution
-        const distribution = await prisma.distribution.create({
+        // Create distribution using shopDistribution model
+        const distribution = await prisma.shopDistribution.create({
           data: {
+            retailerId,
             retailerShopId: parseInt(dist.retailerShopId),
-            productId: parseInt(dist.productId),
+            retailerProductId: retailerProduct.id,
             quantity: parseInt(dist.quantity),
             unitPrice: dist.unitPrice ? parseFloat(dist.unitPrice) : null,
-            totalPrice: dist.totalPrice ? parseFloat(dist.totalPrice) : null,
+            totalAmount: dist.totalPrice ? parseFloat(dist.totalPrice) : null,
             deliveryStatus: "PENDING",
             paymentStatus: "PENDING",
           },
         });
 
-        // Update retailer inventory (reduce quantity)
+        // Update retailer inventory (reduce available quantity)
         await prisma.retailerProduct.update({
           where: { id: retailerProduct.id },
           data: {
-            quantity: retailerProduct.quantity - dist.quantity,
+            allocatedStock: retailerProduct.allocatedStock + parseInt(dist.quantity),
+            availableStock: retailerProduct.availableStock - parseInt(dist.quantity),
           },
         });
 
