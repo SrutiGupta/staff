@@ -168,6 +168,11 @@ exports.bulkUploadProducts = async (req, res) => {
                 productData.quantity !== undefined &&
                 productData.quantity !== null
               ) {
+                const quantity = parseInt(productData.quantity);
+                console.log(
+                  `Saving inventory for ${productData.name}: quantity=${quantity}`
+                );
+
                 await tx.retailerProduct.upsert({
                   where: {
                     retailerId_productId: {
@@ -176,7 +181,9 @@ exports.bulkUploadProducts = async (req, res) => {
                     },
                   },
                   update: {
-                    totalStock: productData.quantity,
+                    totalStock: quantity,
+                    allocatedStock: 0, // Reset allocated when updating
+                    availableStock: quantity, // Make all available
                     mrp: productData.sellingPrice
                       ? parseFloat(productData.sellingPrice)
                       : null,
@@ -188,7 +195,9 @@ exports.bulkUploadProducts = async (req, res) => {
                     mrp: productData.sellingPrice
                       ? parseFloat(productData.sellingPrice)
                       : null,
-                    totalStock: productData.quantity,
+                    totalStock: quantity,
+                    allocatedStock: 0,
+                    availableStock: quantity,
                   },
                 });
               }
@@ -275,10 +284,10 @@ exports.exportRetailerProducts = async (req, res) => {
       model: rp.product.model,
       barcode: rp.product.barcode,
       basePrice: rp.product.basePrice,
-      sellingPrice: rp.sellingPrice,
-      quantity: rp.quantity,
-      minStockLevel: rp.minStockLevel,
-      maxStockLevel: rp.maxStockLevel,
+      sellingPrice: rp.mrp || rp.product.basePrice,
+      quantity: rp.totalStock,
+      minStockLevel: rp.reorderLevel,
+      maxStockLevel: null, // Not tracked separately
       lastUpdated: rp.updatedAt,
     }));
 
@@ -447,11 +456,23 @@ exports.bulkDistributeToShops = async (req, res) => {
           },
         });
 
-        if (!retailerProduct || retailerProduct.quantity < dist.quantity) {
+        if (!retailerProduct) {
           results.failed++;
           results.errors.push({
             row: i + 1,
-            error: "Insufficient product quantity in retailer inventory",
+            error: "Product not found in retailer inventory",
+          });
+          continue;
+        }
+
+        // Check available stock (totalStock - allocatedStock)
+        const availableQty =
+          retailerProduct.totalStock - retailerProduct.allocatedStock;
+        if (availableQty < dist.quantity) {
+          results.failed++;
+          results.errors.push({
+            row: i + 1,
+            error: `Insufficient product quantity. Available: ${availableQty}, Requested: ${dist.quantity}`,
           });
           continue;
         }
@@ -474,8 +495,10 @@ exports.bulkDistributeToShops = async (req, res) => {
         await prisma.retailerProduct.update({
           where: { id: retailerProduct.id },
           data: {
-            allocatedStock: retailerProduct.allocatedStock + parseInt(dist.quantity),
-            availableStock: retailerProduct.availableStock - parseInt(dist.quantity),
+            allocatedStock:
+              retailerProduct.allocatedStock + parseInt(dist.quantity),
+            availableStock:
+              retailerProduct.availableStock - parseInt(dist.quantity),
           },
         });
 

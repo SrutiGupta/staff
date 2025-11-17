@@ -383,21 +383,22 @@ exports.getRetailerProducts = async (req, res) => {
       model: rp.product.model,
       barcode: rp.product.barcode,
       basePrice: rp.product.basePrice,
-      sellingPrice: rp.sellingPrice || rp.product.basePrice,
-      quantity: rp.quantity,
-      minStockLevel: rp.minStockLevel,
-      maxStockLevel: rp.maxStockLevel,
-      totalStock: rp.quantity,
+      sellingPrice: rp.mrp || rp.product.basePrice,
+      quantity: rp.totalStock,
+      minStockLevel: rp.reorderLevel,
+      maxStockLevel: null, // Not tracked separately
+      totalStock: rp.totalStock,
       allocatedStock: rp.allocatedStock || 0,
-      availableStock: rp.quantity - (rp.allocatedStock || 0),
-      isActive: true,
+      availableStock:
+        rp.availableStock || rp.totalStock - (rp.allocatedStock || 0),
+      isActive: rp.isActive !== false,
       stockStatus:
-        rp.quantity === 0
+        rp.totalStock === 0
           ? "OUT_OF_STOCK"
-          : rp.quantity <= (rp.minStockLevel || 10)
+          : rp.totalStock <= (rp.reorderLevel || 50)
           ? "LOW_STOCK"
           : "IN_STOCK",
-      stockValue: rp.quantity * (rp.sellingPrice || rp.product.basePrice),
+      stockValue: rp.totalStock * (rp.mrp || rp.product.basePrice),
       lastUpdated: rp.updatedAt,
     }));
 
