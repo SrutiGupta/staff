@@ -43,27 +43,28 @@ exports.bulkUploadProducts = async (req, res) => {
       const batchEnd = Math.min(batchStart + BATCH_SIZE, products.length);
       const batch = products.slice(batchStart, batchEnd);
 
-      // Process each batch in transaction for ACID compliance
-      try {
-        await prisma.$transaction(async (tx) => {
-          for (let i = 0; i < batch.length; i++) {
-            const productData = batch[i];
-            const rowNumber = batchStart + i + 1;
+      // Process each item with individual transaction (flexible error handling)
+      for (let i = 0; i < batch.length; i++) {
+        const productData = batch[i];
+        const rowNumber = batchStart + i + 1;
 
-            try {
-              // Validate required fields
-              const validationErrors = validateProductData(productData, i);
-              if (validationErrors.length > 0) {
-                results.failed++;
-                results.errors.push({
-                  row: rowNumber,
-                  product: productData.name || "Unknown",
-                  errors: validationErrors,
-                });
-                continue;
-              }
+        try {
+          // Validate required fields
+          const validationErrors = validateProductData(productData, i);
+          if (validationErrors.length > 0) {
+            results.failed++;
+            results.errors.push({
+              row: rowNumber,
+              product: productData.name || "Unknown",
+              errors: validationErrors,
+            });
+            continue;
+          }
 
-              // Get or create company (within transaction)
+          // Wrap each item in its own transaction for isolation
+          try {
+            await prisma.$transaction(async (tx) => {
+              // Get or create company
               let company = await tx.company.findUnique({
                 where: { name: productData.companyName },
               });
@@ -77,17 +78,17 @@ exports.bulkUploadProducts = async (req, res) => {
                 });
               }
 
-              // Check if product already exists by SKU and company
+              // Check if product already exists by SKU
               let product = await tx.product.findFirst({
                 where: {
-                  AND: [{ sku: productData.sku }, { companyId: company.id }],
+                  sku: productData.sku,
                 },
               });
 
-              if (!product) {
-                // Map frameType to valid enum values
-                let frameTypeValue = null;
-                if (productData.frameType) {
+              // If product exists with different company, create new one with unique SKU
+              if (product && product.companyId !== company.id) {
+                // Create new product if SKU exists for different company
+                const mapFrameType = (frameType) => {
                   const frameTypeMap = {
                     FULL_RIM: "RECTANGULAR",
                     HALF_RIM: "SEMI_RIMLESS",
@@ -102,11 +103,48 @@ exports.bulkUploadProducts = async (req, res) => {
                     SEMI_RIM: "SEMI_RIMLESS",
                     WRAP_AROUND: "WRAP_AROUND",
                   };
-                  frameTypeValue =
-                    frameTypeMap[productData.frameType.toUpperCase()] || null;
-                }
+                  return frameType
+                    ? frameTypeMap[frameType.toUpperCase()] || null
+                    : null;
+                };
 
-                // Create new product (within transaction)
+                product = await tx.product.create({
+                  data: {
+                    name: productData.name,
+                    description: productData.description || null,
+                    basePrice: parseFloat(productData.basePrice),
+                    barcode: productData.barcode || null,
+                    sku: `${productData.sku}-${company.id}`,
+                    eyewearType: productData.eyewearType.toUpperCase(),
+                    frameType: mapFrameType(productData.frameType),
+                    material: productData.material || null,
+                    color: productData.color || null,
+                    size: productData.size || null,
+                    model: productData.model || null,
+                    companyId: company.id,
+                  },
+                });
+              } else if (!product) {
+                // Map frameType to valid enum values
+                const frameTypeMap = {
+                  FULL_RIM: "RECTANGULAR",
+                  HALF_RIM: "SEMI_RIMLESS",
+                  RIMLESS: "RIMLESS",
+                  AVIATOR: "AVIATOR",
+                  CAT_EYE: "CAT_EYE",
+                  WAYFARER: "WAYFARER",
+                  CLUBMASTER: "CLUBMASTER",
+                  ROUND: "ROUND",
+                  OVAL: "OVAL",
+                  SQUARE: "SQUARE",
+                  SEMI_RIM: "SEMI_RIMLESS",
+                  WRAP_AROUND: "WRAP_AROUND",
+                };
+                const frameTypeValue = productData.frameType
+                  ? frameTypeMap[productData.frameType.toUpperCase()] || null
+                  : null;
+
+                // Create new product
                 product = await tx.product.create({
                   data: {
                     name: productData.name,
@@ -125,8 +163,11 @@ exports.bulkUploadProducts = async (req, res) => {
                 });
               }
 
-              // Add to retailer inventory (within transaction)
-              if (productData.quantity && productData.quantity > 0) {
+              // Add to retailer inventory or update if exists
+              if (
+                productData.quantity !== undefined &&
+                productData.quantity !== null
+              ) {
                 await tx.retailerProduct.upsert({
                   where: {
                     retailerId_productId: {
@@ -136,11 +177,17 @@ exports.bulkUploadProducts = async (req, res) => {
                   },
                   update: {
                     totalStock: productData.quantity,
+                    mrp: productData.sellingPrice
+                      ? parseFloat(productData.sellingPrice)
+                      : null,
                   },
                   create: {
                     retailerId,
                     productId: product.id,
                     wholesalePrice: parseFloat(productData.basePrice),
+                    mrp: productData.sellingPrice
+                      ? parseFloat(productData.sellingPrice)
+                      : null,
                     totalStock: productData.quantity,
                   },
                 });
@@ -155,25 +202,22 @@ exports.bulkUploadProducts = async (req, res) => {
                 quantity: productData.quantity || 0,
                 sellingPrice: productData.sellingPrice || productData.basePrice,
               });
-            } catch (itemError) {
-              results.failed++;
-              results.errors.push({
-                row: rowNumber,
-                product: productData.name || "Unknown",
-                errors: [itemError.message],
-              });
-            }
+            });
+          } catch (txError) {
+            // Item-level transaction error
+            results.failed++;
+            results.errors.push({
+              row: rowNumber,
+              product: productData.name || "Unknown",
+              errors: [txError.message],
+            });
           }
-        });
-      } catch (batchError) {
-        // Entire batch failed - report all items in batch as failed
-        for (let i = batchStart; i < batchEnd; i++) {
-          const productData = products[i];
+        } catch (itemError) {
           results.failed++;
           results.errors.push({
-            row: i + 1,
+            row: rowNumber,
             product: productData.name || "Unknown",
-            errors: [`Batch transaction failed: ${batchError.message}`],
+            errors: [itemError.message],
           });
         }
       }
