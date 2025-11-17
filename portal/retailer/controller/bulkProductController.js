@@ -12,7 +12,7 @@ const prisma = require("../../../lib/prisma");
 exports.bulkUploadProducts = async (req, res) => {
   try {
     const { products } = req.body;
-    const retailerId = req.user.id;
+    const retailerId = req.retailer.id;
 
     // Validation
     if (!products || !Array.isArray(products) || products.length === 0) {
@@ -77,6 +77,27 @@ exports.bulkUploadProducts = async (req, res) => {
         });
 
         if (!product) {
+          // Map frameType to valid enum values
+          let frameTypeValue = null;
+          if (productData.frameType) {
+            const frameTypeMap = {
+              FULL_RIM: "RECTANGULAR",
+              HALF_RIM: "SEMI_RIMLESS",
+              RIMLESS: "RIMLESS",
+              AVIATOR: "AVIATOR",
+              CAT_EYE: "CAT_EYE",
+              WAYFARER: "WAYFARER",
+              CLUBMASTER: "CLUBMASTER",
+              ROUND: "ROUND",
+              OVAL: "OVAL",
+              SQUARE: "SQUARE",
+              SEMI_RIM: "SEMI_RIMLESS",
+              WRAP_AROUND: "WRAP_AROUND",
+            };
+            frameTypeValue =
+              frameTypeMap[productData.frameType.toUpperCase()] || null;
+          }
+
           // Create new product
           product = await prisma.product.create({
             data: {
@@ -86,7 +107,7 @@ exports.bulkUploadProducts = async (req, res) => {
               barcode: productData.barcode || null,
               sku: productData.sku,
               eyewearType: productData.eyewearType.toUpperCase(), // GLASSES, SUNGLASSES, LENSES
-              frameType: productData.frameType || null, // FULL_RIM, HALF_RIM, RIMLESS
+              frameType: frameTypeValue, // Map to valid enum
               material: productData.material || null,
               color: productData.color || null,
               size: productData.size || null,
@@ -106,22 +127,13 @@ exports.bulkUploadProducts = async (req, res) => {
               },
             },
             update: {
-              quantity: productData.quantity,
-              sellingPrice: parseFloat(
-                productData.sellingPrice || productData.basePrice
-              ),
-              minStockLevel: productData.minStockLevel || 10,
-              maxStockLevel: productData.maxStockLevel || 100,
+              totalStock: productData.quantity,
             },
             create: {
               retailerId,
               productId: product.id,
-              quantity: productData.quantity,
-              sellingPrice: parseFloat(
-                productData.sellingPrice || productData.basePrice
-              ),
-              minStockLevel: productData.minStockLevel || 10,
-              maxStockLevel: productData.maxStockLevel || 100,
+              wholesalePrice: parseFloat(productData.basePrice), // Use basePrice as wholesale price
+              totalStock: productData.quantity,
             },
           });
         }
@@ -169,7 +181,7 @@ exports.bulkUploadProducts = async (req, res) => {
 // ============================================
 exports.exportRetailerProducts = async (req, res) => {
   try {
-    const retailerId = req.user.id;
+    const retailerId = req.retailer.id;
 
     const retailerProducts = await prisma.retailerProduct.findMany({
       where: { retailerId },
@@ -223,7 +235,7 @@ exports.exportRetailerProducts = async (req, res) => {
 exports.bulkUpdateInventory = async (req, res) => {
   try {
     const { updates } = req.body;
-    const retailerId = req.user.id;
+    const retailerId = req.retailer.id;
 
     if (!updates || !Array.isArray(updates) || updates.length === 0) {
       return res.status(400).json({
@@ -314,7 +326,7 @@ exports.bulkUpdateInventory = async (req, res) => {
 exports.bulkDistributeToShops = async (req, res) => {
   try {
     const { distributions } = req.body;
-    const retailerId = req.user.id;
+    const retailerId = req.retailer.id;
 
     if (
       !distributions ||
