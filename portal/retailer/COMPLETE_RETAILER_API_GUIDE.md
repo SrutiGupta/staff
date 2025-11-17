@@ -2,7 +2,7 @@
 
 ## 🎯 Overview
 
-This comprehensive guide covers all **38 endpoints** in the Retailer Portal, organized by functionality with complete request/response examples for Postman testing.
+This comprehensive guide covers all **39 endpoints** in the Retailer Portal, organized by functionality with complete request/response examples for Postman testing.
 
 **Base URL:** `http://localhost:8080/retailer`
 
@@ -817,9 +817,65 @@ Authorization: Bearer <token>
 }
 ```
 
-### 22. Add Product to Retailer Inventory
+### 22. Get Single Retailer Product
 
-**POST** `/inventory/my-products`
+**GET** `/inventory/my-products/:retailerProductId`
+
+**Headers:**
+
+```
+Authorization: Bearer <token>
+```
+
+**URL Parameters:**
+
+- `retailerProductId` (required): The ID of the retailer product to fetch
+
+**Response (200):**
+
+```json
+{
+  "id": 1,
+  "retailerId": 1,
+  "productId": 1,
+  "sku": "RB-AV-001",
+  "name": "Ray-Ban Aviator Classic",
+  "description": "Classic aviator sunglasses with metal frame",
+  "companyName": "Ray-Ban",
+  "companyDescription": "Premium eyewear brand",
+  "eyewearType": "SUNGLASSES",
+  "frameType": "FULL_RIM",
+  "material": "Metal",
+  "color": "Gold",
+  "size": "Medium",
+  "model": "RB3025",
+  "barcode": "1234567890123",
+  "basePrice": 200,
+  "sellingPrice": 250,
+  "quantity": 50,
+  "minStockLevel": 10,
+  "maxStockLevel": null,
+  "totalStock": 50,
+  "allocatedStock": 0,
+  "availableStock": 50,
+  "isActive": true,
+  "stockStatus": "IN_STOCK",
+  "stockValue": 12500,
+  "lastUpdated": "2025-11-17T10:30:00.000Z"
+}
+```
+
+**Response (404):**
+
+```json
+{
+  "error": "Product not found"
+}
+```
+
+### 23. Update Retailer Product
+
+**PUT** `/inventory/my-products/:retailerProductId`
 
 **Headers:**
 
@@ -860,9 +916,9 @@ Authorization: Bearer <token>
 }
 ```
 
-### 23. Update Retailer Product
+### 24. Add Product to Retailer Inventory
 
-**PUT** `/inventory/my-products/:retailerProductId`
+**POST** `/inventory/my-products`
 
 **Headers:**
 
@@ -893,7 +949,7 @@ Authorization: Bearer <token>
 }
 ```
 
-### 24. Update Stock
+### 25. Update Stock
 
 **PUT** `/inventory/my-products/:retailerProductId/stock`
 
@@ -929,7 +985,7 @@ Authorization: Bearer <token>
 }
 ```
 
-### 25. Get Inventory Summary
+### 26. Get Inventory Summary
 
 **GET** `/inventory/summary`
 
@@ -964,7 +1020,7 @@ Authorization: Bearer <token>
 
 ## 📦 BULK OPERATIONS ENDPOINTS (5)
 
-### 26. Get Bulk Upload Template
+### 27. Get Bulk Upload Template
 
 **GET** `/bulk/template`
 
@@ -1048,7 +1104,7 @@ Authorization: Bearer <token>
 
 ---
 
-### 27. Bulk Upload Products
+### 28. Bulk Upload Products
 
 **POST** `/bulk/products/upload`
 
@@ -1186,7 +1242,7 @@ Content-Type: application/json
 
 ---
 
-### 28. Bulk Update Inventory
+### 29. Bulk Update Inventory
 
 **POST** `/bulk/inventory/update`
 
@@ -1299,7 +1355,7 @@ Content-Type: application/json
 
 ---
 
-### 29. Bulk Distribute to Shops
+### 30. Bulk Distribute to Shops
 
 **POST** `/bulk/distributions/create`
 

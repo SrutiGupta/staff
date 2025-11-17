@@ -815,3 +815,74 @@ exports.getInventorySummary = async (req, res) => {
     res.status(500).json({ error: "Failed to fetch inventory summary" });
   }
 };
+
+// ✅ GET SINGLE RETAILER PRODUCT BY ID
+exports.getRetailerProductById = async (req, res) => {
+  try {
+    const { retailerProductId } = req.params;
+    const retailerId = req.retailer.id;
+
+    const retailerProduct = await prisma.retailerProduct.findFirst({
+      where: {
+        AND: [{ id: parseInt(retailerProductId) }, { retailerId }],
+      },
+      include: {
+        product: {
+          include: {
+            company: true,
+          },
+        },
+        retailerInventory: true,
+      },
+    });
+
+    if (!retailerProduct) {
+      return res.status(404).json({ error: "Product not found" });
+    }
+
+    // Format product to match bulk upload structure
+    const formattedProduct = {
+      id: retailerProduct.id,
+      retailerId: retailerProduct.retailerId,
+      productId: retailerProduct.productId,
+      sku: retailerProduct.product.sku,
+      name: retailerProduct.product.name,
+      description: retailerProduct.product.description,
+      companyName: retailerProduct.product.company.name,
+      companyDescription: retailerProduct.product.company.description,
+      eyewearType: retailerProduct.product.eyewearType,
+      frameType: retailerProduct.product.frameType,
+      material: retailerProduct.product.material,
+      color: retailerProduct.product.color,
+      size: retailerProduct.product.size,
+      model: retailerProduct.product.model,
+      barcode: retailerProduct.product.barcode,
+      basePrice: retailerProduct.product.basePrice,
+      sellingPrice: retailerProduct.mrp || retailerProduct.product.basePrice,
+      quantity: retailerProduct.totalStock,
+      minStockLevel: retailerProduct.reorderLevel,
+      maxStockLevel: null,
+      totalStock: retailerProduct.totalStock,
+      allocatedStock: retailerProduct.allocatedStock || 0,
+      availableStock:
+        retailerProduct.availableStock ||
+        retailerProduct.totalStock - (retailerProduct.allocatedStock || 0),
+      isActive: retailerProduct.isActive !== false,
+      stockStatus:
+        retailerProduct.totalStock === 0
+          ? "OUT_OF_STOCK"
+          : retailerProduct.totalStock <= (retailerProduct.reorderLevel || 50)
+          ? "LOW_STOCK"
+          : "IN_STOCK",
+      stockValue:
+        retailerProduct.totalStock *
+        (retailerProduct.mrp || retailerProduct.product.basePrice),
+      lastUpdated: retailerProduct.updatedAt,
+    };
+
+    res.json(formattedProduct);
+  } catch (error) {
+    console.error("Error fetching retailer product:", error);
+    res.status(500).json({ error: "Failed to fetch product" });
+  }
+};
