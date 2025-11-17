@@ -365,22 +365,44 @@ exports.getRetailerProducts = async (req, res) => {
 
     const totalProducts = await prisma.retailerProduct.count({ where });
 
-    // Add calculated fields
-    const enrichedProducts = retailerProducts.map((rp) => ({
-      ...rp,
+    // Format products to match bulk upload structure
+    const formattedProducts = retailerProducts.map((rp) => ({
+      id: rp.id,
+      retailerId: rp.retailerId,
+      productId: rp.productId,
+      sku: rp.product.sku,
+      name: rp.product.name,
+      description: rp.product.description,
+      companyName: rp.product.company.name,
+      companyDescription: rp.product.company.description,
+      eyewearType: rp.product.eyewearType,
+      frameType: rp.product.frameType,
+      material: rp.product.material,
+      color: rp.product.color,
+      size: rp.product.size,
+      model: rp.product.model,
+      barcode: rp.product.barcode,
+      basePrice: rp.product.basePrice,
+      sellingPrice: rp.sellingPrice || rp.product.basePrice,
+      quantity: rp.quantity,
+      minStockLevel: rp.minStockLevel,
+      maxStockLevel: rp.maxStockLevel,
+      totalStock: rp.quantity,
+      allocatedStock: rp.allocatedStock || 0,
+      availableStock: rp.quantity - (rp.allocatedStock || 0),
+      isActive: true,
       stockStatus:
-        rp.availableStock === 0
+        rp.quantity === 0
           ? "OUT_OF_STOCK"
-          : rp.availableStock <= rp.reorderLevel
+          : rp.quantity <= (rp.minStockLevel || 10)
           ? "LOW_STOCK"
           : "IN_STOCK",
-      stockValue: rp.availableStock * (rp.wholesalePrice || 0),
-      allocationRate:
-        rp.totalStock > 0 ? (rp.allocatedStock / rp.totalStock) * 100 : 0,
+      stockValue: rp.quantity * (rp.sellingPrice || rp.product.basePrice),
+      lastUpdated: rp.updatedAt,
     }));
 
     res.json({
-      products: enrichedProducts,
+      products: formattedProducts,
       pagination: {
         page: parseInt(page),
         limit: parseInt(limit),
