@@ -12,7 +12,7 @@ const prisma = require("../../../lib/prisma");
 exports.bulkUploadProducts = async (req, res) => {
   try {
     const { products } = req.body;
-    const retailerId = req.user.id;
+    const retailerId = req.retailer.id;
 
     // Validation
     if (!products || !Array.isArray(products) || products.length === 0) {
@@ -21,9 +21,9 @@ exports.bulkUploadProducts = async (req, res) => {
       });
     }
 
-    if (products.length > 1000) {
+    if (products.length > 3000) {
       return res.status(400).json({
-        error: "Maximum 1000 products can be uploaded at once",
+        error: "Maximum 3000 products can be uploaded at once",
       });
     }
 
@@ -34,114 +34,201 @@ exports.bulkUploadProducts = async (req, res) => {
       products: [],
     };
 
-    // Process each product
-    for (let i = 0; i < products.length; i++) {
-      const productData = products[i];
+    // Process in batches of 100 for database safety (Prisma transactions)
+    const BATCH_SIZE = 100;
+    const totalBatches = Math.ceil(products.length / BATCH_SIZE);
 
-      try {
-        // Validate required fields
-        const errors = validateProductData(productData, i);
-        if (errors.length > 0) {
+    for (let batchNum = 0; batchNum < totalBatches; batchNum++) {
+      const batchStart = batchNum * BATCH_SIZE;
+      const batchEnd = Math.min(batchStart + BATCH_SIZE, products.length);
+      const batch = products.slice(batchStart, batchEnd);
+
+      // Process each item with individual transaction (flexible error handling)
+      for (let i = 0; i < batch.length; i++) {
+        const productData = batch[i];
+        const rowNumber = batchStart + i + 1;
+
+        try {
+          // Validate required fields
+          const validationErrors = validateProductData(productData, i);
+          if (validationErrors.length > 0) {
+            results.failed++;
+            results.errors.push({
+              row: rowNumber,
+              product: productData.name || "Unknown",
+              errors: validationErrors,
+            });
+            continue;
+          }
+
+          // Wrap each item in its own transaction for isolation
+          try {
+            await prisma.$transaction(async (tx) => {
+              // Get or create company
+              let company = await tx.company.findUnique({
+                where: { name: productData.companyName },
+              });
+
+              if (!company) {
+                company = await tx.company.create({
+                  data: {
+                    name: productData.companyName,
+                    description: productData.companyDescription || null,
+                  },
+                });
+              }
+
+              // Check if product already exists by SKU
+              let product = await tx.product.findFirst({
+                where: {
+                  sku: productData.sku,
+                },
+              });
+
+              // If product exists with different company, create new one with unique SKU
+              if (product && product.companyId !== company.id) {
+                // Create new product if SKU exists for different company
+                const mapFrameType = (frameType) => {
+                  const frameTypeMap = {
+                    FULL_RIM: "RECTANGULAR",
+                    HALF_RIM: "SEMI_RIMLESS",
+                    RIMLESS: "RIMLESS",
+                    AVIATOR: "AVIATOR",
+                    CAT_EYE: "CAT_EYE",
+                    WAYFARER: "WAYFARER",
+                    CLUBMASTER: "CLUBMASTER",
+                    ROUND: "ROUND",
+                    OVAL: "OVAL",
+                    SQUARE: "SQUARE",
+                    SEMI_RIM: "SEMI_RIMLESS",
+                    WRAP_AROUND: "WRAP_AROUND",
+                  };
+                  return frameType
+                    ? frameTypeMap[frameType.toUpperCase()] || null
+                    : null;
+                };
+
+                product = await tx.product.create({
+                  data: {
+                    name: productData.name,
+                    description: productData.description || null,
+                    basePrice: parseFloat(productData.basePrice),
+                    barcode: productData.barcode || null,
+                    sku: `${productData.sku}-${company.id}`,
+                    eyewearType: productData.eyewearType.toUpperCase(),
+                    frameType: mapFrameType(productData.frameType),
+                    material: productData.material || null,
+                    color: productData.color || null,
+                    size: productData.size || null,
+                    model: productData.model || null,
+                    companyId: company.id,
+                  },
+                });
+              } else if (!product) {
+                // Map frameType to valid enum values
+                const frameTypeMap = {
+                  FULL_RIM: "RECTANGULAR",
+                  HALF_RIM: "SEMI_RIMLESS",
+                  RIMLESS: "RIMLESS",
+                  AVIATOR: "AVIATOR",
+                  CAT_EYE: "CAT_EYE",
+                  WAYFARER: "WAYFARER",
+                  CLUBMASTER: "CLUBMASTER",
+                  ROUND: "ROUND",
+                  OVAL: "OVAL",
+                  SQUARE: "SQUARE",
+                  SEMI_RIM: "SEMI_RIMLESS",
+                  WRAP_AROUND: "WRAP_AROUND",
+                };
+                const frameTypeValue = productData.frameType
+                  ? frameTypeMap[productData.frameType.toUpperCase()] || null
+                  : null;
+
+                // Create new product
+                product = await tx.product.create({
+                  data: {
+                    name: productData.name,
+                    description: productData.description || null,
+                    basePrice: parseFloat(productData.basePrice),
+                    barcode: productData.barcode || null,
+                    sku: productData.sku,
+                    eyewearType: productData.eyewearType.toUpperCase(),
+                    frameType: frameTypeValue,
+                    material: productData.material || null,
+                    color: productData.color || null,
+                    size: productData.size || null,
+                    model: productData.model || null,
+                    companyId: company.id,
+                  },
+                });
+              }
+
+              // Add to retailer inventory or update if exists
+              if (
+                productData.quantity !== undefined &&
+                productData.quantity !== null
+              ) {
+                const quantity = parseInt(productData.quantity);
+                console.log(
+                  `Saving inventory for ${productData.name}: quantity=${quantity}`
+                );
+
+                await tx.retailerProduct.upsert({
+                  where: {
+                    retailerId_productId: {
+                      retailerId,
+                      productId: product.id,
+                    },
+                  },
+                  update: {
+                    totalStock: quantity,
+                    allocatedStock: 0, // Reset allocated when updating
+                    availableStock: quantity, // Make all available
+                    mrp: productData.sellingPrice
+                      ? parseFloat(productData.sellingPrice)
+                      : null,
+                  },
+                  create: {
+                    retailerId,
+                    productId: product.id,
+                    wholesalePrice: parseFloat(productData.basePrice),
+                    mrp: productData.sellingPrice
+                      ? parseFloat(productData.sellingPrice)
+                      : null,
+                    totalStock: quantity,
+                    allocatedStock: 0,
+                    availableStock: quantity,
+                  },
+                });
+              }
+
+              results.successful++;
+              results.products.push({
+                id: product.id,
+                name: product.name,
+                sku: product.sku,
+                company: company.name,
+                quantity: productData.quantity || 0,
+                sellingPrice: productData.sellingPrice || productData.basePrice,
+              });
+            });
+          } catch (txError) {
+            // Item-level transaction error
+            results.failed++;
+            results.errors.push({
+              row: rowNumber,
+              product: productData.name || "Unknown",
+              errors: [txError.message],
+            });
+          }
+        } catch (itemError) {
           results.failed++;
           results.errors.push({
-            row: i + 1,
+            row: rowNumber,
             product: productData.name || "Unknown",
-            errors,
-          });
-          continue;
-        }
-
-        // Get or create company
-        let company = await prisma.company.findUnique({
-          where: { name: productData.companyName },
-        });
-
-        if (!company) {
-          company = await prisma.company.create({
-            data: {
-              name: productData.companyName,
-              description: productData.companyDescription || null,
-            },
+            errors: [itemError.message],
           });
         }
-
-        // Check if product already exists
-        let product = await prisma.product.findFirst({
-          where: {
-            AND: [
-              { name: productData.name },
-              { companyId: company.id },
-              { sku: productData.sku },
-            ],
-          },
-        });
-
-        if (!product) {
-          // Create new product
-          product = await prisma.product.create({
-            data: {
-              name: productData.name,
-              description: productData.description || null,
-              basePrice: parseFloat(productData.basePrice),
-              barcode: productData.barcode || null,
-              sku: productData.sku,
-              eyewearType: productData.eyewearType.toUpperCase(), // GLASSES, SUNGLASSES, LENSES
-              frameType: productData.frameType || null, // FULL_RIM, HALF_RIM, RIMLESS
-              material: productData.material || null,
-              color: productData.color || null,
-              size: productData.size || null,
-              model: productData.model || null,
-              companyId: company.id,
-            },
-          });
-        }
-
-        // Add to retailer inventory (if quantity provided)
-        if (productData.quantity && productData.quantity > 0) {
-          await prisma.retailerProduct.upsert({
-            where: {
-              retailerId_productId: {
-                retailerId,
-                productId: product.id,
-              },
-            },
-            update: {
-              quantity: productData.quantity,
-              sellingPrice: parseFloat(
-                productData.sellingPrice || productData.basePrice
-              ),
-              minStockLevel: productData.minStockLevel || 10,
-              maxStockLevel: productData.maxStockLevel || 100,
-            },
-            create: {
-              retailerId,
-              productId: product.id,
-              quantity: productData.quantity,
-              sellingPrice: parseFloat(
-                productData.sellingPrice || productData.basePrice
-              ),
-              minStockLevel: productData.minStockLevel || 10,
-              maxStockLevel: productData.maxStockLevel || 100,
-            },
-          });
-        }
-
-        results.successful++;
-        results.products.push({
-          id: product.id,
-          name: product.name,
-          sku: product.sku,
-          company: company.name,
-          quantity: productData.quantity || 0,
-          sellingPrice: productData.sellingPrice || productData.basePrice,
-        });
-      } catch (error) {
-        results.failed++;
-        results.errors.push({
-          row: i + 1,
-          product: productData.name || "Unknown",
-          errors: [error.message],
-        });
       }
     }
 
@@ -169,7 +256,7 @@ exports.bulkUploadProducts = async (req, res) => {
 // ============================================
 exports.exportRetailerProducts = async (req, res) => {
   try {
-    const retailerId = req.user.id;
+    const retailerId = req.retailer.id;
 
     const retailerProducts = await prisma.retailerProduct.findMany({
       where: { retailerId },
@@ -197,10 +284,10 @@ exports.exportRetailerProducts = async (req, res) => {
       model: rp.product.model,
       barcode: rp.product.barcode,
       basePrice: rp.product.basePrice,
-      sellingPrice: rp.sellingPrice,
-      quantity: rp.quantity,
-      minStockLevel: rp.minStockLevel,
-      maxStockLevel: rp.maxStockLevel,
+      sellingPrice: rp.mrp || rp.product.basePrice,
+      quantity: rp.totalStock,
+      minStockLevel: rp.reorderLevel,
+      maxStockLevel: null, // Not tracked separately
       lastUpdated: rp.updatedAt,
     }));
 
@@ -223,7 +310,7 @@ exports.exportRetailerProducts = async (req, res) => {
 exports.bulkUpdateInventory = async (req, res) => {
   try {
     const { updates } = req.body;
-    const retailerId = req.user.id;
+    const retailerId = req.retailer.id;
 
     if (!updates || !Array.isArray(updates) || updates.length === 0) {
       return res.status(400).json({
@@ -268,17 +355,16 @@ exports.bulkUpdateInventory = async (req, res) => {
           continue;
         }
 
-        // Update inventory
+        // Update inventory with correct field names
         await prisma.retailerProduct.update({
           where: { id: retailerProduct.id },
           data: {
-            quantity:
+            totalStock:
               update.quantity !== undefined ? update.quantity : undefined,
-            sellingPrice: update.sellingPrice
+            mrp: update.sellingPrice
               ? parseFloat(update.sellingPrice)
               : undefined,
-            minStockLevel: update.minStockLevel || undefined,
-            maxStockLevel: update.maxStockLevel || undefined,
+            reorderLevel: update.minStockLevel || undefined,
           },
         });
 
@@ -314,7 +400,7 @@ exports.bulkUpdateInventory = async (req, res) => {
 exports.bulkDistributeToShops = async (req, res) => {
   try {
     const { distributions } = req.body;
-    const retailerId = req.user.id;
+    const retailerId = req.retailer.id;
 
     if (
       !distributions ||
@@ -370,33 +456,49 @@ exports.bulkDistributeToShops = async (req, res) => {
           },
         });
 
-        if (!retailerProduct || retailerProduct.quantity < dist.quantity) {
+        if (!retailerProduct) {
           results.failed++;
           results.errors.push({
             row: i + 1,
-            error: "Insufficient product quantity in retailer inventory",
+            error: "Product not found in retailer inventory",
           });
           continue;
         }
 
-        // Create distribution
-        const distribution = await prisma.distribution.create({
+        // Check available stock (totalStock - allocatedStock)
+        const availableQty =
+          retailerProduct.totalStock - retailerProduct.allocatedStock;
+        if (availableQty < dist.quantity) {
+          results.failed++;
+          results.errors.push({
+            row: i + 1,
+            error: `Insufficient product quantity. Available: ${availableQty}, Requested: ${dist.quantity}`,
+          });
+          continue;
+        }
+
+        // Create distribution using shopDistribution model
+        const distribution = await prisma.shopDistribution.create({
           data: {
+            retailerId,
             retailerShopId: parseInt(dist.retailerShopId),
-            productId: parseInt(dist.productId),
+            retailerProductId: retailerProduct.id,
             quantity: parseInt(dist.quantity),
             unitPrice: dist.unitPrice ? parseFloat(dist.unitPrice) : null,
-            totalPrice: dist.totalPrice ? parseFloat(dist.totalPrice) : null,
+            totalAmount: dist.totalPrice ? parseFloat(dist.totalPrice) : null,
             deliveryStatus: "PENDING",
             paymentStatus: "PENDING",
           },
         });
 
-        // Update retailer inventory (reduce quantity)
+        // Update retailer inventory (reduce available quantity)
         await prisma.retailerProduct.update({
           where: { id: retailerProduct.id },
           data: {
-            quantity: retailerProduct.quantity - dist.quantity,
+            allocatedStock:
+              retailerProduct.allocatedStock + parseInt(dist.quantity),
+            availableStock:
+              retailerProduct.availableStock - parseInt(dist.quantity),
           },
         });
 

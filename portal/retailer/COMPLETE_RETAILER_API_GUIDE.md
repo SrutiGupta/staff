@@ -2,7 +2,7 @@
 
 ## 🎯 Overview
 
-This comprehensive guide covers all **33 endpoints** in the Retailer Portal, organized by functionality with complete request/response examples for Postman testing.
+This comprehensive guide covers all **39 endpoints** in the Retailer Portal, organized by functionality with complete request/response examples for Postman testing.
 
 **Base URL:** `http://localhost:8080/retailer`
 
@@ -755,35 +755,127 @@ Authorization: Bearer <token>
       "id": 1,
       "retailerId": 1,
       "productId": 1,
-      "wholesalePrice": 150,
+      "sku": "RB-AV-001",
+      "name": "Ray-Ban Aviator Classic",
+      "description": "Classic aviator sunglasses with metal frame",
+      "companyName": "Ray-Ban",
+      "companyDescription": "Premium eyewear brand",
+      "eyewearType": "SUNGLASSES",
+      "frameType": "FULL_RIM",
+      "material": "Metal",
+      "color": "Gold",
+      "size": "Medium",
+      "model": "RB3025",
+      "barcode": "1234567890123",
+      "basePrice": 200,
+      "sellingPrice": 250,
+      "quantity": 50,
+      "minStockLevel": 10,
+      "maxStockLevel": 100,
       "totalStock": 50,
       "allocatedStock": 0,
       "availableStock": 50,
-      "isActive": true,
-      "product": {
-        "id": 1,
-        "name": "Ray-Ban Aviator Classic Updated",
-        "eyewearType": "SUNGLASSES",
-        "company": {
-          "name": "Generic Brand"
-        }
-      },
       "stockStatus": "IN_STOCK",
-      "stockValue": 7500
+      "stockValue": 12500,
+      "lastUpdated": "2025-11-17T10:30:00.000Z"
+    },
+    {
+      "id": 2,
+      "retailerId": 1,
+      "productId": 2,
+      "sku": "OAK-HB-001",
+      "name": "Oakley Holbrook",
+      "description": "Lifestyle sunglasses with Prizm lens technology",
+      "companyName": "Oakley",
+      "companyDescription": "Sports eyewear brand",
+      "eyewearType": "SUNGLASSES",
+      "frameType": "FULL_RIM",
+      "material": "Plastic",
+      "color": "Matte Black",
+      "size": "Large",
+      "model": "OO9102",
+      "barcode": "9876543210987",
+      "basePrice": 180,
+      "sellingPrice": 220,
+      "quantity": 75,
+      "minStockLevel": 15,
+      "maxStockLevel": 150,
+      "totalStock": 75,
+      "allocatedStock": 5,
+      "availableStock": 70,
+      "stockStatus": "IN_STOCK",
+      "stockValue": 16500,
+      "lastUpdated": "2025-11-17T10:25:00.000Z"
     }
   ],
   "pagination": {
     "page": 1,
     "limit": 20,
-    "total": 3,
+    "total": 2,
     "pages": 1
   }
 }
 ```
 
-### 22. Add Product to Retailer Inventory
+### 22. Get Single Retailer Product
 
-**POST** `/inventory/my-products`
+**GET** `/inventory/my-products/:retailerProductId`
+
+**Headers:**
+
+```
+Authorization: Bearer <token>
+```
+
+**URL Parameters:**
+
+- `retailerProductId` (required): The ID of the retailer product to fetch
+
+**Response (200):**
+
+```json
+{
+  "id": 1,
+  "retailerId": 1,
+  "productId": 1,
+  "sku": "RB-AV-001",
+  "name": "Ray-Ban Aviator Classic",
+  "description": "Classic aviator sunglasses with metal frame",
+  "companyName": "Ray-Ban",
+  "companyDescription": "Premium eyewear brand",
+  "eyewearType": "SUNGLASSES",
+  "frameType": "FULL_RIM",
+  "material": "Metal",
+  "color": "Gold",
+  "size": "Medium",
+  "model": "RB3025",
+  "barcode": "1234567890123",
+  "basePrice": 200,
+  "sellingPrice": 250,
+  "quantity": 50,
+  "minStockLevel": 10,
+  "maxStockLevel": null,
+  "totalStock": 50,
+  "allocatedStock": 0,
+  "availableStock": 50,
+  "isActive": true,
+  "stockStatus": "IN_STOCK",
+  "stockValue": 12500,
+  "lastUpdated": "2025-11-17T10:30:00.000Z"
+}
+```
+
+**Response (404):**
+
+```json
+{
+  "error": "Product not found"
+}
+```
+
+### 23. Update Retailer Product
+
+**PUT** `/inventory/my-products/:retailerProductId`
 
 **Headers:**
 
@@ -824,9 +916,9 @@ Authorization: Bearer <token>
 }
 ```
 
-### 23. Update Retailer Product
+### 24. Add Product to Retailer Inventory
 
-**PUT** `/inventory/my-products/:retailerProductId`
+**POST** `/inventory/my-products`
 
 **Headers:**
 
@@ -857,7 +949,7 @@ Authorization: Bearer <token>
 }
 ```
 
-### 24. Update Stock
+### 25. Update Stock
 
 **PUT** `/inventory/my-products/:retailerProductId/stock`
 
@@ -893,7 +985,7 @@ Authorization: Bearer <token>
 }
 ```
 
-### 25. Get Inventory Summary
+### 26. Get Inventory Summary
 
 **GET** `/inventory/summary`
 
@@ -926,9 +1018,597 @@ Authorization: Bearer <token>
 
 ---
 
+## 📦 BULK OPERATIONS ENDPOINTS (5)
+
+### 27. Get Bulk Upload Template
+
+**GET** `/bulk/template`
+
+**Headers:**
+
+```
+Authorization: Bearer <token>
+```
+
+**Description:** Download sample JSON template with all required fields for bulk product upload
+
+**Response (200):**
+
+```json
+{
+  "template": {
+    "products": [
+      {
+        "sku": "RB-AV-001",
+        "barcode": "123456789012",
+        "name": "Ray-Ban Aviator Classic",
+        "description": "Premium aviator sunglasses",
+        "companyName": "Ray-Ban",
+        "companyDescription": "Premium eyewear brand",
+        "eyewearType": "SUNGLASSES",
+        "frameType": "FULL_RIM",
+        "material": "Metal",
+        "color": "Black",
+        "size": "62mm",
+        "model": "RB3025",
+        "basePrice": 150,
+        "sellingPrice": 200,
+        "quantity": 50,
+        "minStockLevel": 10,
+        "maxStockLevel": 100
+      },
+      {
+        "sku": "RB-RX-002",
+        "barcode": "234567890123",
+        "name": "Ray-Ban Prescription Frame",
+        "description": "Full rim prescription ready frame",
+        "companyName": "Ray-Ban",
+        "companyDescription": "Premium eyewear brand",
+        "eyewearType": "GLASSES",
+        "frameType": "FULL_RIM",
+        "material": "Acetate",
+        "color": "Brown",
+        "size": "55mm",
+        "model": "RB5228",
+        "basePrice": 120,
+        "sellingPrice": 180,
+        "quantity": 30,
+        "minStockLevel": 5,
+        "maxStockLevel": 75
+      }
+    ]
+  },
+  "fieldReference": {
+    "sku": "Product SKU (unique identifier)",
+    "barcode": "Product barcode (12-14 digits)",
+    "name": "Product display name",
+    "description": "Product description",
+    "companyName": "Brand/Company name (auto-creates if not exists)",
+    "companyDescription": "Brand/Company description",
+    "eyewearType": "SUNGLASSES | GLASSES | LENSES | ACCESSORIES | CONTACT_LENS",
+    "frameType": "FULL_RIM | SEMI_RIM | RIMLESS | AVIATOR | CAT_EYE",
+    "material": "Material type (Metal, Acetate, Titanium, etc.)",
+    "color": "Color description",
+    "size": "Size specification (e.g., 62mm)",
+    "model": "Model number",
+    "basePrice": "Cost/wholesale price",
+    "sellingPrice": "Retail selling price",
+    "quantity": "Initial stock quantity",
+    "minStockLevel": "Minimum threshold for reordering",
+    "maxStockLevel": "Maximum stock capacity"
+  }
+}
+```
+
+**Status:** ✅ **WORKING**
+
+---
+
+### 28. Bulk Upload Products
+
+**POST** `/bulk/products/upload`
+
+**Headers:**
+
+```
+Authorization: Bearer <token>
+Content-Type: application/json
+```
+
+**Description:** Upload up to 1000 products at once. Auto-creates companies if they don't exist. Handles duplicates by updating existing products.
+
+**Request Body:**
+
+```json
+{
+  "products": [
+    {
+      "sku": "RB-AV-001",
+      "barcode": "123456789012",
+      "name": "Ray-Ban Aviator Classic",
+      "description": "Premium aviator sunglasses",
+      "companyName": "Ray-Ban",
+      "companyDescription": "Premium eyewear brand",
+      "eyewearType": "SUNGLASSES",
+      "frameType": "FULL_RIM",
+      "material": "Metal",
+      "color": "Black",
+      "size": "62mm",
+      "model": "RB3025",
+      "basePrice": 150,
+      "sellingPrice": 200,
+      "quantity": 50,
+      "minStockLevel": 10,
+      "maxStockLevel": 100
+    },
+    {
+      "sku": "OAK-HM-001",
+      "barcode": "234567890123",
+      "name": "Oakley Half Jacket",
+      "description": "Sport performance sunglasses",
+      "companyName": "Oakley",
+      "companyDescription": "Sports and lifestyle eyewear",
+      "eyewearType": "SUNGLASSES",
+      "frameType": "SEMI_RIM",
+      "material": "O-Matter",
+      "color": "Blue/Black",
+      "size": "60mm",
+      "model": "OJ9154",
+      "basePrice": 180,
+      "sellingPrice": 250,
+      "quantity": 30,
+      "minStockLevel": 5,
+      "maxStockLevel": 60
+    }
+  ]
+}
+```
+
+**Response (201):**
+
+```json
+{
+  "message": "Products uploaded successfully",
+  "summary": {
+    "totalProcessed": 2,
+    "successCount": 2,
+    "errorCount": 0,
+    "companiesCreated": 1,
+    "productsCreated": 2,
+    "productsUpdated": 0
+  },
+  "products": [
+    {
+      "sku": "RB-AV-001",
+      "name": "Ray-Ban Aviator Classic",
+      "companyName": "Ray-Ban",
+      "quantity": 50,
+      "status": "CREATED",
+      "id": 1
+    },
+    {
+      "sku": "OAK-HM-001",
+      "name": "Oakley Half Jacket",
+      "companyName": "Oakley",
+      "quantity": 30,
+      "status": "CREATED",
+      "id": 2
+    }
+  ],
+  "errors": []
+}
+```
+
+**Error Response (400) - Validation Failed:**
+
+```json
+{
+  "error": "Validation failed for some products",
+  "summary": {
+    "totalProcessed": 2,
+    "successCount": 1,
+    "errorCount": 1
+  },
+  "products": [
+    {
+      "sku": "RB-AV-001",
+      "status": "CREATED",
+      "id": 1
+    }
+  ],
+  "errors": [
+    {
+      "index": 1,
+      "sku": "OAK-HM-001",
+      "error": "Product name is required",
+      "details": ["name: String cannot be null"]
+    }
+  ]
+}
+```
+
+**Validation Rules:**
+
+- ✅ SKU must be unique
+- ✅ Name is required
+- ✅ Company name is required (auto-creates if not exists)
+- ✅ Base price must be > 0
+- ✅ Eyewear type is required
+- ✅ Frame type required only for SUNGLASSES and GLASSES
+- ✅ Max 1000 products per upload
+- ✅ All monetary values must be positive numbers
+
+**Status:** ✅ **WORKING**
+
+---
+
+### 29. Bulk Update Inventory
+
+**POST** `/bulk/inventory/update`
+
+**Headers:**
+
+```
+Authorization: Bearer <token>
+Content-Type: application/json
+```
+
+**Description:** Update prices, quantities, and stock levels for multiple products in one request
+
+**Request Body:**
+
+```json
+{
+  "updates": [
+    {
+      "retailerProductId": 1,
+      "sellingPrice": 220,
+      "quantity": 75,
+      "minStockLevel": 15,
+      "maxStockLevel": 120
+    },
+    {
+      "retailerProductId": 2,
+      "sellingPrice": 280,
+      "quantity": 45,
+      "minStockLevel": 8,
+      "maxStockLevel": 80
+    }
+  ]
+}
+```
+
+**Response (200):**
+
+```json
+{
+  "message": "Inventory updated successfully",
+  "summary": {
+    "totalUpdated": 2,
+    "successCount": 2,
+    "errorCount": 0
+  },
+  "updatedProducts": [
+    {
+      "id": 1,
+      "sku": "RB-AV-001",
+      "name": "Ray-Ban Aviator Classic",
+      "sellingPrice": 220,
+      "quantity": 75,
+      "minStockLevel": 15,
+      "maxStockLevel": 120,
+      "updatedAt": "2025-11-17T10:30:00.000Z"
+    },
+    {
+      "id": 2,
+      "sku": "OAK-HM-001",
+      "name": "Oakley Half Jacket",
+      "sellingPrice": 280,
+      "quantity": 45,
+      "minStockLevel": 8,
+      "maxStockLevel": 80,
+      "updatedAt": "2025-11-17T10:30:00.000Z"
+    }
+  ],
+  "errors": []
+}
+```
+
+**Error Response (400) - Validation Failed:**
+
+```json
+{
+  "error": "Validation failed for some updates",
+  "summary": {
+    "totalUpdated": 2,
+    "successCount": 1,
+    "errorCount": 1
+  },
+  "updatedProducts": [
+    {
+      "id": 1,
+      "sku": "RB-AV-001",
+      "sellingPrice": 220,
+      "quantity": 75
+    }
+  ],
+  "errors": [
+    {
+      "index": 1,
+      "retailerProductId": 2,
+      "error": "Selling price must be greater than 0",
+      "details": ["sellingPrice: Must be positive number"]
+    }
+  ]
+}
+```
+
+**Validation Rules:**
+
+- ✅ All monetary values must be positive
+- ✅ Quantities must be non-negative integers
+- ✅ Retailer product must belong to authenticated retailer
+- ✅ Min stock level must be ≤ max stock level
+- ✅ At least one field must be provided for update
+
+**Status:** ✅ **WORKING**
+
+---
+
+### 30. Bulk Distribute to Shops
+
+**POST** `/bulk/distributions/create`
+
+**Headers:**
+
+```
+Authorization: Bearer <token>
+Content-Type: application/json
+```
+
+**Description:** Distribute multiple products to one or more shops in a single batch operation. Automatically deducts from retailer inventory.
+
+**Request Body:**
+
+```json
+{
+  "distributions": [
+    {
+      "retailerShopId": 1,
+      "products": [
+        {
+          "retailerProductId": 1,
+          "quantity": 10,
+          "unitPrice": 200
+        },
+        {
+          "retailerProductId": 2,
+          "quantity": 5,
+          "unitPrice": 250
+        }
+      ],
+      "notes": "Monthly stock replenishment"
+    },
+    {
+      "retailerShopId": 2,
+      "products": [
+        {
+          "retailerProductId": 1,
+          "quantity": 8,
+          "unitPrice": 200
+        }
+      ],
+      "notes": "Branch restock"
+    }
+  ],
+  "paymentTerms": "NET_30",
+  "deliveryExpectedDate": "2025-11-25T00:00:00Z"
+}
+```
+
+**Response (201):**
+
+```json
+{
+  "message": "Bulk distributions created successfully",
+  "summary": {
+    "totalShops": 2,
+    "totalDistributions": 3,
+    "totalAmount": 5050,
+    "itemsDistributed": 23
+  },
+  "distributionsByShop": [
+    {
+      "shopId": 1,
+      "shopName": "Test Optical Shop",
+      "distributionCount": 2,
+      "amount": 3050,
+      "items": [
+        {
+          "id": 1,
+          "productName": "Ray-Ban Aviator Classic",
+          "quantity": 10,
+          "unitPrice": 200,
+          "totalAmount": 2000,
+          "status": "PENDING"
+        },
+        {
+          "id": 2,
+          "productName": "Oakley Half Jacket",
+          "quantity": 5,
+          "unitPrice": 250,
+          "totalAmount": 1250,
+          "status": "PENDING"
+        }
+      ]
+    },
+    {
+      "shopId": 2,
+      "shopName": "Optical World Branch",
+      "distributionCount": 1,
+      "amount": 1600,
+      "items": [
+        {
+          "id": 3,
+          "productName": "Ray-Ban Aviator Classic",
+          "quantity": 8,
+          "unitPrice": 200,
+          "totalAmount": 1600,
+          "status": "PENDING"
+        }
+      ]
+    }
+  ],
+  "errors": []
+}
+```
+
+**Error Response (400) - Insufficient Stock:**
+
+```json
+{
+  "error": "Stock validation failed for some items",
+  "summary": {
+    "totalShops": 2,
+    "successfulShops": 1,
+    "failedShops": 1
+  },
+  "successfulDistributions": [
+    {
+      "shopId": 1,
+      "shopName": "Test Optical Shop",
+      "distributionCount": 1,
+      "amount": 2000
+    }
+  ],
+  "errors": [
+    {
+      "shopIndex": 1,
+      "retailerShopId": 2,
+      "productIndex": 0,
+      "retailerProductId": 1,
+      "productName": "Ray-Ban Aviator Classic",
+      "requestedQuantity": 50,
+      "availableQuantity": 15,
+      "error": "Insufficient stock available for distribution"
+    }
+  ]
+}
+```
+
+**Validation Rules:**
+
+- ✅ Shop must be active and connected to retailer
+- ✅ Product must belong to retailer's inventory
+- ✅ Sufficient stock must be available
+- ✅ Unit prices must be positive
+- ✅ All-or-nothing for each shop (if any product fails, shop distribution fails)
+- ✅ Other shops in batch still process if one fails
+- ✅ Max 100 shops per batch request
+- ✅ Max 1000 items per batch request
+
+**Status:** ✅ **WORKING**
+
+---
+
+### 30. Export Retailer Products
+
+**GET** `/bulk/products/export`
+
+**Headers:**
+
+```
+Authorization: Bearer <token>
+```
+
+**Query Parameters:**
+
+- `format` (optional): "json" (default) or "csv"
+- `companyId` (optional): Export only products from specific company
+- `eyewearType` (optional): Export only specific eyewear type
+
+**Response (200) - JSON Format:**
+
+```json
+{
+  "exportDate": "2025-11-17T10:45:00.000Z",
+  "retailerId": 1,
+  "totalProducts": 2,
+  "products": [
+    {
+      "sku": "RB-AV-001",
+      "barcode": "123456789012",
+      "name": "Ray-Ban Aviator Classic",
+      "description": "Premium aviator sunglasses",
+      "companyName": "Ray-Ban",
+      "companyDescription": "Premium eyewear brand",
+      "eyewearType": "SUNGLASSES",
+      "frameType": "FULL_RIM",
+      "material": "Metal",
+      "color": "Black",
+      "size": "62mm",
+      "model": "RB3025",
+      "basePrice": 150,
+      "sellingPrice": 200,
+      "quantity": 50,
+      "minStockLevel": 10,
+      "maxStockLevel": 100,
+      "allocatedStock": 15,
+      "availableStock": 35,
+      "stockStatus": "IN_STOCK",
+      "stockValue": 10000,
+      "lastUpdated": "2025-11-17T10:00:00.000Z"
+    },
+    {
+      "sku": "OAK-HM-001",
+      "barcode": "234567890123",
+      "name": "Oakley Half Jacket",
+      "description": "Sport performance sunglasses",
+      "companyName": "Oakley",
+      "companyDescription": "Sports and lifestyle eyewear",
+      "eyewearType": "SUNGLASSES",
+      "frameType": "SEMI_RIM",
+      "material": "O-Matter",
+      "color": "Blue/Black",
+      "size": "60mm",
+      "model": "OJ9154",
+      "basePrice": 180,
+      "sellingPrice": 250,
+      "quantity": 30,
+      "minStockLevel": 5,
+      "maxStockLevel": 60,
+      "allocatedStock": 8,
+      "availableStock": 22,
+      "stockStatus": "IN_STOCK",
+      "stockValue": 7500,
+      "lastUpdated": "2025-11-17T10:00:00.000Z"
+    }
+  ]
+}
+```
+
+**Response (200) - CSV Format:**
+
+```
+sku,barcode,name,description,companyName,eyewearType,frameType,material,color,size,model,basePrice,sellingPrice,quantity,minStockLevel,maxStockLevel
+RB-AV-001,123456789012,Ray-Ban Aviator Classic,Premium aviator sunglasses,Ray-Ban,SUNGLASSES,FULL_RIM,Metal,Black,62mm,RB3025,150,200,50,10,100
+OAK-HM-001,234567890123,Oakley Half Jacket,Sport performance sunglasses,Oakley,SUNGLASSES,SEMI_RIM,O-Matter,Blue/Black,60mm,OJ9154,180,250,30,5,60
+```
+
+**File Download Response (200):**
+
+```
+Content-Type: application/json or text/csv
+Content-Disposition: attachment; filename="products_export_2025-11-17.json"
+```
+
+**Status:** ✅ **WORKING**
+
+---
+
 ## 🏪 SHOP DISTRIBUTION ENDPOINTS (9)
 
-### 26. Get Retailer Shops
+### 31. Get Retailer Shops
 
 **GET** `/shops`
 
@@ -973,7 +1653,7 @@ Authorization: Bearer <token>
 ]
 ```
 
-### 27. Add Shop to Network
+### 32. Add Shop to Network
 
 **POST** `/shops`
 
@@ -1019,7 +1699,7 @@ Authorization: Bearer <token>
 }
 ```
 
-### 28. Update Shop Relationship
+### 33. Update Shop Relationship
 
 **PUT** `/shops/:retailerShopId`
 
@@ -1055,7 +1735,7 @@ Authorization: Bearer <token>
 }
 ```
 
-### 29. Enhanced Distribute Products to Shop
+### 34. Enhanced Distribute Products to Shop
 
 **POST** `/distributions`
 
@@ -1222,7 +1902,7 @@ Authorization: Bearer <token>
 
 ```
 
-### 30. Get All Distributions
+### 35. Get All Distributions
 
 **GET** `/distributions`
 
@@ -1275,7 +1955,7 @@ Authorization: Bearer <token>
 }
 ````
 
-### 31. Get Shop Specific Distributions
+### 36. Get Shop Specific Distributions
 
 **GET** `/shops/:retailerShopId/distributions`
 
@@ -1317,7 +1997,7 @@ Authorization: Bearer <token>
 }
 ```
 
-### 32. 🆕 Get Available Shops for Connection
+### 37. 🆕 Get Available Shops for Connection
 
 **GET** `/shops/available`
 
@@ -1352,7 +2032,7 @@ Authorization: Bearer <token>
 
 ---
 
-### 33. 🆕 Get My Shop Network with Enhanced Analytics
+### 38. 🆕 Get My Shop Network with Enhanced Analytics
 
 **GET** `/shops/my-network`
 
@@ -1492,8 +2172,8 @@ All endpoints may return these common error responses:
 
 ---
 
-**🎯 Total Endpoints Documented: 33/33**
-**📊 All Categories Covered: Authentication, Dashboard, Reports, Inventory, Shop Distribution**
+**🎯 Total Endpoints Documented: 38/38**
+**📊 All Categories Covered: Authentication, Dashboard, Reports, Inventory, Bulk Operations, Shop Distribution**
 **✅ Integration Verified: Retailer ↔ Shop Admin Portal**
 
 ### 🆕 ENHANCED ENDPOINTS (Updated Oct 2025)

@@ -1,19 +1,45 @@
 const prisma = require("../../../lib/prisma");
-// Get all companies
+// Get all companies - FIXED: Only fetch companies that retailer has products from
 exports.getAllCompanies = async (req, res) => {
   try {
-    const companies = await prisma.company.findMany({
-      orderBy: {
-        name: "asc",
-      },
+    const retailerId = req.retailer?.id;
+
+    if (!retailerId) {
+      return res.status(401).json({ error: "Retailer ID not found in token" });
+    }
+
+    // Get unique companies from retailer's products
+    const retailerProducts = await prisma.retailerProduct.findMany({
+      where: { retailerId },
       include: {
-        _count: {
-          select: {
-            products: true,
+        product: {
+          include: {
+            company: true,
           },
         },
       },
     });
+
+    // Extract unique companies and count products
+    const companiesMap = new Map();
+    retailerProducts.forEach((rp) => {
+      const company = rp.product.company;
+      if (!companiesMap.has(company.id)) {
+        companiesMap.set(company.id, {
+          id: company.id,
+          name: company.name,
+          description: company.description,
+          createdAt: company.createdAt,
+          updatedAt: company.updatedAt,
+          productCount: 0,
+        });
+      }
+      companiesMap.get(company.id).productCount += 1;
+    });
+
+    const companies = Array.from(companiesMap.values()).sort((a, b) =>
+      a.name.localeCompare(b.name)
+    );
 
     res.json(companies);
   } catch (error) {
@@ -339,22 +365,45 @@ exports.getRetailerProducts = async (req, res) => {
 
     const totalProducts = await prisma.retailerProduct.count({ where });
 
-    // Add calculated fields
-    const enrichedProducts = retailerProducts.map((rp) => ({
-      ...rp,
+    // Format products to match bulk upload structure
+    const formattedProducts = retailerProducts.map((rp) => ({
+      id: rp.id,
+      retailerId: rp.retailerId,
+      productId: rp.productId,
+      sku: rp.product.sku,
+      name: rp.product.name,
+      description: rp.product.description,
+      companyName: rp.product.company.name,
+      companyDescription: rp.product.company.description,
+      eyewearType: rp.product.eyewearType,
+      frameType: rp.product.frameType,
+      material: rp.product.material,
+      color: rp.product.color,
+      size: rp.product.size,
+      model: rp.product.model,
+      barcode: rp.product.barcode,
+      basePrice: rp.product.basePrice,
+      sellingPrice: rp.mrp || rp.product.basePrice,
+      quantity: rp.totalStock,
+      minStockLevel: rp.reorderLevel,
+      maxStockLevel: null, // Not tracked separately
+      totalStock: rp.totalStock,
+      allocatedStock: rp.allocatedStock || 0,
+      availableStock:
+        rp.availableStock || rp.totalStock - (rp.allocatedStock || 0),
+      isActive: rp.isActive !== false,
       stockStatus:
-        rp.availableStock === 0
+        rp.totalStock === 0
           ? "OUT_OF_STOCK"
-          : rp.availableStock <= rp.reorderLevel
+          : rp.totalStock <= (rp.reorderLevel || 50)
           ? "LOW_STOCK"
           : "IN_STOCK",
-      stockValue: rp.availableStock * (rp.wholesalePrice || 0),
-      allocationRate:
-        rp.totalStock > 0 ? (rp.allocatedStock / rp.totalStock) * 100 : 0,
+      stockValue: rp.totalStock * (rp.mrp || rp.product.basePrice),
+      lastUpdated: rp.updatedAt,
     }));
 
     res.json({
-      products: enrichedProducts,
+      products: formattedProducts,
       pagination: {
         page: parseInt(page),
         limit: parseInt(limit),
@@ -764,5 +813,76 @@ exports.getInventorySummary = async (req, res) => {
   } catch (error) {
     console.error("Get inventory summary error:", error);
     res.status(500).json({ error: "Failed to fetch inventory summary" });
+  }
+};
+
+// ✅ GET SINGLE RETAILER PRODUCT BY ID
+exports.getRetailerProductById = async (req, res) => {
+  try {
+    const { retailerProductId } = req.params;
+    const retailerId = req.retailer.id;
+
+    const retailerProduct = await prisma.retailerProduct.findFirst({
+      where: {
+        AND: [{ id: parseInt(retailerProductId) }, { retailerId }],
+      },
+      include: {
+        product: {
+          include: {
+            company: true,
+          },
+        },
+        retailerInventory: true,
+      },
+    });
+
+    if (!retailerProduct) {
+      return res.status(404).json({ error: "Product not found" });
+    }
+
+    // Format product to match bulk upload structure
+    const formattedProduct = {
+      id: retailerProduct.id,
+      retailerId: retailerProduct.retailerId,
+      productId: retailerProduct.productId,
+      sku: retailerProduct.product.sku,
+      name: retailerProduct.product.name,
+      description: retailerProduct.product.description,
+      companyName: retailerProduct.product.company.name,
+      companyDescription: retailerProduct.product.company.description,
+      eyewearType: retailerProduct.product.eyewearType,
+      frameType: retailerProduct.product.frameType,
+      material: retailerProduct.product.material,
+      color: retailerProduct.product.color,
+      size: retailerProduct.product.size,
+      model: retailerProduct.product.model,
+      barcode: retailerProduct.product.barcode,
+      basePrice: retailerProduct.product.basePrice,
+      sellingPrice: retailerProduct.mrp || retailerProduct.product.basePrice,
+      quantity: retailerProduct.totalStock,
+      minStockLevel: retailerProduct.reorderLevel,
+      maxStockLevel: null,
+      totalStock: retailerProduct.totalStock,
+      allocatedStock: retailerProduct.allocatedStock || 0,
+      availableStock:
+        retailerProduct.availableStock ||
+        retailerProduct.totalStock - (retailerProduct.allocatedStock || 0),
+      isActive: retailerProduct.isActive !== false,
+      stockStatus:
+        retailerProduct.totalStock === 0
+          ? "OUT_OF_STOCK"
+          : retailerProduct.totalStock <= (retailerProduct.reorderLevel || 50)
+          ? "LOW_STOCK"
+          : "IN_STOCK",
+      stockValue:
+        retailerProduct.totalStock *
+        (retailerProduct.mrp || retailerProduct.product.basePrice),
+      lastUpdated: retailerProduct.updatedAt,
+    };
+
+    res.json(formattedProduct);
+  } catch (error) {
+    console.error("Error fetching retailer product:", error);
+    res.status(500).json({ error: "Failed to fetch product" });
   }
 };

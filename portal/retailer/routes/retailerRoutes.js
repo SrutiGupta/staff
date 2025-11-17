@@ -159,6 +159,11 @@ router.get(
   authenticateRetailer,
   inventoryController.getRetailerProducts
 );
+router.get(
+  "/inventory/my-products/:retailerProductId",
+  authenticateRetailer,
+  inventoryController.getRetailerProductById
+);
 router.post(
   "/inventory/my-products",
   authenticateRetailer,
