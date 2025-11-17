@@ -1,19 +1,45 @@
 const prisma = require("../../../lib/prisma");
-// Get all companies
+// Get all companies - FIXED: Only fetch companies that retailer has products from
 exports.getAllCompanies = async (req, res) => {
   try {
-    const companies = await prisma.company.findMany({
-      orderBy: {
-        name: "asc",
-      },
+    const retailerId = req.retailer?.id;
+
+    if (!retailerId) {
+      return res.status(401).json({ error: "Retailer ID not found in token" });
+    }
+
+    // Get unique companies from retailer's products
+    const retailerProducts = await prisma.retailerProduct.findMany({
+      where: { retailerId },
       include: {
-        _count: {
-          select: {
-            products: true,
+        product: {
+          include: {
+            company: true,
           },
         },
       },
     });
+
+    // Extract unique companies and count products
+    const companiesMap = new Map();
+    retailerProducts.forEach((rp) => {
+      const company = rp.product.company;
+      if (!companiesMap.has(company.id)) {
+        companiesMap.set(company.id, {
+          id: company.id,
+          name: company.name,
+          description: company.description,
+          createdAt: company.createdAt,
+          updatedAt: company.updatedAt,
+          productCount: 0,
+        });
+      }
+      companiesMap.get(company.id).productCount += 1;
+    });
+
+    const companies = Array.from(companiesMap.values()).sort((a, b) =>
+      a.name.localeCompare(b.name)
+    );
 
     res.json(companies);
   } catch (error) {
