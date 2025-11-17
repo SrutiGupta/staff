@@ -449,10 +449,10 @@ exports.bulkDistributeToShops = async (req, res) => {
           continue;
         }
 
-        // Verify retailer has product
+        // Verify retailer has product - lookup by retailerProductId
         const retailerProduct = await prisma.retailerProduct.findFirst({
           where: {
-            AND: [{ retailerId }, { productId: parseInt(dist.productId) }],
+            AND: [{ retailerId }, { id: parseInt(dist.productId) }],
           },
         });
 
