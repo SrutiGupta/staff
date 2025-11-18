@@ -19,6 +19,21 @@ Obtain JWT token from Shop Admin login, then set:
 
 ---
 
+## 📋 Shipment Status Enum Reference
+
+**`ShipmentStatus` enum values - use these in your frontend:**
+
+| Status                 | Value                | Description                                                                    |
+| ---------------------- | -------------------- | ------------------------------------------------------------------------------ |
+| **EXPECTED**           | `EXPECTED`           | Shipment created from bulk distribution, awaiting delivery                     |
+| **IN_TRANSIT**         | `IN_TRANSIT`         | Shipment is in delivery/on the way                                             |
+| **PARTIALLY_RECEIVED** | `PARTIALLY_RECEIVED` | Received quantity less than expected (shortage) or more than expected (excess) |
+| **FULLY_RECEIVED**     | `FULLY_RECEIVED`     | All expected quantity received and verified by admin                           |
+| **OVERDUE**            | `OVERDUE`            | Shipment not received within expected delivery window                          |
+| **CANCELLED**          | `CANCELLED`          | Shipment cancelled/returned                                                    |
+
+---
+
 ## 🧪 Test Cases
 
 ### Test 1: Retailer Performs Bulk Distribution
@@ -87,9 +102,23 @@ Obtain JWT token from Shop Admin login, then set:
 
 ---
 
-### Test 2: Shop Admin Views All Incoming Shipments
+### Test 2: Shop Admin Views All Incoming Shipments (Multiple Shipments Example)
 
-**Endpoint:** `GET /shop-admin/stock/incoming-shipments?page=1&limit=10&status=EXPECTED`
+**Endpoint:** `GET /shop-admin/stock/incoming-shipments`
+
+**Query Parameters:**
+
+| Parameter | Type   | Required | Example    | Description                                                                                     |
+| --------- | ------ | -------- | ---------- | ----------------------------------------------------------------------------------------------- |
+| `page`    | number | No       | `1`        | Page number for pagination                                                                      |
+| `limit`   | number | No       | `10`       | Items per page                                                                                  |
+| `status`  | string | No       | `EXPECTED` | Filter by status (EXPECTED, IN_TRANSIT, PARTIALLY_RECEIVED, FULLY_RECEIVED, OVERDUE, CANCELLED) |
+
+**Example URL:**
+
+```
+GET /shop-admin/stock/incoming-shipments?page=1&limit=10&status=EXPECTED
+```
 
 **Headers:**
 
@@ -99,7 +128,7 @@ Obtain JWT token from Shop Admin login, then set:
 }
 ```
 
-**Expected Response (200):**
+**Expected Response (200) - Multiple Incoming Shipments:**
 
 ```json
 {
@@ -129,38 +158,190 @@ Obtain JWT token from Shop Admin login, then set:
       "discrepancyReason": null,
       "notes": "Distributed from retailer bulk operation",
       "createdAt": "2025-11-19T10:30:00Z"
+    },
+    {
+      "id": 2,
+      "product": {
+        "id": 20,
+        "name": "Oakley Holbrook",
+        "sku": "OAK-HB-001",
+        "barcode": "987654321",
+        "company": { "name": "Oakley" }
+      },
+      "expectedQuantity": 50,
+      "receivedQuantity": 0,
+      "discrepancyQuantity": 0,
+      "status": "EXPECTED",
+      "distributionDate": "2025-11-19T10:30:00Z",
+      "expectedDeliveryDate": null,
+      "actualDeliveryDate": null,
+      "retailer": {
+        "name": "Vision Supplies Ltd",
+        "companyName": "Vision Group"
+      },
+      "stockReceipt": null,
+      "discrepancyReason": null,
+      "notes": "Distributed from retailer bulk operation",
+      "createdAt": "2025-11-19T10:30:00Z"
+    },
+    {
+      "id": 3,
+      "product": {
+        "id": 25,
+        "name": "Prada Cat-Eye",
+        "sku": "PRA-CE-001",
+        "barcode": "555666777",
+        "company": { "name": "Prada" }
+      },
+      "expectedQuantity": 75,
+      "receivedQuantity": 75,
+      "discrepancyQuantity": 0,
+      "status": "FULLY_RECEIVED",
+      "distributionDate": "2025-11-15T08:00:00Z",
+      "expectedDeliveryDate": "2025-11-17T00:00:00Z",
+      "actualDeliveryDate": "2025-11-17T14:30:00Z",
+      "retailer": {
+        "name": "Vision Supplies Ltd",
+        "companyName": "Vision Group"
+      },
+      "stockReceipt": {
+        "id": 1,
+        "receivedQuantity": 75,
+        "verifiedQuantity": 75,
+        "status": "APPROVED"
+      },
+      "discrepancyReason": null,
+      "notes": "Distributed from retailer bulk operation",
+      "createdAt": "2025-11-15T08:00:00Z"
     }
   ],
   "pagination": {
     "currentPage": 1,
     "totalPages": 1,
-    "totalItems": 1,
+    "totalItems": 3,
     "itemsPerPage": 10,
     "hasNextPage": false,
-    "hasPrevPage": false
+    "hasPrevious": false
   },
   "summary": {
-    "total": 1,
-    "expected": 1,
+    "total": 3,
+    "expected": 2,
     "inTransit": 0,
     "partiallyReceived": 0,
-    "fullyReceived": 0,
+    "fullyReceived": 1,
     "overdue": 0,
     "cancelled": 0
   }
 }
 ```
 
-✅ **Verification Points:**
+✅ **Verification Points for Frontend Implementation:**
 
-- [ ] See "Ray-Ban Aviator Classic" with expected quantity 100
-- [ ] Status shows "EXPECTED"
-- [ ] Summary shows 1 item expected
-- [ ] No stock receipt linked yet
+- [ ] Display shipments in table/list format with status badges
+- [ ] Show status using enum values (EXPECTED, IN_TRANSIT, etc)
+- [ ] Color-code status:
+  - 🟢 FULLY_RECEIVED = Green
+  - 🟡 EXPECTED/IN_TRANSIT = Yellow/Blue
+  - 🟠 PARTIALLY_RECEIVED = Orange
+  - 🔴 OVERDUE/CANCELLED = Red
+- [ ] Show pagination controls (only if totalPages > 1)
+- [ ] Allow filtering by status using dropdown
+- [ ] Display quantity comparison (expected vs received)
+- [ ] Link to detail view for each shipment
 
 ---
 
-### Test 3: Staff Creates Stock Receipt
+### Test 3: Shop Admin Updates Incoming Shipment Status (Manual Update)
+
+**Endpoint:** `PATCH /shop-admin/stock/incoming-shipments/:id/receive`
+
+**Path Parameters:**
+
+| Parameter | Type   | Required | Description          |
+| --------- | ------ | -------- | -------------------- |
+| `id`      | number | Yes      | Incoming shipment ID |
+
+**Headers:**
+
+```json
+{
+  "Authorization": "Bearer {{shopAdminToken}}",
+  "Content-Type": "application/json"
+}
+```
+
+**Request Body Options:**
+
+#### Option 1: Update Single Shipment Status
+
+```json
+{
+  "status": "IN_TRANSIT",
+  "notes": "Confirmed with courier - delivery expected by 2025-11-20"
+}
+```
+
+#### Option 2: Mark as Received (Auto-updates via Stock Receipt Approval)
+
+```json
+{
+  "status": "FULLY_RECEIVED",
+  "receivedQuantity": 100,
+  "actualDeliveryDate": "2025-11-19T14:30:00Z"
+}
+```
+
+#### Option 3: Mark as Partially Received (Shortage)
+
+```json
+{
+  "status": "PARTIALLY_RECEIVED",
+  "receivedQuantity": 95,
+  "discrepancyQuantity": -5,
+  "discrepancyReason": "SHORTAGE",
+  "notes": "5 units missing from delivery"
+}
+```
+
+#### Option 4: Cancel Shipment
+
+```json
+{
+  "status": "CANCELLED",
+  "notes": "Retailer cancelled order, shipment returned"
+}
+```
+
+**Expected Response (200):**
+
+```json
+{
+  "message": "Incoming shipment status updated successfully",
+  "shipment": {
+    "id": 1,
+    "product": { "name": "Ray-Ban Aviator Classic", "sku": "RB-AV-001" },
+    "expectedQuantity": 100,
+    "receivedQuantity": 95,
+    "discrepancyQuantity": -5,
+    "status": "PARTIALLY_RECEIVED",
+    "discrepancyReason": "SHORTAGE",
+    "actualDeliveryDate": "2025-11-19T14:30:00Z",
+    "notes": "5 units missing from delivery",
+    "updatedAt": "2025-11-19T14:35:00Z"
+  }
+}
+```
+
+✅ **Frontend Implementation Notes:**
+
+- Status changes trigger automatic UI updates in list view
+- Use status enum values when sending requests
+- Display discrepancy reasons to staff for follow-up actions
+- Show last updated timestamp for tracking
+
+---
+
+### Test 4: Staff Creates Stock Receipt (Linked to Incoming Shipment)
 
 **Endpoint:** `POST /api/stock-receipts`
 
@@ -173,7 +354,7 @@ Obtain JWT token from Shop Admin login, then set:
 }
 ```
 
-**Body:**
+**Body Example 1 - Single Product:**
 
 ```json
 {
@@ -186,7 +367,40 @@ Obtain JWT token from Shop Admin login, then set:
 }
 ```
 
-**Expected Response (201):**
+**Body Example 2 - Multiple Products (Bulk Receipt):**
+
+```json
+{
+  "bulkReceiptData": [
+    {
+      "productId": 15,
+      "receivedQuantity": 100,
+      "supplierName": "Vision Supplies Ltd",
+      "deliveryNote": "DN-2025-001",
+      "batchNumber": "BATCH-202511-001",
+      "expiryDate": "2027-11-30"
+    },
+    {
+      "productId": 20,
+      "receivedQuantity": 50,
+      "supplierName": "Vision Supplies Ltd",
+      "deliveryNote": "DN-2025-001",
+      "batchNumber": "BATCH-202511-002",
+      "expiryDate": "2027-12-15"
+    },
+    {
+      "productId": 25,
+      "receivedQuantity": 75,
+      "supplierName": "Vision Supplies Ltd",
+      "deliveryNote": "DN-2025-001",
+      "batchNumber": "BATCH-202511-003",
+      "expiryDate": "2028-01-20"
+    }
+  ]
+}
+```
+
+**Expected Response (201) - Single:**
 
 ```json
 {
@@ -205,11 +419,69 @@ Obtain JWT token from Shop Admin login, then set:
 }
 ```
 
+**Expected Response (201) - Multiple:**
+
+```json
+{
+  "success": true,
+  "message": "3 stock receipts created successfully. Waiting for shop admin approval.",
+  "receipts": [
+    {
+      "id": 1,
+      "shopId": 1,
+      "productId": 15,
+      "receivedQuantity": 100,
+      "verifiedQuantity": null,
+      "status": "PENDING",
+      "product": { "name": "Ray-Ban Aviator Classic" }
+    },
+    {
+      "id": 2,
+      "shopId": 1,
+      "productId": 20,
+      "receivedQuantity": 50,
+      "verifiedQuantity": null,
+      "status": "PENDING",
+      "product": { "name": "Oakley Holbrook" }
+    },
+    {
+      "id": 3,
+      "shopId": 1,
+      "productId": 25,
+      "receivedQuantity": 75,
+      "verifiedQuantity": null,
+      "status": "PENDING",
+      "product": { "name": "Prada Cat-Eye" }
+    }
+  ]
+}
+```
+
+**Automatic IncomingShipment Updates:**
+
+When staff creates stock receipt(s), the corresponding IncomingShipment records are automatically updated:
+
+```javascript
+// For each stock receipt created:
+IncomingShipment.update({
+  receivedQuantity: 100,
+  discrepancyQuantity: 0,
+  status: "FULLY_RECEIVED", // if quantities match
+  stockReceiptId: 1,
+});
+```
+
 ---
 
-### Test 4: Shop Admin Views Incoming Shipment Details
+### Test 5: Shop Admin Views Incoming Shipment Details
 
-**Endpoint:** `GET /shop-admin/stock/incoming-shipments/1`
+**Endpoint:** `GET /shop-admin/stock/incoming-shipments/:id`
+
+**Path Parameters:**
+
+| Parameter | Type   | Required | Description          |
+| --------- | ------ | -------- | -------------------- |
+| `id`      | number | Yes      | Incoming shipment ID |
 
 **Headers:**
 
@@ -219,7 +491,7 @@ Obtain JWT token from Shop Admin login, then set:
 }
 ```
 
-**Expected Response (200):**
+**Expected Response (200) - EXPECTED Status:**
 
 ```json
 {
@@ -258,11 +530,89 @@ Obtain JWT token from Shop Admin login, then set:
 }
 ```
 
+**Expected Response (200) - PARTIALLY_RECEIVED Status (With Discrepancy):**
+
+```json
+{
+  "message": "Incoming shipment details retrieved successfully",
+  "shipment": {
+    "id": 2,
+    "product": {
+      "id": 20,
+      "name": "Oakley Holbrook",
+      "sku": "OAK-HB-001",
+      "eyewearType": "SUNGLASSES",
+      "frameType": "AVIATOR"
+    },
+    "shop": {
+      "id": 1,
+      "name": "Downtown Eye Care"
+    },
+    "retailer": {
+      "id": 1,
+      "name": "Vision Supplies Ltd"
+    },
+    "expectedQuantity": 50,
+    "receivedQuantity": 48,
+    "discrepancyQuantity": -2,
+    "status": "PARTIALLY_RECEIVED",
+    "discrepancyReason": "SHORTAGE",
+    "distributionDate": "2025-11-15T10:30:00Z",
+    "actualDeliveryDate": "2025-11-17T14:30:00Z",
+    "wholesalePrice": 200.0,
+    "mrp": 250.0,
+    "stockReceipt": {
+      "id": 2,
+      "receivedQuantity": 48,
+      "verifiedQuantity": 48,
+      "status": "APPROVED",
+      "receivedByStaff": { "name": "Ahmed Khan" },
+      "verifiedByAdmin": { "name": "John Admin" },
+      "approvedAt": "2025-11-17T15:00:00Z"
+    },
+    "notes": "Distributed from retailer bulk operation. 2 units damaged in transit.",
+    "createdAt": "2025-11-15T10:30:00Z"
+  }
+}
+```
+
+✅ **Frontend Implementation - Discrepancy Display:**
+
+Based on status, display different information:
+
+**If status = EXPECTED:**
+
+- Show "Awaiting delivery" message
+- Display expected quantity in bold
+- Show empty state for received/discrepancy
+- Allow manual status update button
+
+**If status = FULLY_RECEIVED:**
+
+- Show green checkmark
+- Display: "All 100 units received as expected"
+- Show linked stock receipt details
+- Show delivery date
+
+**If status = PARTIALLY_RECEIVED:**
+
+- Show warning icon (⚠️)
+- Display discrepancy with reason in red
+- Example: "-2 units (SHORTAGE)" or "+5 units (EXCESS)"
+- Show which receipt revealed the discrepancy
+- Allow admin follow-up actions
+
 ---
 
-### Test 5: Shop Admin Approves Stock Receipt
+### Test 6: Shop Admin Approves Stock Receipt
 
-**Endpoint:** `PUT /shop-admin/stock/receipts/1/verify`
+**Endpoint:** `PUT /shop-admin/stock/receipts/:id/verify`
+
+**Path Parameters:**
+
+| Parameter | Type   | Required | Description      |
+| --------- | ------ | -------- | ---------------- |
+| `id`      | number | Yes      | Stock receipt ID |
 
 **Headers:**
 
@@ -273,7 +623,7 @@ Obtain JWT token from Shop Admin login, then set:
 }
 ```
 
-**Body:**
+**Request Body:**
 
 ```json
 {
@@ -306,20 +656,23 @@ Obtain JWT token from Shop Admin login, then set:
 }
 ```
 
-✅ **What happens automatically:**
+✅ **What happens automatically after approval:**
 
-- ShopInventory updated (quantity increased by 100)
-- StockMovement record created (STOCK_IN)
-- **IncomingShipment automatically updated:**
-  - receivedQuantity: 100
-  - discrepancyQuantity: 0
-  - status: FULLY_RECEIVED
-  - stockReceiptId: 1
-  - actualDeliveryDate: now
+1. ShopInventory updated (quantity increased by 100)
+2. StockMovement record created (STOCK_IN)
+3. **IncomingShipment automatically updated:**
+
+   - `receivedQuantity`: 100
+   - `discrepancyQuantity`: 0
+   - `status`: FULLY_RECEIVED
+   - `stockReceiptId`: 1
+   - `actualDeliveryDate`: current timestamp
+
+4. Frontend receives update via response and can refresh shipment details
 
 ---
 
-### Test 6: Shop Admin Checks Updated Incoming Shipment
+### Test 7: Shop Admin Checks Updated Incoming Shipment After Approval
 
 **Endpoint:** `GET /shop-admin/stock/incoming-shipments/1`
 
@@ -327,20 +680,23 @@ Obtain JWT token from Shop Admin login, then set:
 
 ```json
 {
+  "message": "Incoming shipment details retrieved successfully",
   "shipment": {
     "id": 1,
+    "product": { "name": "Ray-Ban Aviator Classic", "sku": "RB-AV-001" },
     "expectedQuantity": 100,
     "receivedQuantity": 100,
     "discrepancyQuantity": 0,
-    "status": "FULLY_RECEIVED",  ← Changed from EXPECTED
-    "actualDeliveryDate": "2025-11-19T14:15:00Z",  ← Now set
+    "status": "FULLY_RECEIVED",
+    "actualDeliveryDate": "2025-11-19T14:15:00Z",
     "stockReceipt": {
       "id": 1,
       "receivedQuantity": 100,
       "verifiedQuantity": 100,
       "status": "APPROVED",
       "receivedByStaff": { "name": "Ahmed" },
-      "verifiedByAdmin": { "name": "John Admin" }
+      "verifiedByAdmin": { "name": "John Admin" },
+      "approvedAt": "2025-11-19T14:15:00Z"
     },
     "discrepancyReason": null
   }
@@ -357,7 +713,230 @@ Obtain JWT token from Shop Admin login, then set:
 
 ---
 
-### Test 7: Test Shortage Scenario
+### Test 8: Multiple Shipments Workflow (Batch Processing)
+
+**Scenario:** Retailer sends 3 different products, staff receives all, but one has shortage.
+
+**Step 1: Bulk Distribution Creates Multiple IncomingShipments**
+
+**Endpoint:** `POST /portal/retailer/bulk-distribute`
+
+```json
+{
+  "distributions": [
+    {
+      "retailerShopId": 1,
+      "productId": 15,
+      "quantity": 100,
+      "unitPrice": 150.0
+    },
+    {
+      "retailerShopId": 1,
+      "productId": 20,
+      "quantity": 50,
+      "unitPrice": 200.0
+    },
+    {
+      "retailerShopId": 1,
+      "productId": 25,
+      "quantity": 75,
+      "unitPrice": 180.0
+    }
+  ]
+}
+```
+
+**Auto-creates IncomingShipment records:**
+
+```
+IncomingShipment 1: Product 15, Expected: 100, Status: EXPECTED
+IncomingShipment 2: Product 20, Expected: 50, Status: EXPECTED
+IncomingShipment 3: Product 25, Expected: 75, Status: EXPECTED
+```
+
+**Step 2: Admin Views All Incoming Shipments**
+
+**Endpoint:** `GET /shop-admin/stock/incoming-shipments?status=EXPECTED`
+
+**Response shows all 3 shipments:**
+
+```json
+{
+  "shipments": [
+    {
+      "id": 1,
+      "product": { "name": "Ray-Ban Aviator Classic" },
+      "expectedQuantity": 100,
+      "receivedQuantity": 0,
+      "status": "EXPECTED"
+    },
+    {
+      "id": 2,
+      "product": { "name": "Oakley Holbrook" },
+      "expectedQuantity": 50,
+      "receivedQuantity": 0,
+      "status": "EXPECTED"
+    },
+    {
+      "id": 3,
+      "product": { "name": "Prada Cat-Eye" },
+      "expectedQuantity": 75,
+      "receivedQuantity": 0,
+      "status": "EXPECTED"
+    }
+  ],
+  "summary": {
+    "total": 3,
+    "expected": 3,
+    "fullyReceived": 0
+  }
+}
+```
+
+**Step 3: Staff Creates Stock Receipts for All Products**
+
+**Endpoint:** `POST /api/stock-receipts`
+
+```json
+{
+  "bulkReceiptData": [
+    {
+      "productId": 15,
+      "receivedQuantity": 100,
+      "supplierName": "Vision Supplies Ltd",
+      "deliveryNote": "DN-2025-001",
+      "batchNumber": "BATCH-202511-001",
+      "expiryDate": "2027-11-30"
+    },
+    {
+      "productId": 20,
+      "receivedQuantity": 48,
+      "supplierName": "Vision Supplies Ltd",
+      "deliveryNote": "DN-2025-001",
+      "batchNumber": "BATCH-202511-002",
+      "expiryDate": "2027-12-15"
+    },
+    {
+      "productId": 25,
+      "receivedQuantity": 75,
+      "supplierName": "Vision Supplies Ltd",
+      "deliveryNote": "DN-2025-001",
+      "batchNumber": "BATCH-202511-003",
+      "expiryDate": "2028-01-20"
+    }
+  ]
+}
+```
+
+**Note:** Product 20 received only 48 instead of 50 (shortage of 2 units)
+
+**Step 4: Admin Approves All Stock Receipts**
+
+**Endpoint 1:** `PUT /shop-admin/stock/receipts/1/verify`
+
+```json
+{
+  "decision": "APPROVED",
+  "verifiedQuantity": 100,
+  "adminNotes": "Product 1 verified perfect"
+}
+```
+
+**Endpoint 2:** `PUT /shop-admin/stock/receipts/2/verify`
+
+```json
+{
+  "decision": "APPROVED",
+  "verifiedQuantity": 48,
+  "adminNotes": "2 units missing from delivery - damaged in transit"
+}
+```
+
+**Endpoint 3:** `PUT /shop-admin/stock/receipts/3/verify`
+
+```json
+{
+  "decision": "APPROVED",
+  "verifiedQuantity": 75,
+  "adminNotes": "Product 3 verified perfect"
+}
+```
+
+**Step 5: Admin Views Updated Incoming Shipments**
+
+**Endpoint:** `GET /shop-admin/stock/incoming-shipments`
+
+**Response shows all statuses updated:**
+
+```json
+{
+  "shipments": [
+    {
+      "id": 1,
+      "product": { "name": "Ray-Ban Aviator Classic" },
+      "expectedQuantity": 100,
+      "receivedQuantity": 100,
+      "discrepancyQuantity": 0,
+      "status": "FULLY_RECEIVED"
+    },
+    {
+      "id": 2,
+      "product": { "name": "Oakley Holbrook" },
+      "expectedQuantity": 50,
+      "receivedQuantity": 48,
+      "discrepancyQuantity": -2,
+      "status": "PARTIALLY_RECEIVED",
+      "discrepancyReason": "SHORTAGE"
+    },
+    {
+      "id": 3,
+      "product": { "name": "Prada Cat-Eye" },
+      "expectedQuantity": 75,
+      "receivedQuantity": 75,
+      "discrepancyQuantity": 0,
+      "status": "FULLY_RECEIVED"
+    }
+  ],
+  "summary": {
+    "total": 3,
+    "expected": 0,
+    "fullyReceived": 2,
+    "partiallyReceived": 1
+  }
+}
+```
+
+✅ **Frontend Implementation for Multiple Shipments:**
+
+**Status Summary Card:**
+
+```
+Expected Shipments:     0  (All arrived)
+Fully Received:         2  ✅
+Partially Received:     1  ⚠️  (2 units short)
+```
+
+**List Display:**
+
+```
+┌─────────────────────────────────────────────────────┐
+│ Product         │ Expected │ Received │ Status       │
+├─────────────────────────────────────────────────────┤
+│ Ray-Ban         │   100    │   100    │ ✅ FULL      │
+│ Oakley          │    50    │    48    │ ⚠️  SHORT -2 │
+│ Prada           │    75    │    75    │ ✅ FULL      │
+└─────────────────────────────────────────────────────┘
+```
+
+**Action Buttons by Status:**
+
+- EXPECTED: [Update Status] [View Details]
+- FULLY_RECEIVED: [View Receipt] [Print Label]
+- PARTIALLY_RECEIVED: [Investigate] [Contact Retailer] [View Receipt]
+
+---
+
+### Test 9: Test Shortage Scenario (Detailed)
 
 **Setup:** Retailer distributes 100 units, but staff receives only 95
 
@@ -608,7 +1187,250 @@ Guess Wayfarer          25         30   ⚠️ EXCESS
 
 ---
 
-## 🚀 Next Steps
+## 🚀 Frontend Integration Guide
+
+### TypeScript Types for API Responses
+
+```typescript
+// Shipment Status Enum (Match backend exactly)
+enum ShipmentStatus {
+  EXPECTED = "EXPECTED",
+  IN_TRANSIT = "IN_TRANSIT",
+  PARTIALLY_RECEIVED = "PARTIALLY_RECEIVED",
+  FULLY_RECEIVED = "FULLY_RECEIVED",
+  OVERDUE = "OVERDUE",
+  CANCELLED = "CANCELLED",
+}
+
+interface IncomingShipment {
+  id: number;
+  product: {
+    id: number;
+    name: string;
+    sku: string;
+    barcode: string;
+    company: { name: string };
+  };
+  expectedQuantity: number;
+  receivedQuantity: number;
+  discrepancyQuantity: number;
+  status: ShipmentStatus;
+  distributionDate: string;
+  actualDeliveryDate: string | null;
+  retailer: {
+    id: number;
+    name: string;
+    companyName: string;
+  };
+  stockReceipt: {
+    id: number;
+    receivedQuantity: number;
+    verifiedQuantity: number;
+    status: string;
+  } | null;
+  discrepancyReason: string | null;
+  notes: string;
+  createdAt: string;
+}
+
+interface ListShipmentsResponse {
+  message: string;
+  shipments: IncomingShipment[];
+  pagination: {
+    currentPage: number;
+    totalPages: number;
+    totalItems: number;
+    itemsPerPage: number;
+    hasNextPage: boolean;
+    hasPrevious: boolean;
+  };
+  summary: {
+    total: number;
+    expected: number;
+    inTransit: number;
+    partiallyReceived: number;
+    fullyReceived: number;
+    overdue: number;
+    cancelled: number;
+  };
+}
+
+interface UpdateShipmentRequest {
+  status: ShipmentStatus;
+  receivedQuantity?: number;
+  discrepancyQuantity?: number;
+  discrepancyReason?: string;
+  actualDeliveryDate?: string;
+  notes?: string;
+}
+```
+
+### Component Structure Example
+
+```typescript
+// IncomingShipmentsPage.tsx
+import { useEffect, useState } from "react";
+import { IncomingShipment, ShipmentStatus } from "./types";
+
+export function IncomingShipmentsPage() {
+  const [shipments, setShipments] = useState<IncomingShipment[]>([]);
+  const [statusFilter, setStatusFilter] = useState<ShipmentStatus>(
+    ShipmentStatus.EXPECTED
+  );
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    fetchShipments();
+  }, [statusFilter]);
+
+  const fetchShipments = async () => {
+    setLoading(true);
+    try {
+      const response = await fetch(
+        `/shop-admin/stock/incoming-shipments?status=${statusFilter}`,
+        {
+          headers: { Authorization: `Bearer ${getToken()}` },
+        }
+      );
+      const data = await response.json();
+      setShipments(data.shipments);
+    } catch (error) {
+      console.error("Failed to fetch shipments", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="incoming-shipments">
+      <h1>Incoming Shipments</h1>
+
+      {/* Status Filter */}
+      <select
+        onChange={(e) => setStatusFilter(e.target.value as ShipmentStatus)}
+      >
+        <option value={ShipmentStatus.EXPECTED}>Expected</option>
+        <option value={ShipmentStatus.IN_TRANSIT}>In Transit</option>
+        <option value={ShipmentStatus.PARTIALLY_RECEIVED}>
+          Partially Received
+        </option>
+        <option value={ShipmentStatus.FULLY_RECEIVED}>Fully Received</option>
+      </select>
+
+      {/* Summary Card */}
+      <ShipmentSummaryCard shipments={shipments} />
+
+      {/* Shipments List */}
+      <ShipmentsList
+        shipments={shipments}
+        loading={loading}
+        onStatusUpdate={fetchShipments}
+      />
+    </div>
+  );
+}
+
+// ShipmentRow.tsx
+function ShipmentRow({ shipment }: { shipment: IncomingShipment }) {
+  const getStatusColor = (status: ShipmentStatus) => {
+    switch (status) {
+      case ShipmentStatus.FULLY_RECEIVED:
+        return "green";
+      case ShipmentStatus.PARTIALLY_RECEIVED:
+        return "orange";
+      case ShipmentStatus.EXPECTED:
+      case ShipmentStatus.IN_TRANSIT:
+        return "blue";
+      case ShipmentStatus.OVERDUE:
+      case ShipmentStatus.CANCELLED:
+        return "red";
+    }
+  };
+
+  const discrepancyText =
+    shipment.discrepancyQuantity === 0
+      ? "Match"
+      : `${shipment.discrepancyQuantity > 0 ? "+" : ""}${
+          shipment.discrepancyQuantity
+        }`;
+
+  return (
+    <tr>
+      <td>{shipment.product.name}</td>
+      <td>{shipment.product.sku}</td>
+      <td>{shipment.expectedQuantity}</td>
+      <td>{shipment.receivedQuantity}</td>
+      <td className={`discrepancy-${discrepancyText}`}>{discrepancyText}</td>
+      <td>
+        <StatusBadge
+          status={shipment.status}
+          color={getStatusColor(shipment.status)}
+        />
+      </td>
+      <td>
+        <button onClick={() => viewDetails(shipment.id)}>View</button>
+        {shipment.status === ShipmentStatus.EXPECTED && (
+          <button onClick={() => updateStatus(shipment.id)}>Update</button>
+        )}
+      </td>
+    </tr>
+  );
+}
+```
+
+### API Call Examples
+
+```typescript
+// Fetch incoming shipments with filtering
+async function getIncomingShipments(page: number = 1, status?: ShipmentStatus) {
+  const params = new URLSearchParams();
+  params.append("page", page.toString());
+  params.append("limit", "10");
+  if (status) params.append("status", status);
+
+  const response = await fetch(
+    `/shop-admin/stock/incoming-shipments?${params}`,
+    {
+      headers: { Authorization: `Bearer ${getToken()}` },
+    }
+  );
+  return response.json();
+}
+
+// Update single shipment status
+async function updateShipmentStatus(
+  shipmentId: number,
+  update: UpdateShipmentRequest
+) {
+  const response = await fetch(
+    `/shop-admin/stock/incoming-shipments/${shipmentId}/receive`,
+    {
+      method: "PATCH",
+      headers: {
+        Authorization: `Bearer ${getToken()}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(update),
+    }
+  );
+  return response.json();
+}
+
+// Get shipment details
+async function getShipmentDetails(shipmentId: number) {
+  const response = await fetch(
+    `/shop-admin/stock/incoming-shipments/${shipmentId}`,
+    {
+      headers: { Authorization: `Bearer ${getToken()}` },
+    }
+  );
+  return response.json();
+}
+```
+
+---
+
+## 🎓 Learning Resources
 
 1. Run database migration
 2. Test bulk distribution endpoint
