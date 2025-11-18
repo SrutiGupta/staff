@@ -42,13 +42,14 @@ model Shop {
   updatedAt   DateTime @updatedAt
 
   // Relationships
-  admins        ShopAdmin[]
-  staff         Staff[]
-  inventory     ShopInventory[]
-  stockReceipts StockReceipt[]
-  patients      Patient[]
-  customers     Customer[]
-  retailerShops RetailerShop[]
+  admins            ShopAdmin[]
+  staff             Staff[]
+  inventory         ShopInventory[]
+  stockReceipts     StockReceipt[]
+  patients          Patient[]
+  customers         Customer[]
+  retailerShops     RetailerShop[]
+  incomingShipments IncomingShipment[]
 
   // Business settings
   lowStockThreshold Int @default(10)
@@ -170,6 +171,9 @@ model StockReceipt {
   adminNotes        String?           // Discrepancy notes
   discrepancyReason String?           // Why quantities differ
 
+  // Link to incoming shipment tracking
+  incomingShipments IncomingShipment[]
+
   createdAt         DateTime          @default(now())
   updatedAt         DateTime          @updatedAt
 }
@@ -213,6 +217,52 @@ model ShopInventory {
   stockMovements  StockMovement[]
 
   @@unique([shopId, productId])
+}
+
+// ✅ NEW: Incoming Shipment Model (Track expected stock from retailer bulk distribution)
+model IncomingShipment {
+  id                    Int             @id @default(autoincrement())
+  shopId                Int
+  shop                  Shop            @relation(fields: [shopId], references: [id])
+  productId             Int
+  product               Product         @relation(fields: [productId], references: [id])
+
+  // Reference to what was distributed
+  shopDistributionId    Int?            // Link to the original distribution
+  shopDistribution      ShopDistribution? @relation(fields: [shopDistributionId], references: [id])
+
+  // Shipment Details
+  expectedQuantity      Int             // What retailer said would come
+  receivedQuantity      Int             @default(0)  // What shop actually received
+  discrepancyQuantity   Int             @default(0)  // Difference (positive = excess, negative = shortage)
+
+  // Status Tracking
+  status                ShipmentStatus  @default(EXPECTED)
+
+  // Delivery Information
+  distributionDate      DateTime        @default(now())  // When retailer distributed
+  expectedDeliveryDate  DateTime?       // Expected arrival (if specified)
+  actualDeliveryDate    DateTime?       // When staff actually received it
+
+  // Verification
+  stockReceiptId        Int?            // Link to stock receipt when received
+  stockReceipt          StockReceipt?   @relation(fields: [stockReceiptId], references: [id])
+
+  // Notes
+  notes                 String?
+  discrepancyReason     String?         // Why quantities differed (DAMAGED, LOST, SHORT_SHIPMENT, EXCESS, etc)
+
+  createdAt             DateTime        @default(now())
+  updatedAt             DateTime        @updatedAt
+}
+
+enum ShipmentStatus {
+  EXPECTED              // Just created, waiting for shipment
+  IN_TRANSIT            // Marked as shipped by retailer
+  PARTIALLY_RECEIVED    // Staff received some items but not all
+  FULLY_RECEIVED        // All items received and verified
+  OVERDUE               // Past expected delivery date without receipt
+  CANCELLED             // Distribution was cancelled
 }
 
 // ✅ ENHANCED: Stock Movement Model (Complete Audit Trail)
@@ -424,11 +474,12 @@ model Product {
   updatedAt    DateTime      @updatedAt
 
   // Relationships
-  invoiceItems   InvoiceItem[]
-  shopInventory  ShopInventory[]
-  stockReceipts  StockReceipt[]
-  performance    ProductPerformance[]
+  invoiceItems     InvoiceItem[]
+  shopInventory    ShopInventory[]
+  stockReceipts    StockReceipt[]
+  performance      ProductPerformance[]
   retailerProducts RetailerProduct[]
+  incomingShipments IncomingShipment[]
 }
 
 enum EyewearType {
@@ -650,6 +701,9 @@ model ShopDistribution {
   notes               String?
   createdAt           DateTime        @default(now())
   updatedAt           DateTime        @updatedAt
+
+  // Relationship to incoming shipment
+  incomingShipments   IncomingShipment[]
 }
 
 enum DeliveryStatus {

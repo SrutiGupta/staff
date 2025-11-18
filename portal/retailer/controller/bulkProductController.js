@@ -491,6 +491,26 @@ exports.bulkDistributeToShops = async (req, res) => {
           },
         });
 
+        // Get shop ID from retailer shop relationship
+        const shopData = await prisma.retailerShop.findUnique({
+          where: { id: parseInt(dist.retailerShopId) },
+          include: { shop: true },
+        });
+
+        // Create incoming shipment record for shop admin visibility
+        // This allows shop admin to see expected stock BEFORE staff creates stock receipt
+        await prisma.incomingShipment.create({
+          data: {
+            shopId: shopData.shop.id,
+            productId: retailerProduct.productId,
+            shopDistributionId: distribution.id,
+            expectedQuantity: parseInt(dist.quantity),
+            status: "EXPECTED",
+            distributionDate: new Date(),
+            notes: `Distributed from retailer: ${retailerProduct.retailer.id}`,
+          },
+        });
+
         // Update retailer inventory (reduce available quantity)
         await prisma.retailerProduct.update({
           where: { id: retailerProduct.id },
