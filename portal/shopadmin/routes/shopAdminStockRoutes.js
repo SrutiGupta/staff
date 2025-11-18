@@ -3,6 +3,9 @@ const router = express.Router();
 const {
   listStockReceipts,
   approveStockReceipt,
+  listIncomingShipments,
+  getIncomingShipmentDetails,
+  getIncomingShipmentComparison,
 } = require("../controllers/shopAdminStockController");
 const { shopAdminAuth } = require("../middleware/shopAdminAuth");
 const { apiLimiter } = require("../middleware/rateLimiting");
@@ -29,6 +32,32 @@ router.put(
   "/receipts/:id/verify",
   validate(schemas.approveStockReceipt),
   approveStockReceipt
+);
+
+// ============================================
+// INCOMING SHIPMENTS - Bulk Distribution Tracking
+// ============================================
+
+// @route   GET /shop-admin/stock/incoming-shipments
+// @desc    List all incoming shipments (expected stock from retailers)
+// @access  Private (ShopAdmin)
+router.get(
+  "/incoming-shipments",
+  validate(schemas.pagination, "query"),
+  listIncomingShipments
+);
+
+// @route   GET /shop-admin/stock/incoming-shipments/:id
+// @desc    Get details of a specific incoming shipment
+// @access  Private (ShopAdmin)
+router.get("/incoming-shipments/:id", getIncomingShipmentDetails);
+
+// @route   GET /shop-admin/stock/incoming-shipments/summary/comparison
+// @desc    Get comparison between expected and received stock
+// @access  Private (ShopAdmin)
+router.get(
+  "/incoming-shipments/summary/comparison",
+  getIncomingShipmentComparison
 );
 
 module.exports = router;
