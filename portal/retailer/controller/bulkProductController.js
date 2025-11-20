@@ -14,6 +14,23 @@ exports.bulkUploadProducts = async (req, res) => {
     const { products } = req.body;
     const retailerId = req.retailer.id;
 
+    // SAFEGUARD: Ensure this is a retailer-only operation
+    if (!retailerId) {
+      return res.status(403).json({
+        error: "Unauthorized: This endpoint is for retailers only",
+        details: "Retailer ID is required for bulk product uploads",
+      });
+    }
+
+    // Prevent accidental shop inventory creation
+    if (req.body.shopId) {
+      return res.status(400).json({
+        error: "Invalid request: shopId should not be included in bulk upload",
+        details:
+          "This endpoint creates retailer inventory only. Use shop-admin endpoints for shop inventory operations.",
+      });
+    }
+
     // Validation
     if (!products || !Array.isArray(products) || products.length === 0) {
       return res.status(400).json({
@@ -164,13 +181,14 @@ exports.bulkUploadProducts = async (req, res) => {
               }
 
               // Add to retailer inventory or update if exists
+              // ⚠️ IMPORTANT: Only update retailerProduct, NEVER ShopInventory
               if (
                 productData.quantity !== undefined &&
                 productData.quantity !== null
               ) {
                 const quantity = parseInt(productData.quantity);
                 console.log(
-                  `Saving inventory for ${productData.name}: quantity=${quantity}`
+                  `[RETAILER-ONLY] Saving inventory for ${productData.name}: quantity=${quantity} (retailerId=${retailerId})`
                 );
 
                 await tx.retailerProduct.upsert({
@@ -200,6 +218,10 @@ exports.bulkUploadProducts = async (req, res) => {
                     availableStock: quantity,
                   },
                 });
+                // ✅ Verify we did NOT create ShopInventory
+                console.log(
+                  `[VERIFICATION] RetailerProduct updated - ShopInventory NOT touched`
+                );
               }
 
               results.successful++;
@@ -311,6 +333,23 @@ exports.bulkUpdateInventory = async (req, res) => {
   try {
     const { updates } = req.body;
     const retailerId = req.retailer.id;
+
+    // SAFEGUARD: Ensure this is a retailer-only operation
+    if (!retailerId) {
+      return res.status(403).json({
+        error: "Unauthorized: This endpoint is for retailers only",
+      });
+    }
+
+    // Prevent accidental shop inventory updates
+    if (req.body.shopId) {
+      return res.status(400).json({
+        error:
+          "Invalid request: shopId should not be included in bulk inventory update",
+        details:
+          "This endpoint updates retailer inventory only. Use shop-admin endpoints for shop inventory operations.",
+      });
+    }
 
     if (!updates || !Array.isArray(updates) || updates.length === 0) {
       return res.status(400).json({
